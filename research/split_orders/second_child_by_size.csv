@@ -1,0 +1,9 @@
+group,bucket,n,dt_median_s,sweep0_mean,vs_first_mean,vs_vwap0_mean,vs_deep0_mean,vs_deep0_median
+BTC/ETH/HYPE/SOL,<1k,619,16.37,0.1,0.62,0.56,0.52,-0.0
+BTC/ETH/HYPE/SOL,1k-10k,1170,15.6,0.57,-0.92,-1.28,-1.49,-0.0
+BTC/ETH/HYPE/SOL,10k-100k,907,16.04,2.42,0.3,-1.22,-2.09,-0.0
+BTC/ETH/HYPE/SOL,>=100k,278,17.79,1.36,-0.06,-1.02,-1.42,0.45
+other coins,<1k,1934,15.64,1.96,8.94,7.89,6.97,0.0
+other coins,1k-10k,1404,17.48,9.27,6.4,1.69,-2.74,-0.06
+other coins,10k-100k,549,16.65,15.2,11.18,2.65,-3.9,-1.58
+other coins,>=100k,41,20.21,17.74,9.19,-0.68,-8.5,-4.65

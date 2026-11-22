@@ -1,0 +1,256 @@
+# Decision context. Versioned and frozen before any outcome is examined.
+# The CUTOFF is a parameter: the pipeline reads it here (or from --cutoff) and never hard-codes it.
+version: "0.1.0-m1"
+frozen: true             # set 2026-11-22 for the holdout freeze (ADR-0139; provenance/HOLDOUT_FREEZE.txt)
+
+cutoff: "2026-01-04T23:59:42.020Z"   # A01 (ADR-0041): the actual end of the data (last fill), confirmed
+
+inputs:
+  traders: data/raw/traders.csv
+  fills: data/raw/fills.csv        # supplied as "fills.gz" but the bytes are plain CSV; reader sniffs gzip magic
+  reference_prices_dir: data/reference/prices          # read only through prices/MANIFEST.yaml
+  binance_map: data/reference/binance/hl_binance_map.csv  # Hyperliquid coin -> Binance symbol, factor, validity window
+  binance_window_overrides: data/reference/binance/window_overrides.yaml
+  binance_lake: data/lake                                # Binance 1m klines (Hive Parquet); source of the prices
+  aggtrades_dir: data/reference/binance/aggtrades        # Binance daily aggTrades zips + MANIFEST.csv (fetch_aggtrades)
+  hyperliquid_dir: data/reference/hyperliquid            # Hyperliquid info endpoint: funding/, candles_4h/, user_funding/ (fetch_hyperliquid; MANIFEST.csv each)
+  originals:                        # untouched package files (checksummed for provenance)
+    - "笔试题数据包-traders.csv"
+    - "笔试题数据包-fills/笔试题数据包-fills"
+
+reference_prices:                  # A13. Source note: data/reference/binance/SOURCE.md
+  source: "Binance USD-M futures 1m klines, data.binance.vision monthly archive (zips verified against published .CHECKSUM)"
+  resolution: "1m; price = bar close x price_factor_hl_per_binance, known at the bar close"
+  retrieved_on: "2026-11-18"
+  coverage: "2025-07-01 to the cutoff, inside each coin's validity window; zero-volume bars dropped"
+  max_age_s: 60                     # a reference price answers (coin, t) only if known in [t - 60 s, t]; never carried forward
+  fallback_print_window_s: 60       # else the package's latest print in [t - 60 s, t]; else unpriced and logged
+  disagreement_tolerance_bps: 50    # |print/ref - 1| beyond this flags (coin, time)
+  print_match_window_s: 60          # reference price must be at most this old at the print to compare
+
+reconcile:
+  pnl_tolerance_tight: 0.01
+  pnl_tolerance_loose: 1.0
+
+coverage:
+  snapshot_gap_days: 1.5
+  outage_start: "2025-11-23"
+  outage_end: "2025-11-27"          # inclusive window of the known feed outage
+  stale_equity_min_run: 2           # consecutive snapshots with identical equity => stale
+  dropout_grace_days: 3             # no snapshot within this of asof => dropped out
+
+copiers:
+  window_s: 30
+  min_orders_leader: 30             # leader orders inside the follower's active span
+  min_match_share: 0.25             # PLACEHOLDER: share of those leader orders matched to flag a pair
+  placebo_multiple: 3               # confirmed when match_share > this x placebo p95
+  placebo_shifts: 20
+  placebo_max_shift_s: 86400
+  seed: 20260104
+
+# Grades A/B/C. PLACEHOLDERS: thresholds are fixed on development data (8 Oct - 3 Dec 2025) only.
+grades:
+  A:
+    min_days_present_share: 0.95
+    min_pnl_match_share: 0.99      # rows with |pnl - (equity - net_deposit)| <= pnl_tolerance_tight
+    require_fills: true
+    require_continuity: true
+    max_zero_equity_days_with_position: 0
+  B:
+    max_unusable_day_share: 0.20
+    max_offset_cv: 0.25            # "stable offset": std/|mean| of (pnl - (equity - net_deposit))
+  C:
+    near_zero_equity_usdc: 10
+    max_near_zero_equity_share: 0.5
+
+# Splits (plan v2, "Selection and point-in-time validation"). Test dates 8 Oct, 22 Oct, 5 Nov, 19 Nov 2025:
+# four 14-day development windows ending 3 Dec; the holdout is selected on 3 Dec with frozen rules.
+splits:
+  development: {start: "2025-10-08", end: "2025-12-02"}
+  holdout: {start: "2025-12-03", end: "2026-01-04"}
+
+# Drift during the follower's delay (follower replay; A13, A16). Code: src/arkstream/drift.py.
+drift:
+  source: >-
+    Binance USD-M daily aggTrades zips in data/reference/binance/aggtrades (fetch_aggtrades; each verified against
+    Binance's published .CHECKSUM; listed in MANIFEST.csv). Never the lake's aggTrades copy, which is missing
+    0.4-9% of rows (whole minutes, concentrated in the 10 Oct 2025 crash).
+  aggtrades_symbols: {BTC: BTCUSDT, ETH: ETHUSDT, HYPE: HYPEUSDT, SOL: SOLUSDT}
+  # Drift horizons, also the replay's delay grid (ADR-0150): seconds here, whole milliseconds in the code (1.2 s is
+  # 1,200 ms, never truncated). 1 s optimistic, 1.2 s base and 5 s stress are the measured copy delay (ADR-0104:
+  # about the p10, median and p99 total); 10, 60 and 300 s are kept for the grid and the severe scenario (60 s /
+  # 300 s for thin coins); 300 s is also the approximate method's horizon.
+  horizons_s: [1, 1.2, 5, 10, 60, 300]
+  max_staleness_s: 1                 # the Binance trade used at t and at t + h is at most 1 s old
+  # Rule 1: point in time per origin. The parameters for the test window starting at each origin come only from
+  # orders whose t + h is before that origin (expanding history from estimate_window.start), without 10-11 Oct.
+  # 3 Dec is the holdout origin. The reader refuses aggTrades files dated after estimate_window.end.
+  # History starts 30 days before the first origin so that 8 Oct has an estimate (aggTrades fetched from then).
+  estimate_window: {start: "2025-09-08", end: "2025-12-02"}
+  origins: ["2025-10-08", "2025-10-22", "2025-11-05", "2025-11-19", "2025-12-03"]
+  exclude_dates: ["2025-10-10", "2025-10-11"]
+  # Rule 2: 10-11 Oct is estimated separately and feeds the stress scenario only; it exists at origins after it.
+  # The 8 Oct origin has no stress estimate (none is borrowed from later); its stress scenario is reported as such.
+  stress_dates: ["2025-10-10", "2025-10-11"]
+  # Rule 3: holdout prices (2025-12-03..2026-01-04) are used only to compute the frozen follower's holdout
+  # results after the rules are frozen (provenance/HOLDOUT_FREEZE.txt); never to set a parameter.
+  holdout_use: "follower holdout results only, after the freeze; never a parameter"
+  # Rule 4: pooled by coin x the leader's holding-time band (median hold of round trips closed by the end of the
+  # estimation window), never per leader: per-leader standard errors are 5-25 bps.
+  pool_by: [coin, hold_band]
+  hold_bands: ["<1m", "1-15m", "15m-1h", "1-6h", "6-24h", "1-7d", ">7d"]
+  min_orders_per_cell: 30            # PLACEHOLDER: a smaller cell gets no estimate; the coin's all-band row applies
+  # Rule 5: coins without aggTrades: leader's own fill price -> reference price at t + h, h >= 5 min only,
+  # labelled approximate. 1m klines are never used for drift under 5 minutes (they correlate only 0-0.35 with
+  # trade-level drift at 10-60 s, and the bar close comes before the leader's entry).
+  approx:
+    min_horizon_s: 300
+    horizons_s: [300, 3600]
+    label: approximate
+    # Venue basis: the fill is a Hyperliquid price, the reference a Binance one. drift += sign x the coin's median
+    # basis (fill / reference(t) - 1) over the trailing basis_window_days (to the order's day). Fewer than
+    # min_basis_obs observations -> unmeasured. Unsigned: a side-signed basis also holds the move between the
+    # stale bar close and the fill, and tested worse (BTC/ETH/HYPE/SOL, 8-21 Oct, 300 s).
+    basis_window_days: 7
+    min_basis_obs: 10             # PLACEHOLDER
+    max_abs_basis_bps: 100        # PLACEHOLDER: larger -> unmeasured (basis_too_large); e.g. CC at ~940 bps is a
+                                  # mapping question, not a basis to correct
+  # A16: venue lead-lag. Binance leads Hyperliquid by about 1-1.5 s for BTC, ETH and SOL; Hyperliquid leads
+  # by about 0.25 s for HYPE. Drift is measured on Binance from the leader's Hyperliquid fill time.
+  lead_lag_s: {BTC: -1.25, ETH: -1.25, SOL: -1.25, HYPE: 0.25}   # + = Hyperliquid leads; ranges in the register
+
+# Assumption register entries added or changed since plan v2 (the plan's table is the full register).
+assumptions:
+  A13: >-
+    Reference coin prices come from outside the package: Binance USD-M 1m klines (data.binance.vision monthly
+    archive, zips verified against the published .CHECKSUM, retrieved 2026-11-18), price = close x
+    price_factor_hl_per_binance, known at the bar close, only inside each coin's validity window
+    (data/reference/binance/hl_binance_map.csv) and only bars with volume > 0; filtered to the cutoff; read only
+    through data/reference/prices/MANIFEST.yaml (SHA-256 per file). A price answers (coin, t) only if known in
+    [t - 60 s, t]; otherwise the package's own print within 60 s; otherwise unpriced and logged. Nothing is
+    filled in. Validated against the package's prints (price_compare). Drift: trade-level drift comes from
+    Binance aggTrades zips (BTC, ETH, HYPE, SOL), estimated at each origin (8 Oct, 22 Oct, 5 Nov, 19 Nov; 3 Dec
+    for the holdout) from orders whose t + h is before it, over the history from 2025-09-08, without 10-11 Oct,
+    which is reported separately for the stress scenario at origins after it; pooled by coin and holding-time
+    band, not per leader. Other coins: leader's fill price to the reference price at horizons >= 5 min, plus
+    the coin's trailing 7-day median venue basis times the order's sign, labelled approximate; 1m klines never
+    under 5 min. Holdout prices only compute the frozen follower's holdout results.
+  A16: >-
+    Venue lead-lag. Shifting the Binance aggTrades price against the package's Hyperliquid prints (8-21 Oct
+    2025, steps of 250 ms) and taking the shift that minimises the dispersion of the basis, Binance leads
+    Hyperliquid by about 1-1.5 s for BTC, ETH and SOL, and Hyperliquid leads Binance by about 0.25 s for HYPE. Treatment: drift is measured on Binance from the leader's Hyperliquid fill time, so for
+    BTC/ETH/SOL part of the move the follower pays is already in Binance prices at t; the 1 s optimistic delay
+    lies inside the lead-lag band and is read as "at most venue-lag precision", not as a measured 1 s cost.
+    Re-estimate if the shortlist trades other coins.
+
+# Phase 2, leader evidence (src/arkstream/leader*.py; ADR-0020..0027). Computed at each drift.origins date (asof =
+# 00:00 UTC of the origin) for grade A/B addresses at that origin. Gates are computed, never applied here.
+# Every threshold below is a PLACEHOLDER until set on development data (8 Oct - 19 Nov origins) only.
+leader:
+  grades: [A, B]
+  price_history_start: "2025-07-01"   # hourly price grid start (reference coverage start); stress shocks look back to here
+  funding: research/hyperliquid/funding.parquet
+  returns:
+    min_open_equity_usdc: 500         # plan: exclude intervals whose opening equity is below 500 USDC
+    max_convention_gap: 0.01          # PLACEHOLDER: |r_start - r_end| above this -> conventions_disagree, excluded
+  return_source:                      # ADR-0111 (amends ADR-0065), all PLACEHOLDER, fixed before any outcome
+    breach_abs_usdc: 10               # a snapshot breaches when |pnl - (equity - net_deposit)| > max(10, 0.5% equity)
+    breach_rel_equity: 0.005
+    book_min_breach_share: 0.05       # rebuilt book primary when >= 5% of snapshots known by the origin breach
+    book_min_breach_run: 3            # ... or at least 3 consecutive snapshots do
+  book:
+    min_intervals: 10                 # PLACEHOLDER: fewer usable intervals with a priced book -> too_few_intervals
+    min_corr: 0.5                     # PLACEHOLDER: corr(account r_start, book r) below this -> disagree_corr
+    max_tracking_gap_std: 0.02        # PLACEHOLDER: std of (account - book) per interval above this -> disagree_tracking
+  trips:
+    min_hold_for_per_day_s: 3600      # return per day held divides by max(hold, 1 h)
+    top_share: 0.01                   # "largest 1% of trades" (at least one trade)
+  risk:
+    stress_horizon_h: 24              # largest |24 h move| per coin at hour marks before the origin
+    maintenance_margin_rate: 0.025    # ASSUMPTION until Hyperliquid meta: uniform MMR (half the initial margin at 20x)
+  gates:                              # all PLACEHOLDER
+    min_hold_seconds: 60
+    max_orders_per_day: 24
+    max_maker_share: 0.70
+    recent_fill_days: 14
+    min_fit_within_1pct: 0.90
+    min_round_trips: 20               # plan: 20-30, set on development data
+    max_intraday_dd: 0.50
+    max_worst_day_loss: 0.25
+    max_worst_3d_loss: 0.35
+    max_drawdown: 0.50
+    max_worstcase_dd: 0.50          # ADR-0045: worst case inside each 4h bar (Hyperliquid OHLC)
+    max_stress_peak_loss: 1.0         # a peak-exposure shock that would take all equity fails
+    max_leverage_p95: 10
+    min_liq_distance: 0.05            # the worst hour must survive a 5% uniform adverse move
+    max_liquidations: 0
+    max_top_pnl_share: 0.5            # top 1% of round trips carry at most half of the PnL
+    max_unpriced_exposure_share: 0.05
+  profile:
+    maker_heavy_share: 0.70
+    equity_band_usdc: [20000, 2000000]
+    volume_window_days: 30            # Binance median daily quote volume over the 30 days before the origin
+
+# Hyperliquid funding (ADR-0011) and the Binance-vs-Hyperliquid price check (ADR-0012, ADR-0013). Code: funding.py,
+# hlprices.py. Rates only: ts_hour (accrual hour) and known_at (raw publication time; usable only at asof >= known_at).
+funding:
+  source: "Hyperliquid POST https://api.hyperliquid.xyz/info fundingHistory, retrieved 2026-11-19 (docs read same day)"
+  start: "2025-07-27T00:00:00Z"
+  # Phase 3 convention: payment at hour h = -position x price x rate (longs pay when the rate is positive). Price:
+  # Binance reference at h as a proxy for the Hyperliquid oracle price (no oracle history), labelled oracle_proxy.
+  oracle_proxy: binance_reference
+  user_funding_leaders: 5          # check only (never an input): top leaders by eligible fills
+  user_funding_rel_tol: 0.01       # PLACEHOLDER: |calc / actual - 1| for an amount match
+  price_check:                     # ADR-0012, pre-registered before any comparison
+    min_bars: 30
+    max_median_abs_bps: 10
+    max_p95_abs_bps: 30
+    max_ref_age_s: 60
+
+# Phase 4, selection (src/arkstream/selection*.py; ADRs 0130-0139). Computed at each drift.origins date from data up
+# to it: Phase 2 evidence at the origin and the frozen replay's training window ending at it (never a test window).
+# Every threshold is a PLACEHOLDER fixed in its ADR before the outcome it affects was computed.
+selection:
+  rule: rule_b_coin_filter           # the variant in force (ADR-0138, chosen by the ADR-0137 criterion)
+  scenario: base                     # ranking scenario (ADR-0150: 1.2 s); the frozen sizing policy only (ADR-0119)
+  replay_dir: research/replay_frozen    # default tree; a variant may name its own (ADR-0140)
+  gates:                             # ADR-0130, on top of grade A/B and the 18 Phase 2 gates
+    min_snapshot_days: 90            # distinct UTC dates with a snapshot known by the origin
+    min_usable_days: 60              # usable daily return days (Phase 2 account coverage)
+    equity_band_usdc: [5000, 2000000]    # median equity (Phase 2 profiles). The user's choice, 2026-11-22, from the
+                                     # capital before any test outcome (ADR-0130): under no scale-up a leader absorbs
+                                     # at most its own equity; a stage-1 sleeve is about 30k / 5 = 6k (plan: 20k)
+    max_share_not_copyable: 0.10     # notional in coins not passing the price check at the origin, or HIP-3 (ADR-0113)
+    band_min_completed: 100          # a holding band is copyable when its training-window completed follower trips
+                                     # (all A/B, base) net > 0 per trip over at least this many trips
+    base_delay_ms: 1200              # break-even delay must exceed the base delay (training-window delay grid)
+  key:                               # ADR-0131
+    statistic: mean_net_per_completed_follower_trip
+    percentile: 0.20                 # the key: 20th percentile of the bootstrap means (one-sided 80% lower bound)
+    draws: 2000
+    seed: 20251008
+    min_trips: 10                    # fewer completed follower trips -> key unmeasured (not selectable)
+    min_blocks: 4                    # fewer week blocks -> key unmeasured
+  clusters:                          # ADR-0132
+    behaviour_k: 6                   # Ward clusters over all A/B addresses at the origin
+    min_common_days: 20              # fewer common days -> correlation unmeasured (does not block the walk)
+    max_corr: 0.5                    # walk: daily copy-return correlation with every chosen address below this
+    max_overlap: 0.5                 # walk: position overlap (cosine of signed exposures by day and coin) below this
+  basket:
+    max_k: 5                         # K; k = 0 is a valid outcome
+    weights: equal                   # one separate copy sleeve per address (shared account: Phase 5)
+  baselines:                         # ADR-0133
+    draws: 1000
+    seed: 20251203
+    trimmed_share: 0.20              # trimmed mean drops this share from each end
+  crash_dates: ["2025-10-10", "2025-10-11"]
+  coin_filter:                       # ADR-0136 (variant rule_b): copy only coins with high training-window capture
+    always: [BTC, ETH, HYPE, SOL]
+    min_capture: 0.5                 # aggregate training capture over all A/B (follower / same-sizing benchmark PnL)
+    min_benchmark_pnl_usdc: 500      # and a winning benchmark of at least this much on the coin
+  variants:                          # ADR-0137: at most three, all in provenance/trial_log.md
+    rule_a: {}
+    # ADR-0140: the coin filter executed inside the frozen replay (excluded coins never traded, cap on kept coins);
+    # its ADR-0136 attribution scoring stays beside it as rule_b_coin_filter_attribution
+    rule_b_coin_filter: {coin_filter: true, replay_dir: research/replay_coinfilter}
+    rule_c_p10: {key_percentile: 0.10}

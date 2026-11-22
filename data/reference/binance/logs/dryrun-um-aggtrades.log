@@ -1,0 +1,17 @@
+first the reference binance.um.klines 1m:
+[plan] 3/4 (75%) done in 60 s; 21 requests (0.3/s now), 1 errors, about 20 s left
+[plan] 4/4 (100%) done in 2 min; 24 requests (0.1/s now), 1 errors
+BTCUSDT: 188 days monthly; 13.0 MB to download
+ETHUSDT: 188 days monthly; 13.7 MB to download
+HYPEUSDT: 188 days monthly; 12.8 MB to download
+SOLUSDT: 188 days monthly; 12.6 MB to download
+[plan] 2/4 (50%) done in 60 s; 41 requests (0.7/s now), 1 errors, about 60 s left
+[plan] 4/4 (100%) done in 65 s; 43 requests (0.4/s now), 1 errors
+BTCUSDT: 188 days daily; 3268.9 MB to download
+ETHUSDT: 188 days daily; 5580.5 MB to download
+HYPEUSDT: 188 days daily; 1238.9 MB to download
+SOLUSDT: 188 days daily; 1471.5 MB to download
+estimate: 4 symbols, 752 symbol-days, 752 partitions, 752 files, 1,155,977,711 rows
+  lake 57,803 MB, manifest 2 MB
+  download 1,504 requests, 11.56 GB, about 5 min at the request rate
+  writing about 5.1 h (checks, files, manifest; measured on the development laptop, ADR-0029)

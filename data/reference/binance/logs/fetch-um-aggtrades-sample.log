@@ -1,0 +1,22 @@
+first the reference binance.um.klines 1m:
+[plan] 4/4 (100%) done in 12 s; 23 requests (2.0/s now), 0 errors
+BTCUSDT: 14 days monthly; 1.9 MB to download
+ETHUSDT: 14 days monthly; 2.0 MB to download
+HYPEUSDT: 14 days monthly; 1.9 MB to download
+SOLUSDT: 14 days monthly; 1.9 MB to download
+[fetch] 4/4 (100%) done in 7 s; 25 requests (3.6/s now), 0 errors
+4 units, 56 partitions staged, 1 new snapshots
+[plan] 4/4 (100%) done in 29 s; 44 requests (1.5/s now), 0 errors
+BTCUSDT: 14 days daily; 365.8 MB to download
+ETHUSDT: 14 days daily; 597.0 MB to download
+HYPEUSDT: 14 days daily; 140.7 MB to download
+SOLUSDT: 14 days daily; 164.0 MB to download
+[fetch] 0/4 (0%) done in 60 s; 118 requests (2.0/s now), 0 errors, estimating the time left
+[fetch] 0/4 (0%) done in 2 min; 134 requests (0.3/s now), 0 errors, estimating the time left
+[fetch] 1/4 (25%) done in 3 min; 142 requests (0.1/s now), 0 errors, about 9 min left
+[fetch] 1/4 (25%) done in 4 min; 150 requests (0.1/s now), 0 errors, about 12 min left
+[fetch] 1/4 (25%) done in 5 min; 156 requests (0.1/s now), 0 errors, about 15 min left
+[fetch] 2/4 (50%) done in 6 min; 156 requests (0.0/s now), 0 errors, about 6 min left
+[fetch] 3/4 (75%) done in 7 min; 156 requests (0.0/s now), 0 errors, about 2 min left
+[fetch] 4/4 (100%) done in 8 min; 156 requests (0.0/s now), 0 errors
+56 units, 56 partitions staged, 4 new snapshots

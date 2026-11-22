@@ -1,0 +1,3 @@
+conn,reason,down_ns,up_ns,gap_ms
+2,SSLWantReadError: The operation did not complete (read) (_ssl.c:2580),1795175541344169200,1795175544107742300,2763.6
+3,ConnectionError: server closed the TCP connection,1795177749084797400,1795177751254172700,2169.4

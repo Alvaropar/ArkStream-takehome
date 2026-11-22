@@ -1,0 +1,18 @@
+# build outputs as of 2026-01-04T23:59:42.020000+00:00 (cards excluded)
+# sha256  bytes  path
+899da8cd1f6866d0fe36b2692c1e5ae47dd4c79a8a3c49caadf2c3333b5ca05e          2910  data/processed/derived/asof=20260104T235942Z/copier_clusters.parquet
+89f95998c49a47f8852ff7e5ff63d9f81ec2925a52d9f399a921a706e0fe0e70          9612  data/processed/derived/asof=20260104T235942Z/copier_flagged.parquet
+62498525bc916037ee5ebadcc00b2f2c0c1d36b574f1b889a8bd2fb140976dd9        720604  data/processed/derived/asof=20260104T235942Z/copier_pairs.parquet
+633e814e5a32c3aa747055729148c33570b38b47f6c8a3eaeb40b00ff5ae7982         10795  data/processed/derived/asof=20260104T235942Z/instrument_master.parquet
+6fe0839c7c9b476fa9dd73566e032394f2e93d6c4c302336272baf68379d0d04      50153755  data/processed/derived/asof=20260104T235942Z/ledger.parquet
+416b2cf6afd3f47b439f3056d2a84a3e3c3928f2190f7d318b352e22e32c1997        108322  data/processed/derived/asof=20260104T235942Z/open_positions.parquet
+96c9e3053b99b003b2379e7055c1e0de317096a35234bbf6fb713ed7a48463fd      10303812  data/processed/derived/asof=20260104T235942Z/price_compare.parquet
+57db67738aa68afc8cae787ce82a5bacabcf5a9a2721acd65280fb022c0b8c69          4239  data/processed/derived/asof=20260104T235942Z/price_coverage.parquet
+2f65020b1422a10f44f07ad747bd6f82717180b07c8570b9691e6c50ea021f49          6225  data/processed/derived/asof=20260104T235942Z/price_unpriced.parquet
+3e1bc71f12430a26a8f8395d7a4081d6f186ccd08ae095f413a4e9ec9323a14f        432991  data/processed/derived/asof=20260104T235942Z/quality_evidence.parquet
+60e511fdc73cb3833135940311286f49be84e044223a6c3d1da1542d1ba4a5ae        226720  data/processed/derived/asof=20260104T235942Z/quality_report.parquet
+8b0eced70f88da898432ed7b07eec4711fa2f8c3e806e7d4df4b7f7f67f36c3a         72572  data/processed/derived/asof=20260104T235942Z/recon_fills.parquet
+c9326ad4a4a372585c4ebb02d77ed5993bd1cd488ef83df6180bdca3d10de9de         79903  data/processed/derived/asof=20260104T235942Z/recon_snapshots.parquet
+8972626961f693d352b853fb64b1840113922fda5b546df6b1cb45c4d543bfae       3696860  data/processed/derived/asof=20260104T235942Z/round_trips.parquet
+3e1bc71f12430a26a8f8395d7a4081d6f186ccd08ae095f413a4e9ec9323a14f        432991  research/quality_evidence.parquet
+60e511fdc73cb3833135940311286f49be84e044223a6c3d1da1542d1ba4a5ae        226720  research/quality_report.parquet

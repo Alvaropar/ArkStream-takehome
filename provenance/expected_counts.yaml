@@ -1,0 +1,37 @@
+# Headline counts at asof = CUTOFF (2026-01-04T23:59:42.020Z, the last fill) on the inputs in provenance/CHECKSUMS.txt.
+# `python -m arkstream audit` (make audit) must reproduce every value exactly; any data change fails loudly.
+# Sources: research plan v2 profile and the ADR-0060 grading rework.
+counts:
+  traders_rows: 129665
+  traders_addresses: 1500
+  fills_rows: 899330
+  fills_addresses: 1200
+  fills_symbols: 325
+  tid_zero_rows: 785
+  repeated_trader_tid_pairs: 127
+  repeated_trader_tid_excess_rows: 551     # the plan's "551 repeated (trader, tid)" = surplus rows over 127 pairs
+  repeated_rows_not_dust: 0
+  composite_key_duplicates: 0
+  spot_rows: 34707
+  hip3_rows: 10308
+  perp_fills: 864623
+  continuity_breaks: 0
+  unresolved_chains: 0
+  pnl_rows_gt_tight: 10696
+  pnl_addresses_gt_tight: 410
+  pnl_addresses_gt_loose: 408
+  pnl_rows_gt_loose_pnl_smaller: 0         # beyond 1 USDC, pnl is always the larger side
+  snapshot_gaps_gt_1_5d: 1815
+  outage_exact_addresses: 309
+  stale_equity_rows: 38679
+  zero_equity_rows: 2539
+  grade_A: 344
+  grade_B: 158
+  grade_C: 998
+  frozen_snapshot_rows: 1795
+  no_fill_addresses: 300
+  # reference prices (data/reference/prices/MANIFEST.yaml; regenerate with `python -m arkstream refprices`)
+  reference_price_rows: 47400103
+  coins_without_reference: 14            # 7 unmapped, 3 never valid (FTT, FOGO, MEGA), 4 ending early (delisted)
+copier_clusters:
+  "0x890e": ["0xd9ea", "0xa112", "0x8f30"]

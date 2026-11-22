@@ -1,0 +1,45 @@
+# Reference price manifest. The loader reads exactly these files and refuses any other file in
+# this folder, or a listed file whose sha256/bytes differ. Regenerate: python -m arkstream refprices
+dataset: reference_prices
+source: Binance USD-M futures 1m klines, data.binance.vision monthly archive (zips
+  verified against published .CHECKSUM)
+resolution: 1m; price = bar close x price_factor_hl_per_binance, known at the bar
+  close
+retrieved_on: '2026-11-18'
+known_at: bar close (Binance open_time + 60 s)
+cutoff: '2026-01-04T23:59:42.020000+00:00'
+rules:
+- only bars known at or before the cutoff
+- only bars inside the coin's [valid_from, valid_to] (hl_binance_map.csv)
+- only bars with volume > 0 (no carry-forward through zero-volume bars)
+- price = close x price_factor_hl_per_binance
+mapping_sha256: 063198ad2757221455f39e63fb152f17e7f45e8e3243dfb096617a4ac2c9be7a
+files:
+- path: binance_um_1m_2025-07.parquet
+  sha256: 06290cc35526842dfa34096ab83a1e0eab51e621cb1dfcac8cd35124c907909a
+  bytes: 19152512
+  rows: 7486846
+- path: binance_um_1m_2025-08.parquet
+  sha256: 22a6e130ac7461c2807f81c064889588dc3680da763c626261e24851eb5639ed
+  bytes: 18688510
+  rows: 7601171
+- path: binance_um_1m_2025-09.parquet
+  sha256: e8d2e452832422e1ab0135b9d796505db58eb294aae551ae3c81dd6b6ed41495
+  bytes: 18197148
+  rows: 7567768
+- path: binance_um_1m_2025-10.parquet
+  sha256: 25b3d92d51a939d4a3947ace95330015d77c5e4f7ef19ce013475d1648b9f5e1
+  bytes: 19366390
+  rows: 7945213
+- path: binance_um_1m_2025-11.parquet
+  sha256: 897874e747bec73dd898a4226c0e93ae904130a09c46cf5c04e97089789c18b6
+  bytes: 18278012
+  rows: 7761082
+- path: binance_um_1m_2025-12.parquet
+  sha256: 769d6862b7ba617bb2139d7cc6976af0454e7bc2753efd9a432ae7bfab729e35
+  bytes: 17657040
+  rows: 7999932
+- path: binance_um_1m_2026-01.parquet
+  sha256: 47108c08f549e58f0bd66e99a8797941ef00437750016c0c19c14aa2e58f9a07
+  bytes: 2367156
+  rows: 1038091

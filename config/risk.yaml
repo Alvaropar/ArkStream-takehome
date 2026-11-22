@@ -1,0 +1,8 @@
+# PROPOSALS ONLY (A10): no approved risk policy. Signed off before any trading.
+capital_usdc: 100000
+reserve_min_usdc: 20000
+stages: {shadow: 0, pilot: 30000, scale: 60000, cap: 80000}
+per_leader_max_share: 0.25
+gross_exposure_max_x: 1.5
+net_per_symbol: {BTC: 0.25, ETH: 0.25, other_per_leader: 0.10, other_total: 0.20}
+drawdown_ladder: {halve_new_risk: -0.05, reduce_only: -0.10, flatten: -0.15}

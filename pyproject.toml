@@ -1,0 +1,43 @@
+[project]
+name = "arkstream"
+version = "0.1.0"
+description = "ArkStream Hyperliquid multi-trader copy pilot: data contract and research pipeline"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+  "polars>=1.20",
+  "duckdb>=1.1",
+  "pyarrow>=17",
+  "pyyaml>=6",
+  "numpy>=2",
+  "tzdata>=2026.6",
+]
+
+[dependency-groups]
+dev = ["pytest>=8", "ruff>=0.6", "mypy>=1.11", "types-PyYAML"]
+figures = [
+    "matplotlib>=3.11.2",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/arkstream", "src/arkstream_fetch"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+markers = ["data: needs the raw inputs and the processed build (make data)"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+
+[tool.mypy]
+python_version = "3.12"
+ignore_missing_imports = true
+check_untyped_defs = false

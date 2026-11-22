@@ -1,0 +1,3 @@
+series,sample,days,sharpe_daily,sharpe_annual,skew,kurtosis,min_trl_days,min_trl_days_half_sharpe
+basket,development test windows (used for tuning: optimistic),56,0.0411083102,0.7853731630,0.0579513539,16.3018785475,1608.5504023203,6407.7798230421
+equal_weight,development test windows (used for tuning: optimistic),56,-0.0701835977,-1.3408557506,-4.3977785667,29.8598157609,,

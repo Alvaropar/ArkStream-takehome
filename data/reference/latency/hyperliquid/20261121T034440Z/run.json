@@ -1,0 +1,307 @@
+{
+  "clock": {
+    "after": {
+      "local_ns": 1795238174433609300,
+      "median_offset_ns": 64159125,
+      "offset_ns": 65074449,
+      "server": "time.windows.com",
+      "server_spread_ns": 10636685,
+      "servers": [
+        {
+          "delay_ns": 164979300,
+          "errors": [
+            "TimeoutError: timed out"
+          ],
+          "offset_ns": 65074449,
+          "offset_spread_ns": 13088800,
+          "samples": 7,
+          "server": "time.windows.com"
+        },
+        {
+          "delay_ns": null,
+          "errors": [
+            "TimeoutError: timed out",
+            "TimeoutError: timed out",
+            "TimeoutError: timed out"
+          ],
+          "offset_ns": null,
+          "samples": 0,
+          "server": "time.google.com"
+        },
+        {
+          "delay_ns": 187437804,
+          "errors": [
+            "TimeoutError: timed out",
+            "TimeoutError: timed out"
+          ],
+          "offset_ns": 63243801,
+          "offset_spread_ns": 13813973,
+          "samples": 6,
+          "server": "time.cloudflare.com"
+        },
+        {
+          "delay_ns": 199814889,
+          "errors": [],
+          "offset_ns": 58309536,
+          "offset_spread_ns": 3575455,
+          "samples": 8,
+          "server": "pool.ntp.org"
+        },
+        {
+          "delay_ns": 187258414,
+          "errors": [
+            "TimeoutError: timed out",
+            "TimeoutError: timed out"
+          ],
+          "offset_ns": 68946221,
+          "offset_spread_ns": 3149085,
+          "samples": 6,
+          "server": "time.apple.com"
+        }
+      ],
+      "uncertainty_ns": 82489650,
+      "utc": "2026-11-21T05:16:14.433609Z",
+      "w32tm": {
+        "median_offset_ns": 63806950,
+        "offsets_s": [
+          0.0627696,
+          0.0635704,
+          0.0640435,
+          0.0650109
+        ]
+      }
+    },
+    "before": {
+      "local_ns": 1795232722610575300,
+      "median_offset_ns": -23150734,
+      "offset_ns": -26912601,
+      "server": "time.windows.com",
+      "server_spread_ns": 19883215,
+      "servers": [
+        {
+          "delay_ns": 165909400,
+          "errors": [
+            "TimeoutError: timed out",
+            "TimeoutError: timed out"
+          ],
+          "offset_ns": -26912601,
+          "offset_spread_ns": 22460650,
+          "samples": 6,
+          "server": "time.windows.com"
+        },
+        {
+          "delay_ns": null,
+          "errors": [
+            "TimeoutError: timed out",
+            "TimeoutError: timed out",
+            "TimeoutError: timed out"
+          ],
+          "offset_ns": null,
+          "samples": 0,
+          "server": "time.google.com"
+        },
+        {
+          "delay_ns": 182088132,
+          "errors": [
+            "TimeoutError: timed out"
+          ],
+          "offset_ns": -22698159,
+          "offset_spread_ns": 21228146,
+          "samples": 7,
+          "server": "time.cloudflare.com"
+        },
+        {
+          "delay_ns": 312483615,
+          "errors": [
+            "TimeoutError: timed out"
+          ],
+          "offset_ns": -7029386,
+          "offset_spread_ns": 14062560,
+          "samples": 7,
+          "server": "pool.ntp.org"
+        },
+        {
+          "delay_ns": 192044100,
+          "errors": [],
+          "offset_ns": -23603310,
+          "offset_spread_ns": 157950729,
+          "samples": 8,
+          "server": "time.apple.com"
+        }
+      ],
+      "uncertainty_ns": 82954700,
+      "utc": "2026-11-21T03:45:22.610575Z",
+      "w32tm": {
+        "median_offset_ns": -26418000,
+        "offsets_s": [
+          -0.0269184,
+          -0.0259312,
+          -0.026418,
+          -0.0261968,
+          -0.0267233
+        ]
+      }
+    }
+  },
+  "coins": [
+    "BTC",
+    "ETH",
+    "HYPE",
+    "SOL",
+    "ZEC",
+    "PENDLE",
+    "AIXBT",
+    "TRX"
+  ],
+  "connections": 3,
+  "duration_s": 5451.434,
+  "end_utc": "2026-11-21T05:15:31.821510Z",
+  "gaps": [
+    {
+      "conn": 3,
+      "down_ns": 1795237071427816200,
+      "reason": "SSLWantReadError: The operation did not complete (read) (_ssl.c:2580)",
+      "up_ns": 1795237088454644200
+    }
+  ],
+  "interrupted": false,
+  "leaders": [
+    {
+      "fills_last_14d": 1162,
+      "user": "0x50684f4fd3c2cd882fe502359989a60b6d22cc03"
+    },
+    {
+      "fills_last_14d": 1141,
+      "user": "0x16aa234e82d7b51b8757110cbeeac6a65351785c"
+    },
+    {
+      "fills_last_14d": 936,
+      "user": "0xdebd491a259a242fc9bd8fd780a507e8e062b67a"
+    },
+    {
+      "fills_last_14d": 683,
+      "user": "0x67cb2a595c76cefaf66a64392bbc8cf88dd3f46d"
+    },
+    {
+      "fills_last_14d": 679,
+      "user": "0x8aa077f5998d234ac8641d73d6bc4976e2a210fc"
+    },
+    {
+      "fills_last_14d": 500,
+      "user": "0xf53cab0c6f25f48f985d1e2c40e03fc7c1963364"
+    },
+    {
+      "fills_last_14d": 486,
+      "user": "0x0b94d9966717e894d7a145f9642445ab151762c6"
+    },
+    {
+      "fills_last_14d": 439,
+      "user": "0x649156ebf0a350deb18a1e4835873defd4dc5349"
+    },
+    {
+      "fills_last_14d": 435,
+      "user": "0x2431edfcb662e6ff6deab113cc91878a0b53fb0f"
+    },
+    {
+      "fills_last_14d": 428,
+      "user": "0x5d2f4460ac3514ada79f5d9838916e508ab39bb7"
+    }
+  ],
+  "live_events": {
+    "trades": 215195,
+    "userFills": 25
+  },
+  "machine": {
+    "cpu": "Intel64 Family 6 Model 183 Stepping 1, GenuineIntel",
+    "cpus": 32,
+    "os": "Windows-11-10.0.26200-SP0",
+    "python": "3.12.15"
+  },
+  "messages": {
+    "subscriptionResponse": 36,
+    "trades": 60972,
+    "userFills": 41
+  },
+  "n_messages": 61049,
+  "network": "China telecom wifi",
+  "planned_duration_s": 5400.0,
+  "recorder": "arkstream_fetch.hl_ws_latency",
+  "recorder_sha256": "c30961175a123d2fda7d646dca9517b9846f780c3a714fc79262349cc48b77c2",
+  "run_id": "20261121T034440Z",
+  "start_utc": "2026-11-21T03:44:40.391742Z",
+  "subscriptions": [
+    {
+      "type": "userFills",
+      "user": "0x50684f4fd3c2cd882fe502359989a60b6d22cc03"
+    },
+    {
+      "type": "userFills",
+      "user": "0x16aa234e82d7b51b8757110cbeeac6a65351785c"
+    },
+    {
+      "type": "userFills",
+      "user": "0xdebd491a259a242fc9bd8fd780a507e8e062b67a"
+    },
+    {
+      "type": "userFills",
+      "user": "0x67cb2a595c76cefaf66a64392bbc8cf88dd3f46d"
+    },
+    {
+      "type": "userFills",
+      "user": "0x8aa077f5998d234ac8641d73d6bc4976e2a210fc"
+    },
+    {
+      "type": "userFills",
+      "user": "0xf53cab0c6f25f48f985d1e2c40e03fc7c1963364"
+    },
+    {
+      "type": "userFills",
+      "user": "0x0b94d9966717e894d7a145f9642445ab151762c6"
+    },
+    {
+      "type": "userFills",
+      "user": "0x649156ebf0a350deb18a1e4835873defd4dc5349"
+    },
+    {
+      "type": "userFills",
+      "user": "0x2431edfcb662e6ff6deab113cc91878a0b53fb0f"
+    },
+    {
+      "type": "userFills",
+      "user": "0x5d2f4460ac3514ada79f5d9838916e508ab39bb7"
+    },
+    {
+      "coin": "BTC",
+      "type": "trades"
+    },
+    {
+      "coin": "ETH",
+      "type": "trades"
+    },
+    {
+      "coin": "HYPE",
+      "type": "trades"
+    },
+    {
+      "coin": "SOL",
+      "type": "trades"
+    },
+    {
+      "coin": "ZEC",
+      "type": "trades"
+    },
+    {
+      "coin": "PENDLE",
+      "type": "trades"
+    },
+    {
+      "coin": "AIXBT",
+      "type": "trades"
+    },
+    {
+      "coin": "TRX",
+      "type": "trades"
+    }
+  ],
+  "url": "wss://api.hyperliquid.xyz/ws"
+}

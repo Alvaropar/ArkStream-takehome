@@ -1,0 +1,16 @@
+# raw inputs (read-only); regenerate with `python -m arkstream checksums`
+# sha256  bytes  path
+8eff40ef33a29e22ee195c0999a47f548253acc5506ea1ee9a729b285ef919f5     160692453  data/raw/fills.csv
+56228fab8b3c4d5f5eb1eeba9703971b31aa695352458f192c279b84d70be2f5      21616632  data/raw/traders.csv
+063198ad2757221455f39e63fb152f17e7f45e8e3243dfb096617a4ac2c9be7a         26107  data/reference/binance/hl_binance_map.csv
+3cbc597342b9420b6519c59ef2e1f789ef67489fcda0367e779beea7b7bab3a3          1614  data/reference/binance/window_overrides.yaml
+47e004cf7fff1942a362a80007ee89dd770b3db85f8439b3414b629da3b8f1f1          1954  data/reference/prices/MANIFEST.yaml
+06290cc35526842dfa34096ab83a1e0eab51e621cb1dfcac8cd35124c907909a      19152512  data/reference/prices/binance_um_1m_2025-07.parquet
+22a6e130ac7461c2807f81c064889588dc3680da763c626261e24851eb5639ed      18688510  data/reference/prices/binance_um_1m_2025-08.parquet
+e8d2e452832422e1ab0135b9d796505db58eb294aae551ae3c81dd6b6ed41495      18197148  data/reference/prices/binance_um_1m_2025-09.parquet
+25b3d92d51a939d4a3947ace95330015d77c5e4f7ef19ce013475d1648b9f5e1      19366390  data/reference/prices/binance_um_1m_2025-10.parquet
+897874e747bec73dd898a4226c0e93ae904130a09c46cf5c04e97089789c18b6      18278012  data/reference/prices/binance_um_1m_2025-11.parquet
+769d6862b7ba617bb2139d7cc6976af0454e7bc2753efd9a432ae7bfab729e35      17657040  data/reference/prices/binance_um_1m_2025-12.parquet
+47108c08f549e58f0bd66e99a8797941ef00437750016c0c19c14aa2e58f9a07       2367156  data/reference/prices/binance_um_1m_2026-01.parquet
+8eff40ef33a29e22ee195c0999a47f548253acc5506ea1ee9a729b285ef919f5     160692453  笔试题数据包-fills/笔试题数据包-fills
+56228fab8b3c4d5f5eb1eeba9703971b31aa695352458f192c279b84d70be2f5      21616632  笔试题数据包-traders.csv

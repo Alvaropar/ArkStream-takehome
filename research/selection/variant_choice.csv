@@ -1,0 +1,5 @@
+variant,matched_wins,ab_wins,mean_basket_base,adr0137_basis,in_force,simplicity_order
+rule_a,1,1,-0.0255425633,true,false,0
+rule_c_p10,1,1,-0.0255425633,true,false,1
+rule_b_coin_filter_attribution,3,2,0.0071619485,true,false,2
+rule_b_coin_filter,2,2,0.0070543746,false,true,99

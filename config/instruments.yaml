@@ -1,0 +1,11 @@
+# Instrument classification rules (data hygiene; designed once on the whole dataset).
+classes:
+  spot:
+    patterns: ['^@\d+$']
+    explicit: ['PURR/USDC']
+  hip3:
+    patterns: ['^[a-z0-9]+:.+$']   # dex:SYMBOL
+  core_perp:
+    default: true
+eligible_classes: [core_perp]
+non_trade_dirs: ['Spot Dust Conversion']

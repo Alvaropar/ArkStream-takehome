@@ -1,0 +1,39 @@
+# Validity-window overrides for hl_binance_map.csv (read by `python -m arkstream refprices`).
+# Every other coin: valid from the date of its first Binance bar with volume > 0 to the cutoff (or to its
+# last bar with volume > 0 if trading stopped earlier). Dates are UTC and inclusive, on the bar's known
+# time (its close).
+#
+# kind:
+#   never            never valid, whatever the data shows
+#   different_asset  semantic limit (same ticker, different token); the data can only narrow it
+#   listing          requested first date; checked against the first live bar, the data date wins
+#   delisting        requested last date; checked against the last live bar, the data date wins
+# Evidence for each entry: SOURCE.md (section "Validity windows") and window_evidence.csv.
+overrides:
+  FTT:
+    kind: never
+    reason: Binance FTTUSDT is frozen at 1.59 with zero volume on every bar to the cutoff; Hyperliquid FTT trades at 0.55-1.00
+  LIT:
+    kind: different_asset
+    valid_from: 2025-12-23
+    reason: before 2025-12-23 LITUSDT is an unrelated old token (flat zero-volume bars at about 0.59 vs Hyperliquid LIT at about 3.9)
+  PUMP:
+    kind: listing
+    valid_from: 2025-07-10
+    reason: PUMPUSDT listed on 2025-07-10; earlier archive bars are flat and zero-volume
+  MKR:
+    kind: delisting
+    valid_to: 2025-09-07
+    reason: delisted on Binance
+  OMNI:
+    kind: delisting
+    valid_to: 2025-09-21
+    reason: delisted on Binance
+  NEIROETH:
+    kind: delisting
+    valid_to: 2025-09-25
+    reason: delisted on Binance
+  AI16Z:
+    kind: delisting
+    valid_to: 2025-11-05
+    reason: delisted on Binance

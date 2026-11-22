@@ -1,0 +1,6 @@
+[1/5] user_funding 0x054a01da80ee37d5220af5471b1eedbdcd2cdb2f: 621 rows, 2 fetched, 0 reused
+[2/5] user_funding 0x3ca32dd3666ed1b69e86b86b420b058caa8c1aaf: 1332 rows, 3 fetched, 0 reused
+[3/5] user_funding 0x8a249d31750d727e6a3a7b534255badd575aa26f: 1651 rows, 4 fetched, 0 reused
+[4/5] user_funding 0xccf135ab352d561a15eb7be2a243cc4fcb7f0ab1: 220 rows, 1 fetched, 0 reused
+[5/5] user_funding 0xdebd491a259a242fc9bd8fd780a507e8e062b67a: 733 rows, 2 fetched, 0 reused
+{'done': 5, 'failed': 0}
