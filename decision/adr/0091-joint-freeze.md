@@ -3,6 +3,8 @@
 - Status: Accepted (the user approved ADRs 0086-0095 on 2026-11-24). Defines what the freeze covers. The freeze itself (P5-7) runs only on the
   user's explicit go (given on 2026-11-24), and the user sends the hash to the reviewers. The mechanism details are
   pinned in ADR-0097.
+  Amended by ADR-0098 item 8: the frozen set also holds the cost rebuild, run C's refit, the v2 holdout entry
+  point and their tests; the hash is computed once, after they are built and tested on development data
 - Date: 2026-11-23
 - Phase: Phase 5 (revision 4), step P5-7
 - Builds on: ADR-0065 (the freeze mechanism, `src/arkstream/freeze.py`; the hashes recorded under ADRs A0139 and

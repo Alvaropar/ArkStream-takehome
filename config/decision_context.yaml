@@ -102,6 +102,8 @@ drift:
   stress_dates: ["2025-10-10", "2025-10-11"]
   # Rule 3: holdout prices (2025-12-03..2026-01-04) are used only to compute the frozen follower's holdout
   # results after the rules are frozen (provenance/HOLDOUT_FREEZE.txt); never to set a parameter.
+  # Amended by ADR-0098 item 9: holdout data may set cost inputs only inside the holdout cost runs B and C
+  # (ADR-0098 items 2-5), never anything used by run A, by D1-D5 or by a frozen parameter.
   holdout_use: "follower holdout results only, after the freeze; never a parameter"
   # Rule 4: pooled by coin x the leader's holding-time band (median hold of round trips closed by the end of the
   # estimation window), never per leader: per-leader standard errors are 5-25 bps.

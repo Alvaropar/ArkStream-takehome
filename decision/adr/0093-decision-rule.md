@@ -2,6 +2,8 @@
 
 - Status: Accepted (the user approved ADRs 0086-0095 on 2026-11-24); thresholds PLACEHOLDER. D2b is the user's decision 3 of 2026-11-23. The D4
   threshold (section 15 item 2) and D4's statistic (item 4, option c) are the user's choices of 2026-11-24.
+  Amended by ADR-0098 item 7: run A decides D1-D5; runs B and C are reported and never change the verdict; D3
+  and C1 are also reported on B, and the memo's summary says so if B fails a condition A passes
 - Date: 2026-11-23
 - Phase: Phase 5 (revision 4), applied at P5-8
 - Source: `decision/phase-5-methodology.md` sections 0 and 9 (revision 4)

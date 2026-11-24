@@ -2,7 +2,9 @@
 
 - Status: Accepted (the user approved ADRs 0086-0095 on 2026-11-24); every threshold PLACEHOLDER, calibrated for noise
   only (ADR-0095 item 1); trigger, review and resume details pinned in ADR-0096. F4 passed at P5-4, with L1 measured
-  out of sample on the four test windows; no threshold changed (`decision/phase-5-results.md` section 4)
+  out of sample on the four test windows; no threshold changed (`decision/phase-5-results.md` section 4).
+  Amended by ADR-0098 item 5 for the holdout cost runs: C1 (and O2) keep the frozen benchmark in run C, and a
+  shadow C1 on the updated cost model is logged, never acted on
 - Date: 2026-11-23
 - Phase: Phase 5 (revision 4)
 - Builds on: ADR-0052 (reviews, reduce-only on an unusable equity), ADR-0046 (forced fills), ADR-0073 (the tradable

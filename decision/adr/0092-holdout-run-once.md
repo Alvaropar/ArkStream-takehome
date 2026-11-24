@@ -2,6 +2,8 @@
 
 - Status: Accepted (the user approved ADRs 0086-0095 on 2026-11-24). The run (P5-8) needs the user's explicit go after the joint freeze
   (ADR-0091).
+  Amended by ADR-0098: runs B and C (rebuilt real costs) join the single opening; A runs first and its
+  outputs are written before B or C starts
 - Date: 2026-11-23
 - Phase: Phase 5 (revision 4), step P5-8
 - Source: `decision/phase-5-methodology.md` section 8 (revision 4); `decision/pre-holdout-checks.md` Check 4 (day
