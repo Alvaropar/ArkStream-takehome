@@ -4,7 +4,7 @@
   threshold (section 15 item 2) and D4's statistic (item 4, option c) are the user's choices of 2026-11-24.
 - Date: 2026-11-23
 - Phase: Phase 5 (revision 4), applied at P5-8
-- Source: `decision/phase-5-methodology-1.md` sections 0 and 9 (revision 4)
+- Source: `decision/phase-5-methodology.md` sections 0 and 9 (revision 4)
 
 ## Context
 Phase 4 v2 found no capital-grade evidence of skill (ADR-0086), and a 32-day holdout cannot measure skill (H4,

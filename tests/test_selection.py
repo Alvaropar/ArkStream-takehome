@@ -235,18 +235,24 @@ def test_capture_group_ratio_closure_and_near_zero():
 
 
 # ------------------------------------------------------------------------------------------------ freeze guard
+# (the joint freeze of ADR-0091 with the mechanism of ADR-0097)
 
 
 def frozen_copy(tmp_path: Path) -> Context:
+    """The frozen set copied to a temporary root, with a stand-in shortlist and output tree, and frozen: true."""
     for p in freeze.frozen_paths(ROOT):
-        if p == freeze.SHORTLIST:
+        if p in (freeze.SHORTLIST, freeze.OUTPUT_MANIFEST):
             continue
         (tmp_path / p).parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(ROOT / p, tmp_path / p)
+    shutil.copy2(ROOT / "uv.lock", tmp_path / "uv.lock")
     sl = tmp_path / freeze.SHORTLIST
     sl.parent.mkdir(parents=True, exist_ok=True)
     sl.write_text("trader,decision\n0xabc,selected\n", encoding="utf-8")
-    (tmp_path / "provenance").mkdir(exist_ok=True)
+    out = tmp_path / freeze.OUTPUT_TREES[0] / "origin=2025-12-03" / "orders.csv"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text("t,qty\n1,2\n", encoding="utf-8")
+    freeze.write_output_manifest(tmp_path)
     cfg = tmp_path / "config/decision_context.yaml"
     text = cfg.read_text(encoding="utf-8")
     if "\nfrozen: true" not in text:
@@ -265,6 +271,36 @@ AFTER = datetime(2025, 12, 4, tzinfo=UTC)
 AT = datetime(2025, 12, 3, tzinfo=UTC)
 
 
+@pytest.fixture
+def threads(monkeypatch):
+    monkeypatch.setenv("POLARS_MAX_THREADS", "8")
+
+
+def test_frozen_set_covers_the_holdout_path():
+    paths = set(freeze.frozen_paths(ROOT))
+    for p in ("src/arkstream/portfolio_engine.py", "src/arkstream/portfolio_replay.py", "src/arkstream/risk_model.py",
+              "src/arkstream/holdout_report.py", "src/arkstream/phase5_pair.py", "src/arkstream/selection_v2.py",
+              "src/arkstream/replay_tradable.py", "src/arkstream/cli.py", "src/arkstream/freeze.py",
+              "decision/phase-5-methodology.md", "decision/phase-4-v2-methodology.md", "decision/phase-5-results.md",
+              "config/risk.yaml", freeze.SHORTLIST, freeze.OUTPUT_MANIFEST, "data/reference/prices/MANIFEST.yaml"):
+        assert p in paths, p
+    adrs = {p for p in paths if p.startswith("decision/adr/")}
+    assert len(adrs) == 32 and any(p.startswith("decision/adr/0097-") for p in adrs)
+    assert not any(p.startswith("decision/adr/0085-") for p in adrs)
+    assert "src/arkstream/latency.py" not in paths  # the latency session's module is not on the holdout path
+    assert "decision/adr/README.md" not in paths and "provenance/trial_log.md" not in paths
+
+
+def test_import_closure_follows_function_level_imports(tmp_path):
+    src = tmp_path / "src" / "arkstream"
+    src.mkdir(parents=True)
+    (src / "freeze.py").write_text("def f():\n    from arkstream import helper_a\n", encoding="utf-8")
+    (src / "helper_a.py").write_text("import arkstream.helper_b\n", encoding="utf-8")
+    (src / "helper_b.py").write_text("x = 1\n", encoding="utf-8")
+    (src / "unrelated.py").write_text("x = 2\n", encoding="utf-8")
+    assert freeze.source_modules(src) == ["freeze", "helper_a", "helper_b"]
+
+
 def test_guard_without_freeze_refuses_after_holdout_start(tmp_path):
     ctx = frozen_copy(tmp_path)
     assert freeze.guard(ctx, AT) is None  # up to the holdout start: runs freely
@@ -272,7 +308,7 @@ def test_guard_without_freeze_refuses_after_holdout_start(tmp_path):
         freeze.guard(ctx, AFTER)
 
 
-def test_freeze_requires_frozen_flag(tmp_path):
+def test_freeze_requires_frozen_flag(tmp_path, threads):
     ctx = frozen_copy(tmp_path)
     raw = dict(ctx.raw)
     raw["frozen"] = False
@@ -280,10 +316,40 @@ def test_freeze_requires_frozen_flag(tmp_path):
         freeze.write_freeze(Context(raw=raw, root=tmp_path), "rule_a")
 
 
-def test_freeze_matches_then_rejects_edits(tmp_path):
+def test_freeze_refuses_an_open_value_in_risk_yaml(tmp_path, threads):
+    ctx = frozen_copy(tmp_path)
+    risk = tmp_path / "config/risk.yaml"
+    risk.write_text(risk.read_text(encoding="utf-8").replace("chosen: reset}", "chosen: OPEN_UNTIL_P5_4}", 1),
+                    encoding="utf-8")
+    with pytest.raises(freeze.FreezeError, match="OPEN value: variants.eref_at_review.chosen"):
+        freeze.write_freeze(ctx, "rule_a")
+
+
+def test_freeze_refuses_without_the_thread_setting(tmp_path, monkeypatch):
+    ctx = frozen_copy(tmp_path)
+    monkeypatch.delenv("POLARS_MAX_THREADS", raising=False)
+    with pytest.raises(freeze.FreezeError, match="POLARS_MAX_THREADS"):
+        freeze.write_freeze(ctx, "rule_a")
+
+
+def test_freeze_refuses_a_stale_output_manifest(tmp_path, threads):
+    ctx = frozen_copy(tmp_path)
+    tree = tmp_path / freeze.OUTPUT_TREES[0] / "origin=2025-12-03"
+    (tree / "orders.csv").write_text("t,qty\n1,3\n", encoding="utf-8")
+    with pytest.raises(freeze.FreezeError, match="sha256 differs"):
+        freeze.write_freeze(ctx, "rule_a")
+    freeze.write_output_manifest(tmp_path)
+    (tree / "late.csv").write_text("x\n", encoding="utf-8")
+    with pytest.raises(freeze.FreezeError, match="unlisted output"):
+        freeze.write_freeze(ctx, "rule_a")
+
+
+def test_freeze_matches_then_rejects_edits(tmp_path, threads):
     ctx = frozen_copy(tmp_path)
     _, h = freeze.write_freeze(ctx, "rule_a", now=datetime(2026, 11, 22, tzinfo=UTC))
     assert freeze.guard(ctx, AFTER) == h
+    text = (tmp_path / freeze.FREEZE_FILE).read_text(encoding="utf-8")
+    assert "env: POLARS_MAX_THREADS=8" in text and "env: uv.lock=" in text
     cfg = tmp_path / "config/decision_context.yaml"
     original = cfg.read_text(encoding="utf-8")
     # an edited threshold
@@ -297,18 +363,64 @@ def test_freeze_matches_then_rejects_edits(tmp_path):
         freeze.guard(reload(ctx), AFTER)
     cfg.write_text(original, encoding="utf-8")
     assert freeze.guard(reload(ctx), AFTER) == h
-    # an edited shortlist or rule source
+    # an edited frozen document, then a Phase 5 source
+    doc = tmp_path / "decision/phase-5-methodology.md"
+    doc_text = doc.read_text(encoding="utf-8")
+    doc.write_text(doc_text + "\nedited\n", encoding="utf-8")
+    with pytest.raises(freeze.FreezeError, match="changed decision/phase-5-methodology.md"):
+        freeze.guard(ctx, AFTER)
+    doc.write_text(doc_text, encoding="utf-8")
+    eng = tmp_path / "src/arkstream/portfolio_engine.py"
+    eng.write_text(eng.read_text(encoding="utf-8") + "\n# edited\n", encoding="utf-8")
+    with pytest.raises(freeze.FreezeError, match="changed src/arkstream/portfolio_engine.py"):
+        freeze.guard(ctx, AFTER)
+    # an edited shortlist
     (tmp_path / freeze.SHORTLIST).write_text("trader,decision\n0xdef,selected\n", encoding="utf-8")
-    with pytest.raises(freeze.FreezeError, match="changed research/selection/shortlist"):
+    with pytest.raises(freeze.FreezeError, match="changed research/selection_v2/origin=2025-12-03/eligible.parquet"):
         freeze.guard(ctx, AFTER)
 
 
-def test_freeze_file_tamper_detected(tmp_path):
+def test_freeze_hash_does_not_depend_on_line_endings(tmp_path, threads):
+    ctx = frozen_copy(tmp_path)
+    _, h = freeze.write_freeze(ctx, "rule_a")
+    doc = tmp_path / "decision/phase-5-methodology.md"
+    lf = doc.read_bytes().replace(b"\r\n", b"\n")
+    doc.write_bytes(lf.replace(b"\n", b"\r\n"))  # a Windows checkout of the same commit
+    assert freeze.guard(ctx, AFTER) == h
+    doc.write_bytes(lf)  # a Linux checkout
+    assert freeze.guard(ctx, AFTER) == h
+    out = tmp_path / freeze.OUTPUT_TREES[0] / "origin=2025-12-03" / "orders.csv"
+    out_lf = out.read_bytes().replace(b"\r\n", b"\n")
+    for content in (out_lf, out_lf.replace(b"\n", b"\r\n")):  # either checkout of the same output
+        out.write_bytes(content)
+        assert freeze.check_output_manifest(tmp_path) == []
+
+
+def test_guard_refuses_a_changed_environment(tmp_path, threads, monkeypatch):
+    ctx = frozen_copy(tmp_path)
+    _, h = freeze.write_freeze(ctx, "rule_a")
+    assert freeze.guard(ctx, AFTER) == h
+    monkeypatch.setattr(freeze.platform, "platform", lambda: "another-os")  # the OS is recorded, not compared
+    assert freeze.guard(ctx, AFTER) == h
+    monkeypatch.setenv("POLARS_MAX_THREADS", "4")
+    with pytest.raises(freeze.FreezeError, match="environment POLARS_MAX_THREADS: frozen 8, now 4"):
+        freeze.guard(ctx, AFTER)
+    monkeypatch.setenv("POLARS_MAX_THREADS", "8")
+    real = freeze.metadata.version
+    monkeypatch.setattr(freeze.metadata, "version", lambda p: "0.0.0" if p == "polars" else real(p))
+    with pytest.raises(freeze.FreezeError, match="environment polars"):
+        freeze.guard(ctx, AFTER)
+
+
+def test_freeze_file_tamper_detected(tmp_path, threads):
     ctx = frozen_copy(tmp_path)
     path, _ = freeze.write_freeze(ctx, "rule_a")
     text = path.read_text(encoding="utf-8")
     first = next(ln for ln in text.splitlines() if ln[64:66] == "  ")
     path.write_text(text.replace(first, "0" * 64 + first[64:]), encoding="utf-8")
+    with pytest.raises(freeze.FreezeError, match="freeze file edited"):
+        freeze.guard(ctx, AFTER)
+    path.write_text(text.replace("env: POLARS_MAX_THREADS=8", "env: POLARS_MAX_THREADS=4"), encoding="utf-8")
     with pytest.raises(freeze.FreezeError, match="freeze file edited"):
         freeze.guard(ctx, AFTER)
 

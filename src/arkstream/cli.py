@@ -228,12 +228,16 @@ def main(argv: list[str] | None = None) -> int:
     se.add_argument("--evaluate", action="store_true",
                     help="read the development test windows (ADRs A0133-A0137 first)")
     se.add_argument("--freeze", action="store_true",
-                    help="ADR-A0139: write provenance/HOLDOUT_FREEZE.txt (needs frozen: true and the 3 Dec shortlist)")
+                    help="ADRs 0091, 0097: write provenance/HOLDOUT_FREEZE.txt (needs frozen: true, no OPEN value in "
+                         "risk.yaml, POLARS_MAX_THREADS and a matching output manifest)")
+    se.add_argument("--output-manifest", action="store_true",
+                    help="ADR-0097 item 4: write provenance/HOLDOUT_OUTPUT_MANIFEST.txt over the holdout path's trees")
     sv = sub.add_parser("select-v2", help="Phase 4 v2 qualification at every origin (ADRs 0070-0075, 0076-0079)")
     sv.add_argument("--out", default=None, help="default: research/selection_v2")
     p5 = sub.add_parser("phase5", help="Phase 5 development steps on development data only (ADR-0095)")
-    p5.add_argument("step", choices=["risk-model", "population", "calibrate", "variants", "pair", "report"],
+    p5.add_argument("step", choices=["risk-model", "population", "calibrate", "variants", "l1-oos", "pair", "report"],
                     help="risk-model: P5-2; population: P5-4 calibration and variants (or one of them); "
+                         "l1-oos: L1 on the test windows (descriptive); "
                          "pair: P5-5 S*/U*/G*, random pairs, stress at the limits; report: P5-6 window report")
     p5.add_argument("--no-pairs", action="store_true", help="pair: skip the 200 random pairs per window")
     p5.add_argument("--out", default=None, help="output folder (default depends on the step)")
@@ -254,7 +258,7 @@ def main(argv: list[str] | None = None) -> int:
             from arkstream import risk_model
 
             print(f"wrote {risk_model.run(ctx, out)}")
-        elif args.step in ("population", "calibrate", "variants"):
+        elif args.step in ("population", "calibrate", "variants", "l1-oos"):
             from arkstream import phase5_population
 
             steps = ("calibrate", "variants") if args.step == "population" else (args.step,)
@@ -350,10 +354,16 @@ def main(argv: list[str] | None = None) -> int:
     if args.cmd == "select":
         from arkstream import selection_run
 
+        if args.output_manifest:
+            from arkstream import freeze
+
+            path, n = freeze.write_output_manifest(ctx.root)
+            print(f"wrote {path} ({n} files)")
+            return 0
         if args.freeze:
             from arkstream import freeze
 
-            path, h = freeze.write_freeze(ctx, ctx.raw["selection"]["rule"])
+            path, h = freeze.write_freeze(ctx, freeze.RULE)
             print(f"wrote {path}")
             print(f"freeze_hash: {h}")
             return 0

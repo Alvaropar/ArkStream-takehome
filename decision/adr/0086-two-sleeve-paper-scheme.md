@@ -6,8 +6,9 @@
 - Phase: Phase 5 (revision 4)
 - Amends: ADR-0065 item 2 (the scope: no weighting across a basket while there are two sleeves; item 7 below);
   applies ADR-0070 item 6 (P4-9 is not triggered, item 6 below)
-- Supersedes: `decision/phase-5-methodology.md` (revision 2, never written up as ADRs)
-- Source: `decision/phase-5-methodology-1.md` sections 0-2, 7 and 11 (revision 4)
+- Supersedes: revision 2 of the Phase 5 methodology (never written up as ADRs; deleted on 2026-11-24, when revision 4
+  took its file name)
+- Source: `decision/phase-5-methodology.md` sections 0-2, 7 and 11 (revision 4)
 - **Designed after seeing the Phase 4 v2 results.** Phase 5 is designed on development data by ADR-0065, so this is
   not a change to an existing rule. The choice of 0x971f as observation sleeve uses data up to 3 Dec (item 3).
 
@@ -68,7 +69,7 @@ validity, which is not met. 0x2cd9 is about 91% HYPE, long only: alone it cannot
    own high-water mark.
 6. **P4-9 (ADR-0070 item 6) is not triggered.**
    - S\* and U\* run at 10k, the size Phase 4 qualified at.
-   - G\* runs at 2.5k or 5k, but it is an execution measurement paid as a research cost, not an allocation
+   - G\* runs at 2.5k (set at P5-5; the rule allowed 5k), but it is an execution measurement paid as a research cost, not an allocation
      (ADR-0090). Its size is not a Phase 5 capital size in the sense of ADR-0070 item 6.
    - A smaller sleeve only eases the size-dependent tests:
      - T3 (fit under 0.5% participation) passes more often as orders shrink, so every coin tradable at 10k stays
@@ -91,9 +92,11 @@ validity, which is not met. 0x2cd9 is about 91% HYPE, long only: alone it cannot
 ## Consequences
 - **Development findings feed the memo** (methodology section 7, ADR-0095):
   - whether the two books can live inside the limits: 0x2cd9's time-weighted `λ`, how often P5 binds, S\* against U\*.
-    The section 4.1 arithmetic puts 0x2cd9 at `λ ≈ 0.15` near full gross. That would be reported as "our per-coin
-    limits hold a single-coin leader at about one-seventh of a sleeve; capital needs more independent sleeves": a
-    result, not a failure;
+    The section 4.1 arithmetic put 0x2cd9 at `λ ≈ 0.15` near full gross: the pre-run estimate, which would have read
+    "our per-coin limits hold a single-coin leader at about one-seventh of a sleeve; capital needs more independent
+    sleeves". Measured at P5-5 (`decision/phase-5-results.md` section 7): the leader runs at about 0.1x leverage, so
+    the copy holds 5-14% of its sleeve (51% in the crash window), and the exposure-weighted `λ` is 0.19 in the 8 Oct
+    window and 0.34-0.81 in the others. Either way a result, not a failure;
   - the trading cost of the risk actions and their effect in the crash window;
   - whether the cost model matches on these books.
 - **Outputs** are produced by P5-1 to P5-6 under ADR-0095. The joint freeze (ADR-0091) covers this declaration,

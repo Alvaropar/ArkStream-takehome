@@ -8,7 +8,7 @@
 - Phase: Phase 5 (revision 4)
 - Builds on: ADR-0017 (the stress shock), ADR-0034 (the gross cap scales the whole address), ADR-0071 and ADR-0077
   (coin betas), ADR-0079 (the coin covariance)
-- Source: `decision/phase-5-methodology-1.md` section 4 and 4.1 (revision 4)
+- Source: `decision/phase-5-methodology.md` section 4 and 4.1 (revision 4)
 
 ## Context
 Each sleeve must stay a scaled copy of its leader's tradable book (ADR-0073). A limit that cut one leg would change the
@@ -71,17 +71,20 @@ factor for the gross cap. The user extended that to every limit (decision 2).
         logged as an engine fault and tested in F1.
    6. **Determinism:** the order of the steps is fixed, and ties are broken by address order.
    7. **Logged at every update:** each `λ_i`, the limit that set it, the pass count and any P5 binding. The
-      time-weighted mean `λ_i` per sleeve is reported.
+      time-weighted mean `λ_i` per sleeve is reported, with the exposure-weighted mean beside it (ADR-0096 item 11).
 4. **Hourly checks and passive breaches.**
    - Each hour mark reruns the checks on the current targets at the current marks.
    - An S2 or P5 breach scales, as at a target update.
    - A P4 breach caused by marks alone does not force a sale. It puts the scheme in the P4 reduce-only state, in which
      orders that increase exposure are blocked, until P4 usage is below 90% of the limit. The next leader-driven
      target update solves P4 as usual.
-5. **What this implies for 0x2cd9, before any run** (methodology 4.1). The per-sleeve part of P2 allows 10% of `D` =
+5. **What this implied for 0x2cd9, before any run: the pre-run estimate** (methodology 4.1). The per-sleeve part of P2 allows 10% of `D` =
    2,000 USDC in any coin other than BTC and ETH. Near full gross, 91% HYPE is about 13,650 USDC of HYPE, so
    `λ ≈ 2,000 / 13,650 ≈ 0.15`, and the **whole** sleeve runs at about one-seventh. The HYPE leg is never cut alone.
    U\* shows the leader-shaped copy beside it.
+   - **Measured at P5-5** (`decision/phase-5-results.md` section 7): the leader runs at about 0.1x leverage, so P2
+     binds only in the hours when HYPE exceeds 2,000 USDC. The exposure-weighted `λ` was 0.19 in the 8 Oct window and
+     0.34-0.81 in the others, and P5 never bound on the pair.
 6. **The form of P5: (b), the budget form** (the user's choice, 2026-11-24; section 15 item 3). The options as put to
    the user are kept below.
 
@@ -110,7 +113,7 @@ factor for the gross cap. The user extended that to every limit (decision 2).
    is not used.
 7. **The limits of G\*: option C** (the user's choice, 2026-11-24). The options as put to the user are kept below.
 
-   G\* (ADR-0086) is 0x2cd9 alone at a live sleeve of 2,500 USDC (or 5,000, ADR-0090). The arithmetic below assumes
+   G\* (ADR-0086) is 0x2cd9 alone at a live sleeve of 2,500 USDC (set at P5-5 under ADR-0090; the rule allowed 5,000). The arithmetic below assumes
    full 1.5x gross at 91% HYPE and ignores the minor coins and the exit cost, except where stated.
 
    | Option | P2 cap per non-BTC/ETH coin | `λ` at 2.5k | `λ` at 5k | What it means |

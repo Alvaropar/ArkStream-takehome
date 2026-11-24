@@ -208,6 +208,202 @@ def variants(ctx, out: Path, bars, costs, ex, tree: Path, rules_cfg: dict) -> di
     return decision
 
 
+RANK_RO = 2  # portfolio_engine.RANK["REDUCE_ONLY"]
+
+
+def forward_to(nav: list[tuple[int, float]], t: int, end: int, horizon: int = 14 * DAY
+               ) -> tuple[float | None, float | None, float | None, bool]:
+    """Forward return, drawdown and horizon (days) of an hourly NAV from t to min(t + horizon, end), and whether the
+    full horizon fitted. A test window lasts 14 days, so the copy's own horizon is cut at the window end."""
+    import bisect
+
+    times = [x[0] for x in nav]
+    i = bisect.bisect_left(times, t)
+    stop = min(t + horizon, end)
+    j = bisect.bisect_right(times, stop) - 1
+    if i >= len(nav) or j <= i or nav[i][1] <= 0:
+        return None, None, None, False
+    v0 = nav[i][1]
+    path = [x[1] for x in nav[i:j + 1]]
+    return (path[-1] / v0 - 1, min(path) / v0 - 1, (times[j] - times[i]) / DAY,
+            t + horizon <= end and times[j] >= t + horizon - HOUR)
+
+
+def leader_index(ctx, traders: list[str], stop: datetime) -> dict[str, list[tuple[int, float]]]:
+    """The leaders' Phase 2 TWR index from the holdout origin's table (built from history before it), cut at `stop`."""
+    t = pl.read_parquet(ctx.root / "research/leader" / f"origin={stop.date()}" / "daily_twr.parquet",
+                        columns=["trader", "ts", "index_end"]).filter(
+        C("trader").is_in(traders) & C("index_end").is_not_null() & (C("ts") < stop)).sort("trader", "ts")
+    out: dict[str, list[tuple[int, float]]] = {}
+    for tr, ts, v in t.select("trader", "ts", "index_end").rows():
+        out.setdefault(tr, []).append((PR.ms(ts), float(v)))
+    return out
+
+
+def leader_forward(series: list[tuple[int, float]], t: int, stop: int, horizon: int = 14 * DAY
+                   ) -> tuple[float | None, float | None, str]:
+    """The leader's forward index return and drawdown over [t, t + horizon], each value used from its own time;
+    'cut_holdout' when the horizon reaches past the holdout start (nothing after it is read)."""
+    import bisect
+
+    if t + horizon > stop:
+        return None, None, "cut_holdout"
+    times = [x[0] for x in series]
+    i = bisect.bisect_right(times, t) - 1
+    j = bisect.bisect_right(times, t + horizon) - 1
+    if i < 0 or j <= i or series[i][1] <= 0:
+        return None, None, "no_index"
+    v0 = series[i][1]
+    path = [v0] + [x[1] for x in series[i + 1:j + 1]]
+    return path[-1] / v0 - 1, min(path) / v0 - 1, "full"
+
+
+def l1_out_of_sample(ctx, out: Path, bars, costs, ex, tree: Path) -> dict:
+    """L1 on the four development test windows, where its threshold is out of sample (trial log, 2026-11-24).
+
+    Descriptive only: the P5-4 population copies under the current rules and their U twins, rerun with the
+    firing output the variant test did not keep."""
+    from arkstream import drift
+    from arkstream.portfolio_engine import RANK
+
+    assert RANK["REDUCE_ONLY"] == RANK_RO
+    dr = drift.DriftRules.from_config(ctx.raw)
+    stop_dt = PR.midnight(dr.holdout_start)
+    stop = PR.ms(stop_dt)
+    stress = costs["stress"]
+    counts, fwd_rows, firings, returns = [], [], [], []
+    for win in PR.dev_windows(ctx):
+        assert win.end <= stop_dt
+        traders = universe(tree, win.origin, "test")
+        data = PR.WindowData(ctx, win, traders, [tree], bars, costs, ex)
+        sigs = PR.signals_from_orders(PR.tree_orders(tree, win.origin, "test", "base", traders))
+        lead = leader_index(ctx, traders, stop_dt)
+        end = PR.ms(win.end)
+        for tr in traders:
+            s = sigs.get(tr, [])
+            eng_s = run_copy(data, PR.scheme_rules(ctx, "S", {tr: 10000.0}, stress, portfolio_limits=False),
+                             costs["base"], s)
+            eng_u = run_copy(data, PR.scheme_rules(ctx, "U", {tr: 10000.0}, stress), costs["base"], s)
+            returns.append((win.origin, tr, eng_s.sleeves[tr].nav / 10000.0 - 1))
+            nav_u = [(h["t"], h["nav"]) for h in eng_u.hourly]
+            nav_s = [(h["t"], h["nav"]) for h in eng_s.hourly]
+            state_s = {h["t"]: RANK[h["state"]] for h in eng_s.hourly}
+            months = eng_s.usable_hours[tr] / 720.0
+            l1 = [e for e in eng_s.events if e["event"] == "trigger_on" and e["trigger"] == "L1"]
+            any_on = {int(e["t"]) for e in eng_s.events if e["event"] == "trigger_on"} | {
+                int(e["t"]) for e in eng_s.events if e["event"] == "state_firing" and e.get("reason") == "S3"}
+            counts.append((win.origin, tr, len(l1), months))
+            tser = data.triggers.get(tr)
+            limit = tser.drawdown_limit if tser else None
+            for e in l1:
+                t = int(e["t"])
+                r, d, hz, full = forward_to(nav_u, t, end)
+                lr, ld, lstatus = leader_forward(lead.get(tr, []), t, stop)
+                fwd_rows.append((win.origin, tr, "after_firing", t, r, d, hz, full))
+                hours = sorted(x for x in state_s if x >= t)
+                release = next((x for x in hours if state_s[x] < RANK_RO), None)
+                spell_end = release if release is not None else (hours[-1] if hours else t)
+                s0, s1 = dict(nav_s).get(t), dict(nav_s).get(spell_end)
+                u0, u1 = dict(nav_u).get(t), dict(nav_u).get(spell_end)
+                diff_usdc = diff_pp = None
+                if s0 is not None and s1 is not None and u0 is not None and u1 is not None:
+                    diff_usdc = (s1 - s0) - (u1 - u0)
+                    diff_pp = s1 / s0 - u1 / u0 if s0 and u0 else None
+                before = state_s.get(t - HOUR)
+                firings.append({
+                    "origin": win.origin, "trader": tr, "t": t,
+                    "time_utc": datetime.fromtimestamp(t / 1000, tz=stop_dt.tzinfo).strftime("%Y-%m-%d %H:%M"),
+                    "l1_value": float(e["value"]) if e["value"] is not None else None,
+                    "l1_threshold": limit, "hist_max_dd": limit / 1.5 if limit is not None else None,
+                    "value_over_threshold": float(e["value"]) / limit if limit and e["value"] is not None else None,
+                    "state_before_rank": before,
+                    "reduce_only_hours": (spell_end - t) / HOUR,
+                    "reduce_only_censored_at_window_end": release is None,
+                    "u_fwd_return": r, "u_fwd_drawdown": d, "u_fwd_horizon_days": hz, "u_fwd_full_14d": full,
+                    "leader_fwd14_return": lr, "leader_fwd14_drawdown": ld, "leader_fwd14_status": lstatus,
+                    "copy_minus_twin_spell_usdc": diff_usdc, "copy_minus_twin_spell_pp": diff_pp,
+                    "sleeve_nav_at_firing": s0,
+                })
+            for t, _ in nav_u[::24]:
+                if t in any_on:
+                    continue
+                r, d, hz, full = forward_to(nav_u, t, end)
+                if r is not None:
+                    fwd_rows.append((win.origin, tr, "matched_no_firing", t, r, d, hz, full))
+        print(f"{win.origin} test L1: {len(traders)} copies", flush=True)
+    cnt = pl.DataFrame(counts, schema={"origin": pl.Date, "trader": pl.String, "firings": pl.Int64,
+                                       "sleeve_months": pl.Float64}, orient="row")
+    fwd = pl.DataFrame(fwd_rows, schema={"origin": pl.Date, "trader": pl.String, "kind": pl.String, "t": pl.Int64,
+                                         "fwd_return": pl.Float64, "fwd_drawdown": pl.Float64,
+                                         "horizon_days": pl.Float64, "full_14d": pl.Boolean}, orient="row")
+    fir = pl.DataFrame(firings, infer_schema_length=None) if firings else pl.DataFrame(
+        schema={"origin": pl.Date, "trader": pl.String, "t": pl.Int64})
+    if fir.height:
+        fir = fir.sort("t", "trader")
+
+    def summary(c: pl.DataFrame, f: pl.DataFrame, origin) -> dict:
+        per = c.filter(C("sleeve_months") > 0).with_columns(rate=C("firings") / C("sleeve_months"))
+        after = f.filter(C("kind") == "after_firing")
+        matched = f.filter(C("kind") == "matched_no_firing")
+        months = float(c["sleeve_months"].sum())
+        n = int(c["firings"].sum())
+        return {
+            "origin": origin, "trigger": "L1", "firings": n, "sleeve_months": months, "sleeves": c.height,
+            "sleeves_with_firing": int((c["firings"] > 0).sum()),
+            "rate_per_sleeve_month": n / months if months else None,
+            "share_sleeves_above_1": float((per["rate"] > 1).mean()) if per.height else None,  # type: ignore[arg-type]
+            "fwd_n": after["fwd_return"].count(), "fwd_full_14d_n": int(after["full_14d"].sum()),
+            "fwd_horizon_days_median": after["horizon_days"].median(),
+            "fwd_return": after["fwd_return"].mean(), "fwd_drawdown": after["fwd_drawdown"].mean(),
+            "false_alarm_share": float((after["fwd_return"] >= 0).mean()) if after.height else None,  # type: ignore[arg-type]
+            "matched_n": matched.height, "matched_horizon_days_median": matched["horizon_days"].median(),
+            "matched_fwd_return": matched["fwd_return"].mean(),
+            "matched_fwd_drawdown": matched["fwd_drawdown"].mean(),
+            "f4_pass": n <= months,
+            "scope": "pooled_test_windows" if origin is None else "test_window",
+        }
+
+    rows = [summary(cnt.filter(C("origin") == o), fwd.filter(C("origin") == o), o)
+            for o in sorted(set(cnt["origin"].to_list()))]
+    pooled = summary(cnt, fwd, None)
+    table = pl.DataFrame(rows + [pooled], infer_schema_length=None)
+    out.mkdir(parents=True, exist_ok=True)
+    table.write_csv(out / "l1_test_windows.csv")
+    fir.write_csv(out / "l1_test_firings.csv")
+    fwd.write_parquet(out / "l1_test_forward.parquet")
+    cnt.write_parquet(out / "l1_test_counts.parquet")
+    by_date = (fir.with_columns(date=C("time_utc").str.slice(0, 10))
+               .group_by("date", "origin").agg(firings=pl.len(), addresses=C("trader").n_unique(),
+                                                u_fwd_return=C("u_fwd_return").mean(),
+                                                leader_fwd14_return=C("leader_fwd14_return").mean(),
+                                                copy_minus_twin_spell_usdc=C("copy_minus_twin_spell_usdc").sum())
+               .sort("date") if fir.height else pl.DataFrame())
+    by_date.write_csv(out / "l1_test_by_date.csv")
+    check = pl.DataFrame(returns, schema={"origin": pl.Date, "trader": pl.String, "rerun": pl.Float64},
+                         orient="row").join(
+        pl.read_csv(out / "variants.csv", try_parse_dates=True).filter(C("variant") == "current")
+        .select("origin", "trader", C("window_return").alias("variants")), on=["origin", "trader"], how="full",
+        coalesce=True)
+    mismatch = check.filter((C("rerun") - C("variants")).abs().fill_null(1.0) > 1e-12).height
+    crash = fir.filter(C("time_utc").str.slice(0, 10).is_in(["2025-10-10", "2025-10-11"])).height if fir.height else 0
+    result = {
+        "scope": "L1 only; all A/B single-sleeve copies, current rules, four development test windows, base",
+        "holdout_start": str(stop_dt), "read_after_holdout_start": False,
+        "copy_windows": cnt.height, "pooled": pooled,
+        "f4_pass": pooled["f4_pass"], "threshold_changed": False,
+        "firings_10_11_oct": crash,
+        "u_fwd_cut_at_window_end": int(fir.height - fir["u_fwd_full_14d"].sum()) if fir.height else 0,
+        "u_fwd_cut_at_holdout_start": int(fir.filter(
+            (C("t") + 14 * DAY > stop) & ~C("u_fwd_full_14d")).height) if fir.height else 0,
+        "leader_fwd_cut_at_holdout_start": int((fir["leader_fwd14_status"] == "cut_holdout").sum())
+        if fir.height else 0,
+        "rerun_vs_variants_current_mismatches": mismatch, "rerun_rows": check.height,
+    }
+    (out / "l1_test_summary.json").write_text(json.dumps(result, indent=2, default=str, sort_keys=True) + "\n",
+                                              encoding="utf-8")
+    return result
+
+
 def run(ctx, out: Path | None = None, steps=("calibrate", "variants")) -> Path:
     from arkstream import drift, hlprices
     from arkstream.config import load_yaml
@@ -227,4 +423,6 @@ def run(ctx, out: Path | None = None, steps=("calibrate", "variants")) -> Path:
         calibrate(ctx, out, bars, costs, ex, tree)
     if "variants" in steps:
         variants(ctx, out, bars, costs, ex, tree, load_yaml("risk.yaml", ctx.root / "config")["variants"])
+    if "l1-oos" in steps:
+        l1_out_of_sample(ctx, out, bars, costs, ex, tree)
     return out

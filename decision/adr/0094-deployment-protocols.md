@@ -5,7 +5,7 @@
   unchanged.
 - Date: 2026-11-23
 - Phase: Phase 5 (revision 4), step P5-9
-- Source: `decision/phase-5-methodology-1.md` sections 10 and 12 (revision 4)
+- Source: `decision/phase-5-methodology.md` sections 10 and 12 (revision 4)
 
 ## Context
 The decision of ADR-0093 chooses one of two protocols. Writing their parameters before the holdout means the holdout

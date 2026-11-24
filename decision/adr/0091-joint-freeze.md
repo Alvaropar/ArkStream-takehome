@@ -1,12 +1,13 @@
 # ADR-0091: Joint freeze of the Phase 4 v2 specification and the Phase 5 rules in one hash
 
 - Status: Accepted (the user approved ADRs 0086-0095 on 2026-11-24). Defines what the freeze covers. The freeze itself (P5-7) runs only on the
-  user's explicit go, and the user sends the hash to the reviewers.
+  user's explicit go (given on 2026-11-24), and the user sends the hash to the reviewers. The mechanism details are
+  pinned in ADR-0097.
 - Date: 2026-11-23
 - Phase: Phase 5 (revision 4), step P5-7
 - Builds on: ADR-0065 (the freeze mechanism, `src/arkstream/freeze.py`; the hashes recorded under ADRs A0139 and
   A0141 are void), `decision/pre-holdout-checks.md` Checks 3 and 4
-- Source: `decision/phase-5-methodology-1.md` sections 8 and 13 (revision 4)
+- Source: `decision/phase-5-methodology.md` sections 8 and 13 (revision 4)
 
 ## Context
 ADR-0065 freezes selection and Phase 5 together, so the holdout tests one mechanical scheme. The current
@@ -31,7 +32,7 @@ and run on the development windows before the holdout.
    - **P4-9 is not triggered** (ADR-0086 item 6). The 10k trees are the ones frozen.
 2. **One hash covers:**
    - the Phase 4 specification above: its ADRs, `decision/phase-4-v2-methodology.md` and the selection sources;
-   - the Phase 5 rules: ADRs 0086-0095 and `decision/phase-5-methodology-1.md`, including the observation-sleeve
+   - the Phase 5 rules: ADRs 0086-0096 and `decision/phase-5-methodology.md`, including the observation-sleeve
      declaration;
    - `config/decision_context.yaml`, `config/risk.yaml` (v3, with no `OPEN` value left), `config/execution.yaml` and
      `config/instruments.yaml`;

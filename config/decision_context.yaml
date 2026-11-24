@@ -1,7 +1,7 @@
 # Decision context. Versioned and frozen before any outcome is examined.
 # The CUTOFF is a parameter: the pipeline reads it here (or from --cutoff) and never hard-codes it.
 version: "0.1.0-m1"
-frozen: true             # set 2026-11-22 for the holdout freeze (mechanism ADR-0065; the recorded hashes are void)
+frozen: true             # set 2026-11-22 (ADR-0065); the v1 hashes recorded then are void; the joint freeze (ADRs 0091, 0097) records the hash in force
 
 cutoff: "2026-01-04T23:59:42.020Z"   # A01 (ADR-0021): the actual end of the data (last fill), confirmed
 

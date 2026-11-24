@@ -1,12 +1,13 @@
 # ADR-0089: Risk states per sleeve and for the scheme, the leader and copy triggers, exit and resume
 
 - Status: Accepted (the user approved ADRs 0086-0095 on 2026-11-24); every threshold PLACEHOLDER, calibrated for noise
-  only (ADR-0095 item 1); trigger, review and resume details pinned in ADR-0096
+  only (ADR-0095 item 1); trigger, review and resume details pinned in ADR-0096. F4 passed at P5-4, with L1 measured
+  out of sample on the four test windows; no threshold changed (`decision/phase-5-results.md` section 4)
 - Date: 2026-11-23
 - Phase: Phase 5 (revision 4)
 - Builds on: ADR-0052 (reviews, reduce-only on an unusable equity), ADR-0046 (forced fills), ADR-0073 (the tradable
   share), ADR-0088 (S3, P6)
-- Source: `decision/phase-5-methodology-1.md` section 5 (revision 4)
+- Source: `decision/phase-5-methodology.md` section 5 (revision 4)
 
 ## Context
 The limits of ADR-0088 bound exposure. They do not react to a leader who changes character, to a copy whose execution
@@ -47,7 +48,8 @@ holdout tests them.
    | C2 | Copy drawdown | S3 (ADR-0088) | -10% / -15% | REDUCE_ONLY / FLATTEN |
    | C3 | Feed stale or position mismatch | no leader message for more than 60 s while holding, or any unexplained difference | > 60 s; any | freeze increases; resync |
 
-   - A **firing** is a transition into the trigger's state, not each check that finds it still true.
+   - A **firing** is a trigger's condition turning on, not each check that finds it still true. It is counted whatever
+     the sleeve's state (pinned in ADR-0096 item 6).
    - In the replays, C1 compares simulated shortfall with simulated stress, model against model. Only the gray
      protocol measures it on real fills.
    - C3 has no data source in the replay. It is tested by fault injection (F1).

@@ -2,12 +2,12 @@
 
 - Status: **Accepted** (the user's decision 1, 2026-11-23); envelope PLACEHOLDER. Items 3 (duration) and 5 are pinned
   here and were accepted on 2026-11-24. Item 6 (the stress cap's base, the sub-minimum base) and the G\* limit set
-  (ADR-0088 item 7, option C) are the user's choices of 2026-11-24.
+  (ADR-0088 item 7, option C) are the user's choices of 2026-11-24. The live size was set at P5-5: 2,500 USDC (item 4).
 - Date: 2026-11-23
 - Phase: Phase 5 (revision 4), the gray protocol (CONDITIONAL GO)
 - Amends: ADR-0072 item 5, the E1 consequence, which now reads "shadow-only; may serve as the signal source of an
   ADR-0090 execution measurement"
-- Source: `decision/phase-5-methodology-1.md` sections 10.2 and 15 item 1 (revision 4)
+- Source: `decision/phase-5-methodology.md` sections 10.2 and 15 item 1 (revision 4)
 
 ## Context
 ADR-0072 makes E1 shadow-only, and the only 3 Dec hand-off, 0x2cd9, is E1. Live money on it would contradict ADR-0072
@@ -44,7 +44,8 @@ The holdout's cost check (D3) compares the cost model with itself (ADR-0093). On
    - **Live book = G\*** (ADR-0086): the cutoff hand-off only. The observation sleeve stays paper unless it
      re-qualifies under the frozen rules.
    - **Live sleeve size:** 2,500 USDC, or 5,000 if more than 10% of the sleeve's orders fall under the 10 USDC
-     minimum.
+     minimum. **Set at P5-5: 2,500 USDC.** 0 of 193 G\* intents fell under the minimum after `λ` (P5-1's unscaled
+     share: 1.6%).
      - The share is the count share, among the sleeve's sized order intents (after the cap, before the minimum check),
        of those under 10 USDC, pooled over the four development test windows, base scenario.
      - It is measured on the G\* book after `λ` (the P5-3 engine on the four development test windows), not on the

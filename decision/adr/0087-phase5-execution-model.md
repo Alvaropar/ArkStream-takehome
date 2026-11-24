@@ -5,7 +5,7 @@
 - Phase: Phase 5 (revision 4), the portfolio replay (simulated; the live engine is out of scope, ADR-0064)
 - Amends: ADR-0035 for the Phase 5 engine only (the participation budget becomes per coin per 4h bar, summed over
   sleeves; the single-sleeve replays keep the per-order budget)
-- Source: `decision/phase-5-methodology-1.md` section 3 (revision 4)
+- Source: `decision/phase-5-methodology.md` section 3 (revision 4)
 
 ## Context
 The Phase 3 and Phase 4 replays copy one address at a time. A scheme of two or more sleeves needs:

@@ -11,7 +11,8 @@ Inputs:
 - the external Phase 4 review of 2026-11-23, adopted where marked **[ext]**;
 - the PM's amendments, marked **[A1]**-**[A5]**.
 
-The Phase 5 counterpart is [phase-5-methodology.md](phase-5-methodology.md).
+The Phase 5 counterpart is [phase-5-methodology.md](phase-5-methodology.md), revision 4 (the two-sleeve scheme).
+Revision 2, its counterpart when this document was written, was deleted on 2026-11-24.
 
 **Decided after seeing results.** Every change below was decided after the development windows had been seen, like
 ADRs 0066-0068. The protocol therefore applies:

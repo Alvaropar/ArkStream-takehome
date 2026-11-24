@@ -1,8 +1,10 @@
-# risk.yaml v3: Phase 5 revision 4 (ADRs 0086-0095; decision/phase-5-methodology-1.md), written at P5-0 on 2026-11-23
+# risk.yaml v3: Phase 5 revision 4 (ADRs 0086-0096; decision/phase-5-methodology.md), written at P5-0 on 2026-11-23
 # before any Phase 5 result. PROPOSALS ONLY (A10): no approved risk policy; signed off before any trading.
-# Every number is a PLACEHOLDER until the joint freeze (ADR-0091). The user approved ADRs 0086-0095 on 2026-11-24 with
-# the recommended option on every open item; no `OPEN` choice remains (the freeze refuses one, ADR-0091 item 4).
-# `OPEN_UNTIL_P5_4` / `OPEN_UNTIL_P5_5` are settled by development runs under rules written before them. Execution stays disabled (execution.yaml `live_trading_enabled: false`).
+# Every number is a PLACEHOLDER (a judgment value, not fitted to returns), fixed as written by the joint freeze
+# (ADR-0091). The user approved ADRs 0086-0095 on 2026-11-24 with the recommended option on every open item; no
+# `OPEN` choice remains (the freeze refuses one, ADR-0091 item 4). The two choices left to development runs were
+# settled under rules written before them: the variants at P5-4, the gray size at P5-5
+# (decision/phase-5-results.md). Execution stays disabled (execution.yaml `live_trading_enabled: false`).
 # v2 keys superseded by the two-sleeve scheme (ADR-0086): reserve_min_usdc, stages (shadow/pilot/scale/cap),
 # per_leader_max_share, net_per_symbol (now limits.P2_net_per_coin).
 version: 3
@@ -63,7 +65,7 @@ states:                               # ADR-0089
   replay_resume: modelled_yes_when_cleared   # labelled; the protocol needs a human decision
 
 triggers:                             # ADR-0089 item 3; calibrated for noise only (ADR-0095 item 1)
-  L1_leader_drawdown_x_hist_max: 1.5
+  L1_leader_drawdown_x_hist_max: 1.5   # measured out of sample on the four test windows: 0.37 firings per sleeve-month (F4 pass)
   L2_leader_leverage_x_p95: 2.0
   L3_leader_equity_of_eref: 0.7
   L4_withdrawal_share_24h: 0.5
@@ -76,8 +78,8 @@ triggers:                             # ADR-0089 item 3; calibrated for noise on
   max_firings_per_sleeve_month: 1     # F4
 
 variants:                             # ADR-0095 item 2; decided on all A/B single-sleeve copies, never on the pair
-  cap_denominator: {current: fixed_allocation, variant: min_allocation_nav, chosen: fixed_allocation}  # P5-4: ES -1.3%, rejected
-  eref_at_review: {current: reset, variant: high_water, chosen: reset}  # P5-4: ES -1.6%, rejected
+  cap_denominator: {current: fixed_allocation, variant: min_allocation_nav, chosen: fixed_allocation}  # P5-4: ES95 cut 1.3% (needs 20%), rejected
+  eref_at_review: {current: reset, variant: high_water, chosen: reset}  # P5-4: ES95 cut 1.6% (needs 20%), rejected
   criterion: {es_level: 0.95, min_es_reduction: 0.20, max_mean_cost_pp: 0.25}
 
 pass_criteria:                        # ADR-0095 item 7

@@ -1,509 +1,544 @@
-# Phase 5: capital allocation, risk management and execution — methodology and development plan
+# Phase 5: the two-sleeve paper scheme, its tests, the holdout and the deployment decision
 
-Written 2026-11-23. **Revision 2, the same day:** follows the PM's Phase 4 amendments:
-- A1: skill is measured per unit of gross exposure, and utilisation is applied here;
-- A3: a provisional 10k sleeve with a one-pass recompute;
-- A5: the risk model is fitted once per origin.
+Written 2026-11-23. **Revision 3.** It replaces revision 2, which designed allocation across a basket that the
+Phase 4 v2 evidence does not support. Its ADRs are **0086-0095**, the next free numbers after the renumbering
+(ADR-0085). The section 1 figures and the IC thresholds were corrected on 2026-11-23 to the published run, in which
+α excludes funding (ADR-0084).
 
-It also fixes a conflict in revision 1: at a 15k stage, the 25% per-sleeve cap (3,750) sat below the 5,000 minimum
-sleeve.
+**Revision 4, the same day: the user's three decisions.**
+1. **Live money on an E1 address needs its own ADR.** ADR-0072 makes E1 shadow-only. Gray is therefore defined by
+   ADR-0090 as an **execution measurement paid as a research cost**, not an allocation (section 10.2).
+2. **Limits scale whole sleeves, never single legs.** Each sleeve stays a scaled copy of its leader's tradable book
+   (ADR-0073). The unconstrained copy is reported alongside (sections 3-4).
+3. **D2 is also judged on the book that would hold capital:** the hand-off alone under the gray rules and the
+   750 USDC loss cap, called G\* (sections 2, 6, 8-9).
 
-**Status: proposal.** It becomes binding when written up as ADRs 0076-0083 and before any Phase 5 result is computed.
+**Status: accepted.** Written up as ADRs 0086-0095, which the user approved on 2026-11-24 before any Phase 5 result,
+and ADR-0096, the engine details pinned before any P5-4 or P5-5 result.
+
+**Note of 2026-11-24, at the joint freeze (P5-7).** This text now agrees with the accepted ADRs 0086-0096 and with
+the development results in [phase-5-results.md](phase-5-results.md). No rule changed in this edit.
+- The user's choices of 2026-11-24 are written in as decided (section 15): P5 in the budget form with no waiver
+  (sections 4 and 4.1), and option C for G\* with the stress cap on the remaining budget (section 10.2).
+- The gray size is 2,500 USDC (section 10.2), and both risk-rule variants were rejected (section 6.2).
+- `λ ≈ 0.15` is marked as the pre-run estimate, with the measured values beside it (sections 4.1 and 7).
+- L1 is measured out of sample on the population (section 6.1).
+- Revision 2 was deleted, and this file took its name.
+
 Scope and discipline come from ADR-0065:
-- designed on the four development windows only;
+- designed on development data only;
 - every variant goes in the trial log;
-- choice criteria are written before results;
-- frozen together with [Phase 4 v2](phase-4-v2-methodology.md) in one hash;
-- the holdout is opened once and tests the whole scheme.
+- the decision rules are written before results;
+- frozen together with the Phase 4 v2 specification in one hash;
+- the holdout is opened once.
 
-Points adopted from the external Phase 4 review are marked **[ext]**.
+## 0. Where Phase 5 starts
 
----
+- **Phase 4 v2 found no capital-grade evidence of skill** ([phase-4-v2-results.md](phase-4-v2-results.md)):
+  - no E2 address at 3 Dec under any of the six specifications run (published, entry-day beta ×2, loosened evidence
+    gates, gate 7b without flow intervals, funding removed);
+  - ranking IC averages -0.030 and is positive at 1 of 4 origins;
+  - the categories are not ordered;
+  - the copy keeps about 16% of a leader's edge after costs and delay.
+- **A direct GO is therefore rejected.** The plan's GO needs research validity, which is not met.
+- **This phase decides between CONDITIONAL GO and NO-GO,** and that decision chooses the deployment protocol:
+  **gray** (live micro-capital beside paper) or **paper** (no capital).
 
-## 0. What Phase 5 must deliver
+```
+Phase 5 on development data (training + test windows)
+   → joint freeze
+   → holdout opened once: the chosen two-sleeve scheme
+   → CONDITIONAL GO or NO-GO (section 9)
+   → cutoff selection with the frozen rules
+   → deployment protocol: gray or paper (section 10)
+```
 
-The written test asks for:
-- a launch decision;
-- the address set and how it forms a portfolio;
-- the capital arrangement and the number of addresses;
-- how unallocated capital is handled;
-- risk limits, pause and exit conditions;
-- the operating arrangement (decision updates, instruction timing, multiple sources on one contract, fills vs
-  targets, capital increases and risk cuts, manual intervention).
+## 1. The two sleeves
 
-Phase 5 turns each of these into a **mechanical, simulated and tested rule**. Section 9 maps every question to where
-it is answered.
-
-**Inputs from Phase 4 v2** (`research/selection_v2/origin=<date>/`), per origin:
-- the E1 and E2 addresses, each with:
-  - posterior alpha `m_i` **per unit of gross exposure-time** (scale-free);
-  - utilisation `ū_i` (p50 / p95 gross per unit of allocation);
-  - capacity inputs and exposure profiles;
-- the co-movement matrices, including exposure-based risk correlation;
-- the tradable coin set;
-- the ranking-validation flag, which says whether posterior alpha may order the eligible set;
-- the τ² "robustly 0" flag. When it is set, there are no E2 addresses and only a shadow scheme is built.
-
-Phase 4 is computed at a **provisional 10,000 USDC sleeve** (Phase 4 v2, section 9.1). An expected sleeve return is
-always `m_i · ū_i · A_i`: skill times how much of the allocation the copy actually uses.
-
-**What exists today:** each address is replayed separately (frozen `E_ref`, 1.5x cap, 0.5% participation, measured
-delays, square-root impact). Portfolio-level netting, shared margin and portfolio limits were never simulated
-(ADR-0064). The development figures today:
-- capture 0.157;
-- gap 49% half-spread, 27% fees, 15% impact;
-- delay drift 20 USDC in base and 953 in stress;
-- worst basket drawdown -7.8%.
-
-## 1. Principles
-
-1. **The pilot is a measurement experiment with a loss budget.** Its job is to measure slippage, tracking and capture
-   at a bounded cost, not to maximise return. MinTRL is about 1,600 days, so returns cannot be the scaling signal.
-2. **Every limit is derived from the budget.** Development data calibrates only how often a rule fires and what it
-   costs, never which threshold gave the best return.
-3. **Simplest rule wins** unless a more complex one beats it by a margin stated in advance.
-4. **Diversification is decided here, on the combined book** (Phase 4 v2, section 8). It is a choice of which sleeves
-   to hold and how much, not only a cap on positions.
-5. **Everything is point in time and simulated before the freeze.** A rule the replay does not execute is not part of
-   the scheme (ADR-0065).
-6. **No credit for missing evidence.** An unmeasured pair counts as correlation 1. An unpriced position counts at its
-   stress loss.
-
-## 2. Account structure and execution model
-
-### 2.1 Structure (ADR-0076)
-
-| Option | For | Against |
+| | 0x2cd9 | 0x971f |
 | --- | --- | --- |
-| **A. One trading account (cross margin), virtual sleeves** | One book for portfolio limits and the drawdown ladder; orders for one coin are netted across leaders (the plan's live model; answers "several sources, one contract" directly); one reconciliation | A sleeve's loss draws on shared margin |
-| B. One sub-account per sleeve | Exact isolation; matches today's per-address replay | Portfolio limits need cross-account aggregation; no order netting; N reconciliations |
+| Role | **formal hand-off** (the frozen Phase 4 rule's only 3 Dec hand-off) | **observation sleeve** (declared here, outside the hand-off) |
+| Category at 3 Dec | E1 | E1 |
+| α ± s, bps per day of gross (excluding funding) | 26.7 ± 61.9 (23.7 including funding) | 75.7 ± 44.9 (74.7 including funding) |
+| Posterior P(α > 0) | 0.00: τ² is robustly 0 at 3 Dec, so every posterior is the point mass at μ0 = 0 | 0.00 (the same) |
+| α without its best week | -8.7: **not robust** | 56.5: **robust** |
+| Static / timing split | -2.6 / 29.3 | -20.3 / 96.1 |
+| Exposed days | 47 | 79 |
+| Book | about 91% of gross in HYPE, long only | BNB about 62%, BTC about 38%, long only |
+| S2 (Phase 2) | pass | **fail: gate 7b only** |
+| S3 (copyability) | pass | pass |
 
-- **Default: A**, with the reserve in a separate account that the trading account cannot draw on.
-- **Switch to B** only if the margin-contagion test (section 7.4) shows that a single sleeve's stressed loss at its
-  limits can push the account's maintenance-margin ratio above 25%.
-- Under the gross caps here (portfolio 1.5x), that is not expected.
+Sources: Phase 4 v2 results, 3 Dec table (`decision/phase-4-v2-3dec-e1-e2.csv`); books from the v1 audit `basket_concentration_2025-12-03.csv`.
 
-### 2.2 Execution model (what the engine does, and what the replay simulates)
+**Why 0x971f is run.** This is a Phase 5 design choice. Phase 2 and Phase 4 are not changed.
+1. **0x2cd9 alone is one HYPE bet.** At about 91% HYPE it could never meet a rule that no coin exceeds 40% of
+   portfolio stress loss, the share form of P5 this design started from. A one-sleeve scheme would therefore test a
+   "portfolio" that cannot exist inside our own limits. P5 is now the budget form (section 4), which a one-coin book
+   can meet, but the point stands: one sleeve exercises none of the limits that bind across sleeves. 0x971f is the
+   only robust E1 address at 3 Dec that is not in HYPE.
+2. **It tests a multi-address strategy.** The things that only exist with two or more sleeves:
+   - adding sleeve targets per coin and netting them (both books can hold BTC);
+   - per-coin and portfolio limits that bind across sleeves;
+   - participation shared within a 4h bar;
+   - a risk state in one sleeve (pause, flatten) alongside a normal one.
 
-1. **Leader state.** Fills update a virtual book per leader (WebSocket `userFills`; the replay uses the measured
-   392 ms receive delay). Snapshots (`clearinghouseState`) update equity, the `E_ref` review and resync.
+**What 0x971f's status is, and is not.**
+- **Why it is outside the hand-off.** It fails gate 7b by a hair: the gap-rate lower bound is 5.46 against 5.0
+  bps/day. The whole gap is two intervals with recorded withdrawals (ADR-0069):
+  - src_row 75841, 12 Oct, -420 USDC;
+  - src_row 75852, 23 Oct, -728 USDC.
+
+  In each, the residual equals the withdrawal. Without them the gap is -0.04 bps/day, against a rank agreement of
+  0.995, a slope of 1.006 and tracking of 0.011.
+- **Gate 7 is not changed.** 0x971f runs as an observation sleeve:
+  - same engine, sleeve size and limits as 0x2cd9;
+  - zero capital in every protocol;
+  - **no path to capital unless it re-qualifies under the frozen rules** at the cutoff selection or a later review.
+- **Adding it does not make the share form of P5 attainable.** When 0x2cd9 holds HYPE and 0x971f is flat, HYPE is
+  all of the stress loss, and scaling 0x2cd9 as a whole cannot change that share. That is one reason P5 is the budget
+  form (section 4.1). How often P5 binds, and how far the limits scale 0x2cd9 down, are **findings** of section 7,
+  not assumptions.
+- **Selection is in-sample on the development windows.** Both addresses were chosen with data up to 3 Dec, which
+  covers every development test window. Development results for the pair therefore test the **machinery and the risk
+  rules, not skill**. The holdout is the only out-of-sample test of this scheme.
+
+## 2. The chosen strategy (what is frozen and tested)
+
+**S\***: a paper copy of 0x2cd9 and 0x971f.
+- **Sizing:** one sleeve of **10,000 USDC notional** each, the provisional Phase 4 size, so Phase 4 v2's P4-9 recompute
+  is not triggered. Equal weight.
+  - Frozen reference equity sizing (ADR-0052), copy multiplier `k_i = min(A_i / E_ref,i, 1)`, no scale-up.
+  - 0x971f's equity (about 7.5k) is below its sleeve, so its sleeve is partly idle. That is reported as utilisation.
+- **Coins:** each wallet's tradable universe (ADR-0073), with the 1.5x cap solved on the full book.
+- **Rules:** execution as in section 3, limits as in section 4, risk states and triggers as in section 5.
+- **No weighting variants.** With two sleeves there is nothing to optimise.
+- **Two risk-rule variants** were settled at P5-4 (section 6.2). Both were rejected, so the current rules stay:
+  - the cap denominator: the fixed allocation (kept) vs sleeve NAV;
+  - `E_ref` at reviews: reset (kept) vs high-water mark.
+
+Every test runs three configurations side by side, on the same leader events and the same costs:
+
+| Configuration | What it is | Why |
+| --- | --- | --- |
+| **S\*** (the scheme) | both sleeves, 10k each, every limit and risk state | the strategy under test |
+| **U\*** (unconstrained twin) | both sleeves, 10k each, only the sleeve gross cap S1 and the execution rules O1-O3 | the leader-shaped copy; S\* minus U\* is the effect and cost of the limits **[decision 2]** |
+| **G\*** (the capital book) | the hand-off alone (0x2cd9) at the gray size, under the gray rules of section 10.2 and the 750 USDC loss cap | the book that would hold money; judged by D2b **[decision 3]** |
+
+## 3. Execution model (simulated in the replay; the live engine is out of scope, ADR-0064)
+
+1. **Leader state.** Fills update a virtual book per leader, using the measured 392 ms receive delay. Snapshots
+   update equity, the `E_ref` review and resync.
 2. **Sleeve target** per coin: `T_{i,c} = s_i · k_i · q_{i,c}`.
-   - `q` is the leader's visible net position.
-   - `k_i = min(A_i / E_ref,i, 1)` is the frozen copy multiplier (ADR-0052, no scale-up). It is not the posterior
-     alpha `m_i`.
-   - `s_i ∈ {1, 0.5, reduce-only, 0}` comes from the risk state machine (section 5).
-   - The sleeve cap is projected on the leader's **full** book; non-tradable coins have target 0 (Phase 4 v2, section 4.2).
-3. **Aggregate target** per coin: `T_c = Σ_i T_{i,c}`, projected onto the portfolio limits (section 4). When a limit
-   binds, the risk-increasing sleeve contributions are cut pro rata. Each sleeve keeps its virtual attribution even
-   when physical positions cancel.
+   - `q` is the leader's net position.
+   - `s_i` is the risk state scalar (section 5).
+   - Non-tradable coins have target 0.
+3. **Aggregate target** per coin: `T_c = Σ_i λ_i · T_{i,c}`. `λ_i ∈ [0, 1]` is the sleeve's **limit scale**, set
+   by section 4.1 so that every limit holds. **A limit never cuts a single leg:** when one binds, the sleeves that
+   cause it are scaled as wholes, so each stays a scaled copy of its leader's tradable book (ADR-0073). Netting
+   between sleeves happens only in the physical order; virtual attribution stays per sleeve.
 4. **Order:** `Δ_c = T_c − held_c − pending_c`.
-   - Sent only if `|Δ_c| > max(10 USDC, 2% of |T_c|)` (deadband).
-   - After a 250 ms debounce, plus a sweep every 15 minutes.
-   - Bounded-price IOC with a deterministic client order id.
-   - A partial fill, rejection or timeout recomputes `Δ` from exchange state. The original size is never resent.
-5. **Participation:** at most 0.5% of the coin's latest completed 4h volume **per coin per bar, summed over all
-   orders**. This closes the per-order loophole in pre-holdout Check 6.
-6. **Flatten sweep:** when a leader is flat and its sleeve is not (pre-holdout Check 5: 1.4-2.4% of exposure-time),
-   close the remainder reduce-only at the next sweep, independently of leader events.
-7. **Staleness:** a signal older than 30 s at decision (PLACEHOLDER; the stress delay is 5 s) is not executed late.
-   The target is resynced from leader state at the next decision instead.
-8. **Reconciliation:** exchange state is authoritative. A drift beyond tolerance for 3 cycles freezes that coin and
-   alerts.
-
-**What the replay will and will not simulate:**
-- Items 2-7 are simulated (section 6).
-- Order netting across sleeves (item 3's physical netting) is **not** credited in the base result. Sleeves are
-  executed separately, which overstates cost slightly. The saving is measured separately as an upside.
-- Item 8 is an operating rule (live engine out of scope, ADR-0064).
-
-## 3. Capital allocation
-
-### 3.1 The capital stack (ADR-0077)
-
-| Layer | Stage 0 Shadow | Stage 1 | Stage 2 | Stage 3 cap |
-| --- | ---: | ---: | ---: | ---: |
-| Deployed `D` (trading account) | 0 | **15,000** (CONDITIONAL GO) or **30,000** (GO) | 60,000 | 80,000 |
-| Reserve (separate account, USDC) | 100,000 | 85,000 / 70,000 | 40,000 | ≥ 20,000 |
-
-- **Unallocated capital.** If total sleeve capacity is below the stage's `D`, the shortfall stays in the reserve. It
-  is never parked in the trading account.
-  - The reserve is held as USDC: not lent, not staked, not used as margin.
-  - It **never tops up a losing sleeve**; there is no averaging down.
-  - It moves into the trading account only at a stage gate.
-- Inside the trading account, idle margin from a sleeve not using its full allocation counts toward deployed capital.
-  It is reported as utilisation, the share of `D` actually at risk.
-- Stage amounts are PLACEHOLDERS from the plan (`config/risk.yaml`). Stage 1 at 15k applies when the Phase 4
-  evidence is "positive but underpowered".
-
-### 3.2 Sleeve capacity (ADR-0078)
-
-`cap_i = min(E_ref,i, A*_i)`, rounded down to the sleeve grid {2.5k, 5k, 7.5k, 10k, 15k}.
-- **`E_ref,i`:** under no scale-up a leader cannot absorb more than its own equity (0x971f: about 7.5k).
-- **`A*_i`:** the largest grid size at which the training-window copy has at most 2% of intended notional clipped by
-  participation and capture no more than 10% below the 2.5k copy (PLACEHOLDERS).
-- This comes from replaying all A/B addresses at each grid size. Sleeves are only ever sized on the grid, so every
-  evaluated sleeve has an exact replay.
-- **Minimum sleeve `A_min` = 5,000:** below it, more than about 5% of orders fall under the 10 USDC minimum (plan:
-  4.7% at 5k). A leader whose capacity is under `A_min` cannot be held.
-- **Number of sleeves:** `K ≤ floor(D / A_min)`, so 3 at 15k and 6 at 30k. It is also limited by how many eligible
-  sleeves pass the constraints below. `K = 0` is valid.
-- **Largest sleeve:** `max(25% of D, A_min)`. That is 5,000 at 15k (three sleeves at most), 7,500 at 30k and
-  15,000 at 60k.
-- **Sizes and the Phase 4 loop [A3]:**
-  - At stage 1 no sleeve exceeds 10k, so Phase 4's 10k-based T3 and equity band are conservative. The 15k grid point
-    is used only from stage 2.
-  - If any chosen size differs from 10k, Phase 4 is recomputed **once** on the chosen-size trees (Phase 4 v2, P4-9).
-    Construction (section 3.3) is then rerun **once** with the sizes held fixed. The loop stops there.
-
-### 3.3 Inclusion and weights (ADR-0079): diversification lives here
-
-**Eligible set:**
-- the Phase 4 v2 E2 addresses for a capital stage;
-- E1 ∪ E2 for the shadow stage (labelled shadow-only).
-
-**Risk model, point in time [A5]:**
-- `Σ`: coin covariance from Hyperliquid daily marks over the 90 days before the origin (EWMA, half-life 30 days),
-  with Ledoit-Wolf shrinkage. It is fitted **once at each origin or review** and not re-estimated within a window.
-  The coin betas are fitted the same way (Phase 4 v2, section 5.2).
-- `e_i`: sleeve exposure profiles at p50 and p95 utilisation (Phase 4 v2 hand-off).
-- Sleeve covariance: `C = E Σ E'`, conservatively blended: `ρ_ij = max(exposure-based ρ_ij, realised ρ_ij on
-  both-exposed days)`.
-- Unmeasured pairs are set to `ρ = 1` **[ext 8.3]**.
-
-**Three weighting rules (the variants):**
-
-| Rule | Weights |
-| --- | --- |
-| R1 Capped equal weight | `w_i = min(cap_i, D / K)` |
-| R2 Inverse stress | `w_i ∝ 1 / SL_i`, where `SL_i` is the sleeve's stressed loss per unit of allocation at p95 utilisation (section 4.3 shock) |
-| R3 Equal risk contribution | on `C`, with the same caps |
-
-All three are subject to:
-- capacity `cap_i`;
-- the floor `A_min` (else 0);
-- at most `max(25% of D, A_min)` per sleeve;
-- the construction constraints below.
-
-**Construction constraints**, checked at p95 utilisation:
-- the portfolio stress loss (section 4.3) ≤ 15% of `D`;
-- no coin above 40% of the stress loss;
-- `|net BTC-equivalent beta|` ≤ 0.5 × `D`;
-- the net per-coin limits of section 4.2 not binding at p50 utilisation.
-
-**Subset choice:** enumerate every subset of the eligible set up to `K`. With 25 eligible and `K = 6` that is about
-177k subsets, which is feasible.
-- For each subset, apply the chosen weighting rule and discard it if any constraint fails.
-- Among the feasible subsets, choose the one with the highest effective number of bets
-  `ENB = (Σλ)² / Σλ²`, where λ are the eigenvalues of the weighted correlation.
-- Ties go to the higher expected return `Σ w_i · m_i · ū_i` (per-gross skill times utilisation, **[A1]**), but
-  **only if** Phase 4 v2's ranking validation passed. Otherwise ties go to fewer sleeves, then to address order.
-- A HYPE-concentrated leader is not excluded by a pairwise threshold. It gets the weight the stress and coin-share
-  constraints allow, possibly 0.
-
-**Choice between R1-R3:** keep R1 unless R2 or R3 lowers the 95% expected shortfall of window returns across the
-random schemes (section 7.2) by at least 20%, while lowering the mean by no more than 0.25 pp per window. Ties go to
-the simpler rule.
-
-### 3.4 Sizing mechanics to settle (ADR-0080; at most two variants each)
-
-| Item | Today | Variant | Why |
-| --- | --- | --- | --- |
-| Cap denominator | 1.5 × fixed allocation | 1.5 × min(`A_i`, sleeve NAV) | After copy losses the copy's leverage on its own capital rises today |
-| `E_ref` at reviews | reset to the latest usable equity | high-water reference `max(E_ref,prev, E_latest)` | 483 of 2,041 reviews in the 3 Dec training window raised the multiplier after the leader lost, which re-levers into losers |
-
-Same criterion as R1-R3. Simplest wins.
-
-### 3.5 Reviews and rebalancing
-
-- Weights, inclusion, `E_ref` and capacity are recomputed only at the 14-day review, aligned with the `E_ref`
-  schedule, from data up to the review.
-- Between reviews only the risk state machine changes exposure.
-- No rebalancing toward losers from the reserve.
-
-## 4. Risk limits (ADR-0081)
-
-### 4.1 The risk budget
-
-- **Pilot loss budget `L` = 5% of the 100k = 5,000 USDC (PLACEHOLDER, sign-off item).** It is approved per stage: the
-  USDC amount is re-signed at each stage gate, and the percentages below stay fixed.
-- At `D` = 30k, the flatten step (-15% of `D`) is 4,500 USDC. The flatten cost and any overshoot must fit within the
-  remaining 500 USDC, which the simulation checks (section 7.6).
-
-### 4.2 The limit set
-
-| Level | # | Metric | Limit (PLACEHOLDER) | Checked | Action |
-| --- | --- | --- | --- | --- | --- |
-| Order | O1 | Participation per coin per completed 4h bar, all orders | ≤ 0.5% | every order | clip; remainder next bar |
-| Order | O2 | Limit price vs decision mark | ≤ stress-scenario p99 shortfall for the coin's liquidity bucket | every order | IOC at the bound; recompute |
-| Order | O3 | Minimum size and deadband | 10 USDC; 2% of target | every order | skip |
-| Order | O4 | Post-trade projection | no limit below breached | every risk-increasing order | block the increase |
-| Sleeve | S1 | Gross exposure | ≤ 1.5 × cap denominator (section 3.4) | every order | scale all coins together (ADR-0034) |
-| Sleeve | S2 | Stressed loss (section 4.3) | ≤ 25% of sleeve NAV | hourly mark and pre-trade | block increases |
-| Sleeve | S3 | Drawdown from the sleeve's high-water mark | -10% reduce-only; -15% flatten and pause | hourly mark | state machine (section 5) |
-| Portfolio | P1 | Gross exposure | ≤ 1.5 × deployed NAV | every order | pro-rata cut |
-| Portfolio | P2 | Net per coin | BTC, ETH ≤ 25% of deployed NAV each; any other coin ≤ 10% per sleeve holding it and ≤ 20% in total | every order | pro-rata cut of risk-increasing contributions |
-| Portfolio | P3 | Net beta, holdings-based BTC-equivalent | ≤ 0.5 × deployed NAV | every order | pro-rata cut |
-| Portfolio | P4 | Stressed loss (section 4.3), plus exit cost | ≤ 15% of deployed NAV | hourly mark and pre-trade | block increases; a passive breach → reduce-only until below 90% of the limit |
-| Portfolio | P5 | One coin's share of P4 | ≤ 40% | hourly mark | block increases in that coin |
-| Portfolio | P6 | Drawdown ladder on deployed NAV's high-water mark | -5% halve new risk; -10% reduce-only; -15% flatten all, stop, human review | hourly mark | state machine |
-| Account | P7 | Maintenance margin / account equity | ≤ 25% | hourly mark | reduce-only; alert |
-
-**Why P4 = 15%:** a repeat of the worst observed 24h move in every coin at once, at full permitted exposure, lands
-at the flatten step and stays inside the budget. Gradual losses are handled by the ladder. For alt-heavy books, P4
-binds well before the 1.5x gross cap. That is intended: the gross cap is the backstop and the stress limit is the
-real limit.
-
-### 4.3 The stress shock
-
-- Per coin: the largest adverse 24h move observed since 1 Jul 2025, point in time (the Phase 2 `stress_horizon_h`
-  shocks, ADR-0017), applied to each position in its adverse direction **at the same time**. This is conservative for
-  hedged books.
-- Plus the exit cost at stress-scenario spreads and impact.
-- An unpriced position counts at its stress loss with a 100% shock.
-
-## 5. Pause, exit, resume and capital changes (ADR-0082)
-
-### 5.1 Risk state machine
-
-Per sleeve:
-`NORMAL → HALVED → REDUCE_ONLY → FLATTEN → PAUSED → (review) → NORMAL or EXITED`
-
-Portfolio: the same states, driven by P6. The portfolio state caps every sleeve's state; the more restrictive wins.
-
-- **Reduce-only** copies the leader's reductions and blocks increases.
-- **Flatten** sends reduce-only IOC slices within O1.
-  - Thin coins (latest 4h volume under 1M USDC): TWAP over at most 60 minutes.
-  - Costed at the stress scenario.
-
-### 5.2 Triggers
-
-| # | Trigger | Data | Threshold (PLACEHOLDER) | Action | Human? |
-| ---: | --- | --- | --- | --- | --- |
-| L1 | Leader drawdown beyond its own history | leader book, hourly | > 1.5 × its point-in-time max drawdown | sleeve REDUCE_ONLY | review |
-| L2 | Leader leverage out of character | leader book, hourly | > 2 × its p95 | REDUCE_ONLY | review |
-| L3 | Leader equity collapse | snapshots | < (1 − 0.3) × `E_ref` | REDUCE_ONLY until review | yes |
-| L4 | Large withdrawal | `net_deposit` | > 50% of equity in 24h | REDUCE_ONLY | yes |
-| L5 | Leader liquidation or auto-deleveraging | fills | any | FLATTEN, PAUSED | yes |
-| L6 | Leader drifts to non-tradable coins | fills, trailing 7 days | > 10% of notional | REDUCE_ONLY; exit at review if it persists | review |
-| L7 | Leader inactive | fills | > 14 days | release the allocation at review | no |
-| C1 | Copy execution degrades | own fills, rolling 14 days | realised shortfall per side > the stress scenario's | REDUCE_ONLY | yes |
-| C2 | Copy drawdown | sleeve NAV | S3 (-10% / -15%) | REDUCE_ONLY / FLATTEN | yes at -15% |
-| C3 | Feed stale or position mismatch | WebSocket vs `clearinghouseState` | > 60 s while holding, or any unexplained position difference | freeze increases; resync | if not cleared in 10 min |
-| P | Portfolio ladder, stress breach, margin | section 4 | P4, P6, P7 | as in section 4 | yes at -10% |
-| O | Venue incident, oracle anomaly, reconciliation drift for 3 cycles, key incident | ops | any | REDUCE_ONLY all; freeze coin | yes |
-
-### 5.3 Exit, resume and capital changes
-
-- **Exit at a review** (the sleeve is removed and its capital released to the reserve) when:
-  - the address fails a binding Phase 2 or S3 gate, rerun on data to the review;
-  - its Phase 4 v2 category falls below E2 (or below E1 in shadow);
-  - it was PAUSED through the whole period;
-  - L7 applies.
-- **Resume:** only at a review, only if the trigger has cleared and the address re-qualifies under the frozen
-  Phase 4 v2 rules, and only with human sign-off. After a portfolio flatten (P6 at -15%), the scheme restarts from
-  shadow.
-- **Capital increases:** only at a stage gate, and **never because of PnL alone**. All of the following must hold:
-  - at least 28 days at the stage;
-  - at least 200 copy orders;
-  - realised shortfall inside the base scenario's 80% band;
-  - daily tracking error against the paper target ≤ 0.5% of `D` (PLACEHOLDER);
-  - the ladder never went past -5%;
-  - no open incident;
-  - signed off.
-- **Capital decreases** are automatic through the ladder and the exits.
-
-### 5.4 How triggers are calibrated
-
-- Use all A/B copies over the training windows (to calibrate) and the four development test windows (to evaluate).
-- For each trigger, report:
-  - how often it fires per sleeve-month;
-  - the copy's return and drawdown in the 14 days after firing against matched days without firing (descriptive);
-  - its false-alarm share (firings followed by a non-negative 14-day copy return).
-- Thresholds come from the risk logic above. A threshold is changed only if the trigger fires more than once per
-  sleeve-month (operational noise), never to improve return.
-
-## 6. Simulation architecture (ADR-0083)
-
-1. **Sleeve trees.** Replay all A/B addresses at each grid size (section 3.2) on the Phase 4 v2 tradable universe,
-   with the flatten sweep and the per-bar participation of section 2.2. Five grid sizes × about 17 minutes ≈ 1.5
-   hours.
-2. **Exact portfolio engine** (`portfolio_replay.py`):
-   - one event loop merging the chosen sleeves' decisions by time;
-   - sleeve targets come from the existing replay functions (`batches`, `reference_equity`, `cap_legs`,
-     `order_inputs`, `quotes`, `execute`);
-   - the portfolio projection (section 4) and the state machine (section 5) run inside the loop. Reduce-only
-     interacts with pending orders and netting, so it cannot be applied after the fact;
-   - per-coin participation is shared across sleeves;
-   - outputs: sleeve and portfolio ledgers, a state timeline, a limit-binding log, overlay cost, utilisation, and the
-     netting saving measured on the side.
-3. **Fast approximation for many random schemes.** Sum the sleeve ledgers, then apply the state machine as
-   path-dependent scalars on each sleeve's PnL increments, with the scaling trades charged at stress cost. A flatten
-   is exact (PnL stops, plus the exit cost); halve and reduce-only are approximate.
-   - **Validated before use:** on the selected schemes and 20 random schemes per window, compared with the exact
-     engine.
-   - Pass: |window return difference| ≤ 0.25 pp and the same ladder events.
-   - Otherwise the exact engine is used everywhere.
-4. **Guarantees:** point in time, seeded and byte-identical on rerun, holdout refused without the freeze (`freeze.guard`).
-
-## 7. Testing before the holdout
-
-### 7.1 Unit and fault tests (each with an expected end state)
-
-The plan's fault table, plus:
-- the pro-rata projection cuts only risk-increasing contributions;
-- every ladder and state transition, in both directions;
-- reduce-only never increases `|position|`;
-- flatten completes within O1 and its cost is booked;
-- resume is refused outside a review;
-- the reserve is never debited by trading;
-- the `E_ref` invariant holds (a leader's equity change with fixed positions moves nothing);
-- participation is shared across sleeves in one bar;
-- a stale signal is dropped and resynced;
-- the flatten sweep closes a residual;
-- an unmeasured pair is treated as `ρ = 1` in construction.
-
-### 7.2 Development evaluation
-
-At each development origin:
-- Phase 4 v2 eligible set → section 3 construction → the exact engine over the next 14 days.
-
-Baselines on the same windows:
-- 1,000 random schemes: random subsets of the eligible set with the same construction and the same risk rules;
-- all-A/B random schemes;
-- the eligible set at equal weight with no overlay;
-- cash.
-
-Scenarios: optimistic, base, stress and severe (60 s / 300 s).
-
-Reported:
-- raw and holdings-adjusted return;
-- max drawdown, 95% expected shortfall (daily), worst day;
-- time in each state and the number of trigger firings;
-- overlay cost, turnover, capture, utilisation, netting saving;
-- each window with and without 10-11 Oct.
-
-### 7.3 Historical stress
-
-The 8 Oct window contains 10-11 Oct. Report the full scheme's path through it: state changes, losses against the
-budget, and exit costs. Repeat at severe delays.
-
-### 7.4 Hypothetical stress at the limits
-
-- Set every sleeve and the portfolio at their maximum permitted exposure at the same time.
-- Apply the section 4.3 joint shock with severe delays and stress costs.
-- Check: the loss is within `L`, and P7 is not breached (the margin-contagion test of section 2.1).
-
-### 7.5 Pilot-horizon bootstrap
-
-- Synchronized calendar-block bootstrap of the sleeves' daily returns **[ext 6.2]**: the same calendar blocks for
-  every sleeve, so cross-sleeve dependence is kept.
-- Data: from 8 Sep to 2 Dec; block lengths 5, 7 and 10 days; horizons 30 and 60 days; with the ladder and the sleeve
-  rules applied to each path.
-- Outputs:
-  - the probability of hitting -5%, -10% and -15%;
-  - the probability of exiting a sleeve whose later return was non-negative (a false exit);
-  - the loss distribution against `L`.
-
-### 7.6 Pass criteria (written before any Phase 5 run; PLACEHOLDERS)
-
-| Criterion | Pass |
-| --- | --- |
-| Hypothetical stress at the limits (7.4) | loss ≤ `L`; margin ratio ≤ 25% |
-| Bootstrap, 30 days (7.5) | P(-15%) ≤ 5%; P(-10%) ≤ 15% |
-| Flatten overshoot (7.3-7.5) | the realised loss at flatten, including exit cost, ≤ 16.5% of `D` (inside `L` at 30k) |
-| Overlay cost in base (7.2) | ≤ 15 bps of `D` per window on average |
-| Trigger noise (5.4) | ≤ 1 firing per sleeve-month for each leader trigger |
-| Fault tests (7.1) | all pass |
-
-**If a criterion fails:** the scheme is redesigned on development data (logged), or the stage is lowered (shadow
-only). The criteria are not relaxed.
-
-### 7.7 Variant choices (all logged; criteria as in sections 3.3-3.4)
-
-- the weighting rule (R1, R2, R3);
-- the cap denominator (two options);
-- the `E_ref` policy (two options);
-- the account structure (A or B, by the 7.4 test).
-
-At most three variants per item, chosen before the holdout. None is chosen by a holdout result.
-
-## 8. Freeze and holdout (a new ADR)
-
-**One joint freeze**, which replaces the void ADR-A0141 hash. It covers:
-- `decision_context.yaml` v2 and `risk.yaml` v2;
-- `execution.yaml` and `instruments.yaml`;
-- every Phase 2, Phase 4 v2, replay and Phase 5 source;
-- the data manifests and the replay and selection output manifests (pre-holdout Check 3), plus the environment block;
-- the window-report module, already run on all four development windows (Check 4).
-
-The hash is sent to the reviewers before the run.
-
-**Holdout run, once:**
-1. Phase 4 v2 at 3 Dec.
-2. Phase 5 construction at 3 Dec.
-3. The exact engine from 3 Dec 2025 00:00 to 4 Jan 2026 00:00: 32 calendar rows, with the count of valid returns
-   stated.
-4. The report uses the development-window schema.
-5. The outcome goes into the plan's decision table (GO / CONDITIONAL GO / NO-GO) and the memo. No retuning.
-
-**Selection at the cutoff:** the frozen rules applied once at 2026-01-04 23:59:42 UTC produce `trader_decisions.csv`
-and `target_allocations.csv`. These are the configuration a launch would start from. Under A12, a live start still
-needs re-qualification on current data.
-
-## 9. Where each operating question is answered
+   - Deadband: `max(10 USDC, 2% of |T_c|)`.
+   - After a 250 ms debounce, plus a 15-minute sweep.
+   - Bounded-price IOC with a deterministic client id.
+   - A partial fill, rejection or timeout recomputes `Δ` from state. The original size is never resent.
+5. **Participation:** at most 0.5% of the latest completed 4h volume **per coin per bar, summed over both sleeves**.
+6. **Flatten sweep:** when a leader is flat and its sleeve is not, close the residual reduce-only at the next sweep
+   (pre-holdout Check 5).
+7. **Stale signals:** older than 30 s at decision (PLACEHOLDER) → not executed; resync at the next decision.
+8. **Funding** is booked as cash in the copy's PnL. It is reported separately from α.
+9. **Where the copy may still differ from the leader's shape, and how that is shown.** Each difference is logged and
+   reported as tracking error against the scaled target:
+   - temporary, leg-level execution effects: participation clips (O1), sub-minimum skips and the deadband (O3), stale
+     signals (item 7);
+   - one risk state: REDUCE_ONLY does not open legs the leader opens during the state (section 5).
+
+   No limit changes the book's shape.
+
+## 4. Risk limits (ADR-0088)
+
+**In the paper scheme every limit runs exactly as it would with capital**, on the paper book, and every time a limit
+binds is logged. The percentages apply to the scheme's notional `D` = 20,000 (two 10k sleeves).
+
+| # | Metric | Limit (PLACEHOLDER) | Checked | Action |
+| --- | --- | --- | --- | --- |
+| O1 | Participation per coin per 4h bar, both sleeves | ≤ 0.5% | every order | clip; remainder next bar (execution, leg-level) |
+| O2 | Limit price vs decision mark | ≤ the stress-scenario p99 shortfall for the coin's liquidity bucket | every order | IOC at the bound (execution) |
+| O3 | Minimum size, deadband | 10 USDC; 2% of target | every order | skip (execution) |
+| O4 | Post-trade projection | no limit below breached | every target update | recompute `λ_i` (section 4.1) before any order |
+| S1 | Sleeve gross | ≤ 1.5 × cap denominator (section 6.2) | every target update | scale the sleeve as a whole (ADR-0034) |
+| S2 | Sleeve stressed loss | ≤ 25% of sleeve NAV | hourly and every target update | scale the sleeve as a whole |
+| S3 | Sleeve drawdown from its high-water mark | -10% reduce-only; -15% flatten and pause | hourly | state machine |
+| P1 | Portfolio gross | ≤ 1.5 × `D` | every target update | scale the contributing sleeves as wholes |
+| P2 | Net per coin | BTC, ETH ≤ 25% of `D`; any other coin ≤ 10% per sleeve holding it and ≤ 20% in total | every target update | per-sleeve part: scale that sleeve; total part: scale the contributing sleeves (wholes) |
+| P3 | Net BTC-equivalent beta (holdings-based) | ≤ 0.5 × `D` | every target update | scale the contributing sleeves as wholes |
+| P4 | Portfolio stressed loss, plus exit cost | ≤ 15% of `D` | hourly and every target update | scale the contributing sleeves as wholes; a passive breach → reduce-only until below 90% |
+| P5 | One coin's stress loss, summed over sleeves | ≤ 40% of the P4 budget: 40% × 15% × `D` = 1,200 USDC | hourly and every target update | scale the contributing sleeves as wholes; no waiver (section 4.1) |
+| P6 | Drawdown ladder on the scheme's high-water mark | -5% halve new risk; -10% reduce-only; -15% flatten all, stop | hourly | state machine |
+
+### 4.1 How a binding limit sets each sleeve's scale `λ_i` [decision 2]
+
+1. **Start** from `λ_i = 1` for both sleeves at each leader-driven target update. The hourly checks can only lower
+   `λ_i` (ADR-0096 item 2).
+2. **Per-sleeve limits first** (S1, S2, the per-sleeve part of P2): each sleeve's `λ_i` is the largest value at or
+   below its current one that satisfies them. Every leg is multiplied by the same `λ_i`, as ADR-0034 already does for
+   the gross cap.
+3. **Portfolio limits** (P1, the total part of P2, P3, P4), in that order:
+   - the contributing sleeves are those whose positions add to the limited quantity in the breaching direction;
+   - they are multiplied by **one common factor**, the largest that restores the limit;
+   - sleeves that do not contribute are not touched.
+4. **P5, the budget form (ADR-0088 item 6):** one coin's stress loss, summed over sleeves, is at most 1,200 USDC.
+   It is solved last, like the other portfolio limits: one common factor on the sleeves whose positions in the coin
+   add to its stress loss. There is no waiver.
+   - The share form first written here (at most 40% of current P4 usage, waived when scaling cannot change the share)
+     was not adopted. It jumps at the waiver, and with two coins it can leave no non-zero book that meets it.
+5. **Repeat until nothing changes, deterministically.** The ordered pass repeats until no `λ_i` changes by more than
+   1e-12 relative, at most 50 passes. A solve that does not converge sets the contributing sleeves to `λ = 0` and
+   logs an engine fault. The order of the steps is fixed, and ties are broken by address order.
+6. **Logged at every update:** each `λ_i`, which limit set it, and any P5 binding. The time-weighted and the
+   exposure-weighted mean `λ_i` per sleeve are reported (ADR-0096 item 11).
+
+**What this implied for 0x2cd9, before any run (the pre-run estimate).** The per-sleeve part of P2 allows at most
+10% of `D` = 2,000 USDC in any coin other than BTC and ETH. At the full 1.5x gross, about 91% HYPE is roughly
+13,650 USDC of HYPE. So whenever 0x2cd9 is near its full gross, `λ ≈ 2,000 / 13,650 ≈ 0.15`, and its **whole** sleeve
+runs at about one-seventh. The HYPE leg is never cut alone. U\* shows the leader-shaped copy beside it.
+
+**Measured at P5-5** ([phase-5-results.md](phase-5-results.md) section 7). 0x2cd9's leader runs at about 0.1x
+leverage, so its 10k copy holds 5-14% of the sleeve on average (51% in the 8 Oct crash window). P2 binds only in the
+hours when HYPE exceeds 2,000 USDC. Weighted by exposure, `λ` was 0.19 in the 8 Oct window and 0.34-0.81 in the
+others. P5 never bound on the pair.
+
+**Stress shock:** the largest adverse 24h move per coin since 1 Jul 2025, applied to every position at once (point in
+time, ADR-0017), plus the exit cost at stress costs. The shock is fitted **once per origin**, on the history from
+1 Jul 2025 to the origin. The coin covariance and betas are fitted on the 90 days before it (ADR-0088; Phase 4 v2
+A5).
+
+## 5. Risk states and triggers (ADR-0089)
+
+**State machine** per sleeve: `NORMAL → HALVED → REDUCE_ONLY → FLATTEN → PAUSED → (review) → NORMAL or EXITED`. The
+scheme-level state (P6) caps both sleeves; the more restrictive state wins.
+- **Reduce-only** keeps the sleeve in the leader's shape on the legs it already holds. Their common scale may only
+  fall: the largest value at which no held leg grows or flips sign. Legs the leader opens during the state are not
+  opened. That is the one deliberate departure from the leader's shape; it is logged as tracking error.
+- **HALVED** multiplies the whole sleeve by 0.5.
+- **Flatten** sends reduce-only IOC slices within O1, or a TWAP of at most 60 minutes for coins under 1M USDC of 4h
+  volume, at stress costs.
+
+| # | Trigger | Threshold (PLACEHOLDER) | Action |
+| ---: | --- | --- | --- |
+| L1 | Leader drawdown beyond its own history | > 1.5 × its point-in-time max drawdown | REDUCE_ONLY |
+| L2 | Leader leverage out of character | > 2 × its p95 | REDUCE_ONLY |
+| L3 | Leader equity collapse | < 0.7 × `E_ref` | REDUCE_ONLY until review |
+| L4 | Large withdrawal | > 50% of equity in 24h | REDUCE_ONLY |
+| L5 | Leader liquidation or auto-deleveraging | any | FLATTEN, PAUSED |
+| L6 | Leader drifts to non-tradable coins | > 10% of notional, trailing 7 days | REDUCE_ONLY; exit at review if it persists |
+| L7 | Leader inactive | > 14 days | release at review |
+| C1 | Copy execution degrades | rolling 14-day shortfall per side > the stress scenario's | REDUCE_ONLY |
+| C2 | Copy drawdown | S3 | REDUCE_ONLY / FLATTEN |
+| C3 | Feed stale or position mismatch | > 60 s while holding, or any unexplained difference | freeze increases; resync |
+
+- **How the replay measures them** (ADR-0096 items 3-7):
+  - a firing is a trigger's condition turning on, counted whatever the sleeve's state;
+  - C1 compares the realised cost of each fill with the stress model's cost for the same order, model against model;
+  - L6 is measured only once the run holds 7 full days of the leader book;
+  - L7 uses a pre-window last fill only when it is known at the window start;
+  - C3 has no data in the replay, so it is tested by fault injection.
+- **Exit at a 14-day review:** a binding gate fails on data to the review, the category falls to E- or E0, the sleeve
+  was paused through the whole period, or L7 applies.
+- **Resume:** only at a review, after the trigger clears, and with a human decision. The replay models that decision
+  as yes, and labels it so (ADR-0096 item 6).
+
+## 6. Testing on development data (training and test windows)
+
+### 6.1 Calibration on the training windows, on the population rather than the pair
+
+Trigger firing rates are calibrated on **every A/B single-sleeve copy** (each copy is a basket of one) over the
+training windows. That is the natural test set for sleeve-level rules, and it keeps the two chosen addresses out of
+the calibration.
+
+Reported per trigger:
+- the firing rate per sleeve-month;
+- the copy's 14-day return and drawdown after firing against matched days without firing (descriptive);
+- the false-alarm share (firings followed by a non-negative 14-day return).
+
+A threshold changes only if it fires more than once per sleeve-month (operational noise), never to improve return.
+
+**Result (P5-4; [phase-5-results.md](phase-5-results.md) section 4):** F4 passes, and no threshold changed.
+- On the training windows the highest rate is L6's, 0.48 firings per sleeve-month.
+- L1 cannot fire on a training window, because its threshold comes from the same history.
+- L1 was therefore **measured out of sample on the population**, over the four test windows (1,330 copy-windows),
+  where its threshold is out of sample. It fires 0.37 times per sleeve-month, and at most 0.49 in any window.
+  - The firings cluster: 25 of 157 came on 10-11 Oct.
+  - 31 firings come from leaders with no drawdown before the origin, whose threshold is therefore 0. This is
+    reported, not changed.
+
+### 6.2 Risk-rule variants, chosen on the population
+
+| Item | Current | Variant |
+| --- | --- | --- |
+| Cap denominator | 1.5 × fixed allocation | 1.5 × min(`A_i`, sleeve NAV) |
+| `E_ref` at reviews | reset to the latest equity | high-water reference `max(E_ref,prev, E_latest)` |
+
+- **Decided on all A/B single-sleeve copies** over the four development test windows, never on the pair.
+- **Criterion:** keep the current rule unless the variant lowers the 95% expected shortfall of window returns by at
+  least 20% at a mean cost of no more than 0.25 pp per window.
+- **Result (P5-4): both rejected,** so the current rules stay. The cap denominator min(A, NAV) cut the ES95 by 1.3%,
+  and the high-water `E_ref` by 1.6%.
+
+### 6.3 The pair on the four development test windows
+
+- **Run S\*, U\* and G\*** with the exact engine (one event loop over the sleeves) in four scenarios: optimistic, base,
+  stress, and severe (60 s / 300 s).
+- **Report, for each configuration:**
+  - raw return, α (excluding funding, ADR-0084) and funding;
+  - max drawdown, worst day, 95% expected shortfall;
+  - time in each risk state and every trigger firing;
+  - **each sleeve's `λ_i` over time, its time-weighted and exposure-weighted means, and which limit set it**,
+    especially the per-sleeve P2 on HYPE;
+  - P5 binding;
+  - netting between sleeves (shared BTC);
+  - participation clips, flatten-sweep closures;
+  - utilisation, and the cost split (half-spread, fee, impact, drift).
+- **S\* against U\*:** the return, drawdown and tracking error that the limits cost or save, per sleeve.
+- **G\*:** the stress loss before each trade against the remaining budget (750 USDC minus the loss to date), the gray
+  scale `λ`, and the loss path against the cap.
+- **Context, not a test:** 200 random pairs of A/B copies per window through the same engine. This shows whether the
+  pair's drawdowns and limit binding are typical.
+- **Label in every table:** "selection in-sample on these windows; machinery test, not skill".
+
+### 6.4 Stress tests
+
+1. **Historical:** the 10-11 Oct path inside the 8 Oct window, in base and severe, for S\*, U\* and G\*. Report the
+   state changes, the loss against the ladder (S\*) and against the 750 USDC cap (G\*), and the exit costs.
+2. **At the limits:** S\* with both sleeves and the scheme at their maximum permitted exposure, and G\* at the largest
+   exposure its stress cap allows, with the section 4 joint shock, severe delays and stress costs.
+
+### 6.5 Pass criteria before the freeze (written before any Phase 5 run; PLACEHOLDERS)
+
+| # | Criterion | Pass |
+| ---: | --- | --- |
+| F1 | Fault tests: every ladder and state transition both ways; reduce-only never increases \|position\|; flatten completes within O1 with its cost booked; resume refused outside a review; participation shared within a bar; stale signal dropped and resynced; flatten sweep closes a residual; the `E_ref` invariant | all pass |
+| F2a | Stress at the limits, S\* (6.4.2) | loss ≤ 16.5% of `D` (the flatten step plus overshoot) |
+| F2b | Stress at the limits, G\* (6.4.2) | loss including exit ≤ `L_gray` = 750 USDC |
+| F3 | Historical stress (6.4.1) | the ladder and the G\* cap act as designed; no limit breached without its action |
+| F6 | Shape | in S\* and G\*, every sleeve's targets equal `λ_i` × the U\* targets on every leg, apart from the logged execution effects and the REDUCE_ONLY rule (section 3, item 9) |
+| F4 | Trigger noise (6.1) | each leader trigger ≤ 1 firing per sleeve-month on the population |
+| F5 | Determinism | two runs byte-identical |
+
+If a criterion fails, the rules are fixed on development data and logged, then retested. The criteria are not relaxed.
+
+**Result:** F1-F6 all pass on development data ([phase-5-results.md](phase-5-results.md) section 6).
+
+## 7. Development findings feed the memo
+
+The development run was to show three things the memo needs. What it showed is in
+[phase-5-results.md](phase-5-results.md) section 7.
+1. **Whether a two-sleeve scheme of these books can live inside the limits:** 0x2cd9's `λ`, how often P5 binds, and
+   S\* against U\*.
+   - **The pre-run expectation:** `λ` for 0x2cd9 near 0.15 most of the time. The finding would then read "our
+     per-coin limits let us hold a single-coin leader at about one-seventh of a sleeve; capital needs more
+     independent sleeves". That would be a result, not a failure.
+   - **Measured:** the leader's low leverage keeps the copy small, so P2 binds only when HYPE exceeds 2,000 USDC.
+     The exposure-weighted `λ` was 0.19 in the crash window and 0.34-0.81 otherwise, and P5 never bound.
+2. **What the risk machinery costs:** the trading cost of the risk actions, and their effect on drawdown in the crash
+   window.
+3. **Whether the costs match the model on these books:** the cost split, and participation clips on HYPE and BNB.
+
+## 8. The holdout: opened once (ADR-0092)
+
+**Joint freeze first** (ADR-0091). One hash covers:
+- the Phase 4 v2 specification as decided in the freeze-decision trial-log entry, including the funding treatment;
+- this document's rules, including the observation-sleeve declaration, ADRs 0086-0096, and the development results;
+- `risk.yaml`, `execution.yaml`, `instruments.yaml`;
+- every source the holdout path imports;
+- the data, replay and selection manifests (pre-holdout Check 3), and the environment block;
+- the window-report module, already run on all four development windows (Check 4);
+- the pre-registered tests below.
+
+The user sends the hash to the reviewers. No `HOLDOUT_FREEZE.txt` exists before the freeze writes it. The mechanism
+details are pinned in ADR-0097.
+
+**Run:** 3 Dec 2025 00:00 → 4 Jan 2026 00:00, 32 calendar rows. Selection at 3 Dec uses the frozen rules on data
+before it, so the hand-off is 0x2cd9, with 0x971f as the observation sleeve. S\*, U\* and G\* run in all four
+scenarios.
+
+**If the cutoff hand-off differs** (section 10.3), that address's G\* is run on the same holdout window with the
+frozen rules before any gray start, and it must pass D2b as well. This step is declared here, so it is part of the
+single opening.
+
+**Pre-registered outputs:**
+
+| # | Output | Role |
+| ---: | --- | --- |
+| H1 | Engine validity: the run completes; every state and limit event traceable; paper fills reconcile with the replay | decides (D1) |
+| H2 | Risk behaviour: max drawdown, worst day, ladder and state events; S\* losses against the flatten step, G\* losses against the 750 USDC cap; `λ_i` paths and P5 binding | decides (D2a, D2b) |
+| H3 | Cost model out of sample: median shortfall per side (base) by coin against the development distribution | decides (D3) |
+| H4 | Returns of S\*, U\* and G\*: raw, α, funding, per sleeve and combined, with and without the 0x971f sleeve | **reported, not decisive**: 32 days × 2 sleeves cannot measure skill (MinTRL ≈ 1,600 days) |
+| H5 | Cross-section, all measured addresses at 3 Dec: IC of the frozen statistic with holdout α; category ordering; the robustness and break-even hypotheses (pass vs fail, next α); carry books vs trading books | D4 uses the IC; the rest is reported and feeds the protocol's promotion test |
+| H6 | Limit binding on the pair (P2, P5) out of sample | reported; feeds the memo |
+
+## 9. Decision rule (pre-registered, ADR-0093)
+
+**GO: rejected** (section 0).
+
+**CONDITIONAL GO → gray protocol** if **all** of:
+
+| # | Condition | Measure |
+| ---: | --- | --- |
+| D1 | The engine works out of sample | H1 clean; F1 fault tests pass on the frozen code |
+| D2a | The risk design holds on the scheme | S\*, under base and stress: no loss beyond 16.5% of `D`; no limit breached without its designed action |
+| D2b | The risk design holds on the book that would hold capital **[decision 3]** | G\* (the hand-off alone, gray size and rules), under base and stress: realised loss including exit ≤ `L_gray` = 750 USDC; its stress cap never breached without its action |
+| D3 | The cost model holds | holdout median shortfall per side (base) ≤ the development p90 for the same coins |
+| D4 | No contrary selection evidence | holdout IC of the frozen statistic `m` > -0.20 (two development window-sds below zero; the sd of the `m` IC is 0.101). When `m` is constant at the origin (as at 3 Dec), the IC of the own-data α instead, > -0.14 (sd 0.071; ADR-0093 item 4) |
+| D5 | Something to trade live | the cutoff selection (frozen rules, data to 4 Jan) has a non-empty hand-off |
+
+**NO-GO → paper protocol** if any condition fails.
+
+The holdout's returns (H4) are reported in full, but they decide nothing beyond D2a and D2b. **CONDITIONAL GO here is not a
+claim of skill.** It says the scheme behaves as designed out of sample, so a small, capped, live execution
+measurement is worth its cost.
+
+## 10. Deployment protocols (outlines; written in full after the holdout)
+
+The final text, `decision/deployment-protocol.md`, is written after the holdout and the cutoff selection. It fills in
+the findings (cost re-estimates, limit binding, the cutoff hand-off). **Its parameters are fixed here.**
+
+### 10.1 Paper (NO-GO)
+
+- **Capital:** none. The 100k stays in reserve as off-exchange USDC.
+- **Run:** the frozen engine in paper on the cutoff hand-off plus the observation sleeve, with the unconstrained twin
+  (U\*) beside it. Record:
+  - signal times, intended orders and would-be fills against the live book at signal time;
+  - slippage against the model, tracking, and every state and limit event.
+- **Cross-sectional panel:** every 14 days, replay all A/B addresses, then compute the frozen statistic's IC and the
+  category ordering.
+- **Reviews:** every 14 days, with a summary every 8 weeks.
+- **Revisit (move to gray or capital)** only if all of:
+  - the pooled IC over at least 6 windows (holdout plus paper) is significant at one-sided 95%, using the development
+    window-sd of 0.101. After 6 windows that means a mean of about 0.068 or more. When the pool uses the own-data α
+    (`m` constant at any of its windows), the sd is 0.0706 and the bar about 0.047 (ADR-0094);
+  - at least one E2 **trading** book (not carry) passes every stage;
+  - the engine is clean.
+- **Stop rule:** close the project after 6 months (PLACEHOLDER; kept by the user on 2026-11-24) if the revisit
+  conditions are not met.
+
+### 10.2 Gray (CONDITIONAL GO): an execution measurement, not an allocation (ADR-0090) [decision 1]
+
+**Why it needs its own ADR.** ADR-0072 makes E1 shadow-only, and the hand-off is E1. Live money on it would
+contradict ADR-0072 unless that money is something other than an allocation.
+
+**ADR-0090** defines gray money as an **execution measurement paid as a research cost**:
+- **Purpose:** measure real fills, not earn returns. The paper engine cannot observe delay, slippage, fees, partial
+  fills and rejections as they really happen; this measures them for each live order against its paper twin.
+- **Not an allocation:**
+  - it is not counted as deployed capital and makes no skill claim;
+  - it does not change any address's category;
+  - its returns are never evidence for promotion.
+- **Budget, fixed in advance:**
+  - **`L_gray` = 750 USDC** (0.75% of the 100k), booked as a research expense;
+  - at most **5,000 USDC** live;
+  - it ends after at least 4 weeks and at least 200 live orders, or when the cap is hit, whichever comes first;
+  - it cannot be extended or enlarged without a new ADR.
+- **What ADR-0072 now says for E1:** its consequence reads "shadow-only; may serve as the signal source of an
+  ADR-0090 execution measurement".
+- **Fallback if ADR-0090 is not adopted:** gray stays paper. Then the two outcomes must mean different things, or the
+  decision changes nothing:
+  - CONDITIONAL GO → the paper protocol with its revisit path;
+  - NO-GO → close the project.
+
+**Mechanics:**
+- **Live book = G\*:** the cutoff hand-off only.
+  - The observation sleeve stays paper unless it re-qualifies under the frozen rules.
+  - Live sleeve size: **2,500 USDC**. The rule was 5,000 if more than 10% of G\*'s intents fall under the 10 USDC
+    minimum after `λ` (ADR-0090 item 6). At P5-5 none of 193 did; P5-1's unscaled share was 1.6%.
+- **The live book's stress loss must stay within the remaining budget, `L_gray` minus the loss to date, at every
+  target update and hourly** (ADR-0090 item 6). The cap is enforced by scaling the whole sleeve (section 4.1), never
+  a single leg.
+- **G\*'s limits are option C** (ADR-0088 item 7): the stress cap replaces S2 and P2-P5. O1-O4, S1 and S3 stay, and
+  so does the P6 ladder. S3 and P6 run on the live book's own high-water mark. The absolute cap bounds the HYPE
+  exposure in USDC directly.
+- **Duration:** at least 4 weeks and at least 200 live orders. Daily reconciliation. Every resume needs a human
+  decision.
+- **Revert to paper when** the loss cap is hit (flatten), or when live shortfall exceeds the stress scenario for two
+  consecutive reviews.
+- **Escalation to a capital stage (15k):** only through the paper revisit conditions in 10.1, never on PnL.
+
+### 10.3 Cutoff deliverables (both protocols)
+
+- **`trader_decisions.csv`:** every address, with its category, the first gate it fails, and its role (hand-off,
+  observation, none).
+- **`target_allocations.csv`:**
+  - deployed 0 (paper), or the live sleeves (gray);
+  - the observation sleeve marked zero-capital;
+  - the reserve.
+
+## 11. Deferred until at least 3-4 capital-eligible candidates exist
+
+These parts of revision 2 have nothing to act on with two sleeves:
+- subset search and effective-number-of-bets selection;
+- the three weighting rules (capped equal weight, inverse stress, equal risk contribution) and the risk-model blend;
+- capacity grids beyond the gray sizing;
+- 1,000-scheme evaluation and the pilot-horizon bootstrap;
+- the account-structure (one account vs sub-accounts) and margin-contagion tests.
+
+They come back with the first capital stage.
+
+## 12. Where each operating question is answered
 
 | Question in the written test | Answer |
 | --- | --- |
-| How decisions update on new account history or trades | Fills update targets at once (section 2.2). Snapshots update `E_ref` at reviews, leader triggers and risk marks. Inclusion and weights change only at the 14-day review (section 3.5) or through the state machine. |
-| When instructions are generated | After the 250 ms debounce, plus the 15-minute sweep and the flatten sweep, through the deadband and minimum size (section 2.2) |
-| Several sources on one contract | The sleeve targets are summed, then projected onto the portfolio limits, with pro-rata cuts of risk-increasing contributions; virtual attribution is kept (section 2.2, items 3-4) |
-| Fills that differ from target | Recompute `Δ` from exchange state; never resend; reconciliation freeze after 3 cycles (section 2.2, items 4 and 8) |
-| When capital may increase and when risk must fall | Stage gates on operational evidence (section 5.3); the ladder, stress limit and triggers (sections 4-5) |
-| When a human steps in | The "Human?" column in section 5.2; every resume, stage change and override |
-| Set by hand or reviewed periodically | Risk budget and stages (each stage gate); limits and trigger thresholds (monthly); the spread, impact and delay scenarios against live fills (monthly); the tradable universe and capacity (each review); the eligible set and weights (14-day review) |
+| How decisions update on new history or trades | Fills update targets at once (section 3). Snapshots update `E_ref` at reviews, the triggers and the risk marks. The hand-off changes only at the 14-day review. |
+| When instructions are generated | After the 250 ms debounce, plus the 15-minute sweep and the flatten sweep, through the deadband |
+| Several sources on one contract | Sleeve targets are summed after each sleeve's limit scale `λ_i` is applied. A binding limit scales whole sleeves, never single legs; netting happens only in the physical order, and attribution stays virtual (sections 3 and 4.1) |
+| Fills that differ from target | Recompute from state; never resend; reconciliation freeze after 3 cycles |
+| When capital may increase and when risk must fall | Only through the revisit and escalation conditions (10.1-10.2); risk falls through the ladder, limits and triggers (sections 4-5) |
+| When a human steps in | Every resume, every protocol change, L3-L5, the ladder at -10% and below |
+| Set by hand or reviewed periodically | Loss caps and protocol (at each decision); limits and triggers (monthly); cost and delay scenarios against live or paper fills (monthly); the hand-off (14-day review) |
 
-## 10. Development plan
+## 13. Development plan
 
 | Step | Work | Output | Checks |
 | --- | --- | --- | --- |
-| **P5-0** | Write ADRs 0076-0083 from this document and `risk.yaml` v2 with PLACEHOLDER labels; write the pass criteria (7.6) and variant criteria; trial-log entry | ADRs, config | review only |
-| **P5-1** | Sleeve trees at the grid sizes; capacity `cap_i` per address and origin | `research/replay_grid/`, `capacity.parquet` | byte-identical rerun; capacity non-increasing in clipping |
-| **P5-2** | Risk model: EWMA and Ledoit-Wolf `Σ`, coin betas, point-in-time stress shocks; exposure profiles; sleeve covariance and blended ρ | `risk_model/origin=<date>/` | leak test; PSD check; unmeasured pairs → 1 |
-| **P5-3** | Construction: R1-R3, constraints, subset enumeration, ENB choice | `construction/origin=<date>/` (weights, rejected subsets with the binding constraint) | determinism; a synthetic case with a known answer |
-| **P5-3b** | **Sleeve-size loop [A3]:** if any chosen size differs from 10k, run Phase 4 P4-9 once on the chosen-size trees, then rerun P5-3 once with the sizes fixed | recomputed eligible sets; final construction; diff against the first pass | no further iteration; diff published |
-| **P5-4** | Exact portfolio engine with the state machine, portfolio projection, shared participation, flatten sweep, staleness rule; fault tests (7.1) | `portfolio_replay.py`, tests | all fault tests pass |
-| **P5-5** | Fast approximation, and its validation against the exact engine | validation table | 0.25 pp tolerance |
-| **P5-6** | Trigger calibration study (5.4) | `triggers_calibration.csv` | firing-noise criterion |
-| **P5-7** | Development evaluation (7.2) and variant choices (7.7) | `decision/phase-5-results.md` | criteria applied as written |
-| **P5-8** | Historical and hypothetical stress, pilot-horizon bootstrap (7.3-7.5); pass criteria (7.6) | stress and bootstrap reports | pass or redesign, logged |
-| **P5-9** | Window-report module run on all four development windows; output schema frozen | `holdout_report.py` (as a window report) | identical schema across windows |
-| **P5-10** | Joint freeze (a new ADR); `verify_holdout_inputs.py`; send the hash; then the holdout run, report, cutoff selection, memo | `HOLDOUT_FREEZE.txt`, holdout report, CSVs, memo | `freeze.guard`; the report schema matches development |
+| **P5-0** | Write ADRs 0086-0095 from this document, including **ADR-0090** (gray as an execution measurement, with the ADR-0072 wording change) and whole-sleeve scaling in ADR-0088; trial-log entry; `risk.yaml` v3 with PLACEHOLDER labels; the decision rule (section 9) and holdout outputs (section 8) written in | ADRs, config | review only |
+| **P5-1** | Replays: the two sleeves at 2,500 and 5,000 USDC, for gray sizing and the sub-minimum share (10k exists) | `research/replay_gray/` | byte-identical rerun |
+| **P5-2** | Stress shocks and coin covariance, fitted once per origin | `risk_model/origin=<date>/` | leak test |
+| **P5-3** | Engine: merged loop; the `λ_i` solver of section 4.1 (whole-sleeve scaling, P5 in the budget form); state machine; flatten sweep; stale-signal rule; shared participation; the U\* and G\* configurations from the same leader events; fault tests (F1) and the shape test (F6) | `portfolio_replay.py`, tests | F1, F6 |
+| **P5-4** | Trigger calibration and risk-rule variants on all A/B single-sleeve copies (6.1-6.2); L1 out of sample on the test windows | `triggers_calibration.csv`, `l1_test_windows.csv`, variant table | F4; criterion as written |
+| **P5-5** | S\*, U\* and G\* on the four test windows, 200 random pairs as context, stress tests (6.3-6.4) | `decision/phase-5-results.md` | F2a, F2b, F3, F5 |
+| **P5-6** | Window-report module and the H5 cross-sectional tests, run on all four development windows; schema fixed | `holdout_report.py` | identical schema across windows |
+| **P5-7** | Joint freeze (ADR-0091, details in ADR-0097); `verify_holdout_inputs.py`; the user sends the hash | `HOLDOUT_FREEZE.txt` | `freeze.guard` |
+| **P5-8** | Holdout run once; report; decision by section 9 (ADRs 0092-0093) | holdout report, decision entry | report schema = development |
+| **P5-9** | Cutoff selection with the frozen rules; `trader_decisions.csv`, `target_allocations.csv`; `deployment-protocol.md` (paper or gray, ADR-0094); memo | deliverables | the protocol parameters match section 10 |
 
-**Order:** P5-0 → P5-1 → P5-2 → P5-3 → P5-3b → P5-4 → P5-5 → P5-6 → P5-7 → P5-8 → P5-9 → P5-10.
+**Order:** P5-0 → P5-1 and P5-2 → P5-3 → P5-4 → P5-5 → P5-6 → P5-7 → P5-8 → P5-9.
 
-Dependencies on Phase 4 v2:
-- P5-1 needs the tradable universe (P4-2);
-- P5-3 needs the eligible sets (P4-8);
-- P5-3b runs P4-9.
+P5-0 also needed the Phase 4 freeze-decision entry (which variants are adopted), so the frozen Phase 4
+specification is known. It was made on 2026-11-23.
 
-If τ² is robustly 0 at every origin, P5-3 builds only the shadow scheme (E1). The rest of Phase 5 still runs, because
-the shadow stage needs the same machinery.
+**Status on 2026-11-24:** P5-0 to P5-6 are done on development data ([phase-5-results.md](phase-5-results.md)).
+The user gave the go for P5-7. P5-8 and P5-9 each need their own go.
 
-## 11. Assumptions the simulation cannot test (stated in the memo)
+## 14. Assumptions the tests cannot settle (stated in the memo)
 
-- Live receive and acknowledgement delays outside the measured sample (2-17 s disconnects are covered only by the
-  severe scenario).
-- Order-book depth at arrival: there is no historical book; impact is a square-root assumption (Y = 1).
-- Hyperliquid tiered maintenance margin (a uniform 2.5% is assumed, ADR-0067); auto-deleveraging of our own account.
-- Leaders' positions outside what we observe (isolated or spot activity). Gate 7 v2 screens for it but cannot rule
-  it out.
-- Venue and API changes after the cutoff (A11, A12).
+- **Live delays and fills.** Paper and the holdout measure the model, not real fills. Only the gray protocol measures
+  real ones.
+- **Order-book depth at arrival.** There is no historical book; impact is a square-root assumption.
+- **Venue details:** Hyperliquid tiered margin, and auto-deleveraging of our own account.
+- **Activity we cannot see:** isolated or spot positions of the leaders. Gate 7 screens for it but cannot rule it out.
+- **Change after the cutoff:** the venue and API (A11), and re-qualification on current data at any live start (A12).
 
-## 12. Decisions for the user
+## 15. Decisions for the user (decided on 2026-11-24)
 
-1. The loss budget `L` (proposed 5,000 USDC, re-signed per stage) and the stage amounts.
-2. Account structure A as the default (one trading account, virtual sleeves, separate reserve).
-3. The O2 slippage bounds and the C1 execution trigger, to be set from the stress-scenario shortfall distribution
-   before P5-6.
-4. Whether shadow mode runs on E1 ∪ E2 when there are no E2 addresses (recommended: yes, so the machinery is
-   validated even if no capital is deployed).
+The user approved ADRs 0086-0095 on 2026-11-24, with the recommended option on every open item.
+1. **ADR-0090 is adopted** (gray as an execution measurement paid as a research cost). The gray envelope is
+   2,500 USDC per live sleeve, at most 5,000 live, and `L_gray` = 750 USDC.
+2. **D4 and the stop rule.** D4 uses -0.20 on `m`, or -0.14 on the own-data α when `m` is constant at the origin
+   (ADR-0093 item 4). The paper stop rule stays at 6 months.
+3. **P5 is the budget form**, at 1,200 USDC with no waiver (ADR-0088 item 6). The waiver and the strict share form
+   were both set aside.
+4. **The observation sleeve gets no capital** unless it re-qualifies under the frozen rules.
+5. **The Phase 4 freeze-decision entry** was made on 2026-11-23 (ADR-0091 item 1).
+6. **Also decided on 2026-11-24:**
+   - G\* uses option C (ADR-0088 item 7);
+   - the gray stress cap uses the remaining budget (ADR-0090 item 6);
+   - the sub-minimum test is measured on G\* after `λ` (ADR-0090 item 6), which set the size at 2,500 USDC at P5-5;
+   - the small pinned details are accepted as written.

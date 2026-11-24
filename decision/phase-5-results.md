@@ -15,7 +15,7 @@ are ADRs 0086-0096, approved by the user on 2026-11-24, with `config/risk.yaml` 
 | P5-1 | `replay --gray` | `research/replay_gray/` (2,500 and 5,000 USDC trees, `gray_sizing.csv`) | byte-identical rerun | 479/479 files identical. The two-address run at 10k reproduces the published 10k tree (45/45 order tables) |
 | P5-2 | `phase5 risk-model` | `research/risk_model/origin=<date>/` | leak test | passes (a planted post-origin move changes nothing) |
 | P5-3 | engine code | `portfolio_engine.py`, `portfolio_replay.py`, `tests/test_phase5_engine.py` | F1, F6 | 24 tests pass; no engine fault in any run |
-| P5-4 | `phase5 population` | `research/phase5_population/` | F4; variant criterion as written | F4 passes; both variants rejected |
+| P5-4 | `phase5 population`, `phase5 l1-oos` | `research/phase5_population/` | F4; variant criterion as written | F4 passes, L1 measured out of sample on the test windows; both variants rejected |
 | P5-5 | `phase5 pair` | `research/portfolio_replay/` | F2a, F2b, F3, F5 | all pass (section 6) |
 | P5-6 | `phase5 report` | `src/arkstream/holdout_report.py`, `research/window_report/` | identical schema across windows | identical; H5 reproduces the published Phase 4 ranking ICs exactly |
 
@@ -55,7 +55,7 @@ The training windows give 4,367 sleeve-months. They overlap, because each starts
 
 | Trigger | Firings | Per sleeve-month | Sleeves above 1 per month | U-twin forward 14d return after firing | Forward 14d drawdown | False-alarm share |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| L1 leader drawdown | 0 | 0.00 | 0% | n/a | n/a | n/a |
+| L1 leader drawdown | 0 | 0.00 | 0% | n/a | n/a | n/a (measured out of sample below) |
 | L2 leverage | 359 | 0.08 | 2.8% | +5.4% | -4.5% | 75% |
 | L3 equity collapse | 1,524 | 0.35 | 10.9% | +7.2% | -6.0% | 74% |
 | L4 withdrawal | 566 | 0.13 | 4.5% | +0.5% | -6.8% | 64% |
@@ -67,10 +67,52 @@ The training windows give 4,367 sleeve-months. They overlap, because each starts
 | Matched hours without a firing | | | | +1.5% | -3.5% | |
 
 - **F4 passes.** Every trigger fires at most once per sleeve-month on the population, so no threshold changes.
-- **L1 is not calibrated by this test.** On a training window its threshold comes from the same history, so it
-  cannot be exceeded there. It did fire on the 8 Oct test window, where the threshold is out of sample.
+- **L1 cannot fire on a training window.** Its threshold comes from the same history, so it cannot be exceeded there.
+  It is therefore measured out of sample on the four test windows, in the next table.
 - **Descriptive only:** after a firing, the forward drawdown is deeper than on matched hours. Except for L5, the
   forward return is higher too. The triggers mark volatile spells, not losing ones. No threshold was tuned on this.
+
+**L1 measured out of sample on the population** (`phase5 l1-oos`, written in the trial log before it ran). The same
+copies and current rules as the variant test, on the four test windows (1,330 copy-windows), where L1's threshold
+(1.5 × the leader's maximum drawdown before the origin) is out of sample. Descriptive. The threshold changes only if
+F4 fails, and F4 passes. Outputs: `l1_test_windows.csv`, `l1_test_firings.csv` (one row per firing),
+`l1_test_by_date.csv` and `l1_test_summary.json`.
+
+| Test window | Firings | Sleeve-months | Per sleeve-month | Sleeves above 1 per month | U-twin forward return to window end | Forward drawdown | False-alarm share |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 8 Oct | 51 | 110.5 | 0.46 | 13.6% | +2.2% | -6.2% | 55% |
+| 22 Oct | 49 | 100.3 | 0.49 | 11.0% | +4.0% | -2.4% | 80% |
+| 5 Nov | 36 | 105.6 | 0.34 | 8.4% | +1.8% | -2.0% | 73% |
+| 19 Nov | 21 | 109.5 | 0.19 | 6.5% | +1.9% | -2.3% | 76% |
+| **Pooled** | **157** | **425.9** | **0.37** | **9.9%** | **+2.6%** | **-3.6%** | **69%** |
+| Matched hours without a firing | | | | | +0.3% | -3.0% | |
+
+- **F4 passes for L1: 0.37 firings per sleeve-month, and at most 0.49 in any window.** No threshold changes.
+- **The firings are clustered, not independent.**
+  - 114 of the 1,330 copy-windows fired, across 97 addresses.
+  - 25 of the 157 firings came on 10-11 Oct, 21 of them on 10 Oct. 51 came in the 8 Oct window.
+  - 138 came at 23:00 UTC, when the daily leader snapshot lands.
+- **Forward horizons are short.** A test window lasts 14 days, so the U twin's forward horizon is cut at the window
+  end: the median is 8 days, and no firing has the full 14 days. 14 firings fell in a window's last hour.
+  - The same rule applies to the 18,064 matched hours.
+  - The leader's own forward 14-day index return, from the 3 Dec origin's Phase 2 table, has a median of +10.1% and
+    a median drawdown of -1.2%. 127 horizons are complete, 21 were cut at 3 Dec 00:00 and 9 had no index.
+  - Nothing at or after 3 Dec 00:00 was read.
+- **What reduce-only did.**
+  - It lasted to the window end in all 157 firings, a median of 191 hours, because a 14-day window's only review is
+    at its start.
+  - L1 moved the copy out of NORMAL in 80 firings. In the other 77 the copy was already reduce-only or stricter.
+  - Against the U twin over the spell, the copies lost 26,399 USDC in total. Where L1 moved the state, they lost
+    20,083 USDC: 17 firings saved money, 34 cost money and 29 made no difference, a mean of -2.6 pp of the sleeve.
+  - As in training, L1 marks volatile spells, not losing ones. Its false-alarm share is 69%.
+- **The two sleeves.**
+  - 0x2cd9 fired once, at 10 Oct 23:00: -8.5% against a threshold of -6.5%. By the window end it was 2,747 USDC below
+    its twin. The same event drives the S\* against U\* gap in section 6.
+  - 0x971f fired once, at 10 Oct 23:00: -3.0% against -2.1%, and ended 153 USDC below its twin.
+- **Finding, not changed (F4 passes): L1 fires on any drawdown when the history has none.** 31 firings (16
+  addresses) have a threshold of 0, because the leader had no drawdown before the origin. Changing that would be a
+  rule change made after the results, so it is reported for the memo instead.
+- **Consistency:** the rerun's window returns equal `variants.csv` (current) on all 1,330 rows.
 
 **Variants** (four test windows, 1,330 address-windows, base). The criterion was written before the runs: adopt only
 if the variant cuts the 95% ES of window returns by at least 20% at a mean cost of at most 0.25 pp per window.
@@ -216,7 +258,7 @@ order at stress costs and severe delays.
 | F2a | Stress at the limits, S\* | loss ≤ 16.5% of `D` (3,300) | **pass**: at most 861 USDC (4.3%) |
 | F2b | Stress at the limits, G\* | loss incl. exit ≤ 750 | **pass**: at most 651 USDC |
 | F3 | Historical stress | the ladder and the cap act as designed | **pass**: every hour past a ladder step was in that state or stricter; no cap breach |
-| F4 | Trigger noise | ≤ 1 firing per sleeve-month | **pass**: highest L6, 0.48 (L1 untested, section 4) |
+| F4 | Trigger noise | ≤ 1 firing per sleeve-month | **pass**: highest on training L6, 0.48; L1, measured out of sample on the four test windows, 0.37 (at most 0.49 per window; section 4) |
 | F5 | Determinism | two runs byte-identical | **pass**: the full P5-5 run twice, 389/389 files byte-identical (P5-1: 479/479) |
 | F6 | Shape | targets = one scalar × U\* targets on every leg | **pass**: checked at every target update of every run, 0 violations |
 
@@ -259,10 +301,10 @@ one difference, the JSON key order in `pair_summary.csv`; the keys are now sorte
 
 ## 9. What is next
 
-- **P5-7, the joint freeze (ADR-0091), needs the user's explicit go.** `risk.yaml` holds no `OPEN` choice. The
-  variants are settled (P5-4) and the gray size is set (P5-5).
-- **Changes to the freeze mechanism** still to make at P5-7, as ADR-0091 lists:
-  - `freeze.py` points at the v2 shortlist;
-  - add the data, replay and selection manifests and the environment block;
-  - add `verify_holdout_inputs.py`.
+- **P5-7, the joint freeze (ADR-0091).** The user gave the go on 2026-11-24. This document is part of the frozen set.
+  - `risk.yaml` holds no `OPEN` choice: the variants were settled at P5-4 and the gray size at P5-5.
+  - L1 was measured out of sample before the freeze (section 4).
+  - The freeze-mechanism changes listed in ADR-0091 are pinned in ADR-0097: the v2 shortlist, the manifests, the
+    environment block and `verify_holdout_inputs.py`.
+  - The user sends the hash to the reviewers.
 - **P5-8, the holdout, and P5-9, the cutoff deliverables,** each need their own go.

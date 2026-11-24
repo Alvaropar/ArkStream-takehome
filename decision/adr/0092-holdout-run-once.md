@@ -4,7 +4,7 @@
   (ADR-0091).
 - Date: 2026-11-23
 - Phase: Phase 5 (revision 4), step P5-8
-- Source: `decision/phase-5-methodology-1.md` section 8 (revision 4); `decision/pre-holdout-checks.md` Check 4 (day
+- Source: `decision/phase-5-methodology.md` section 8 (revision 4); `decision/pre-holdout-checks.md` Check 4 (day
   counts)
 
 ## Context

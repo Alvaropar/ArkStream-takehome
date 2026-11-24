@@ -75,7 +75,7 @@ INCLUDE = ("decision/", "src/", "tests/", "scripts/", "config/", "Makefile", "RE
            "ArkStream Hyperliquid Pilot", "provenance/expected_counts.yaml", "provenance/trial_log.md")
 EXCLUDE = ("src/arkstream/latency.py", "src/arkstream_fetch/hl_ws_latency.py", "tests/test_hl_ws_latency.py",
            "scripts/adr_renumber.py",
-           "decision/phase-5-methodology-1.md")  # being written while the renumbering ran; rewrite with --files
+           "decision/phase-5-methodology.md")  # being written while the renumbering ran; rewrite with --files
 
 RSEP = r"(?:\s*(?:\.\.|–|—|-)\s*|\s+to\s+)"
 ITEM = re.compile(rf"(\d{{4}})(?:({RSEP})(\d{{4}}))?\b")
@@ -515,7 +515,7 @@ def write_index() -> None:
         "- the latency session's files (`src/arkstream/latency.py`, `src/arkstream_fetch/hl_ws_latency.py`, "
         "`tests/test_hl_ws_latency.py`, `research/latency/`, `data/reference/latency/`). Rewrite them with "
         "`uv run python scripts/adr_renumber.py --files <path>` once that session is done;",
-        "- `decision/phase-5-methodology-1.md` (Phase 5 revision 3), which was being written while the renumbering "
+        "- `decision/phase-5-methodology.md` (Phase 5 revision 3), which was being written while the renumbering "
         "ran. Its planned ADRs 0180-0189 would become the next free numbers.",
         "",
         "The reserved number blocks quoted in `decision/briefs/` are the blocks as they were reserved. "

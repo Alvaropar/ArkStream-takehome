@@ -22,7 +22,9 @@ harmless for diversification at the same time.
 | Style diagnostics (ADR-0067) | reported as unmeasured; they bind nothing, so no credit is claimed |
 
 The walk change is in `selection.walk`. Co-movement continues to be defined as in ADR-A0132. Whether correlation
-should be measured only on days when both copies hold positions (pre-holdout Check 2) is a separate open decision.
+should be measured only on days when both copies hold positions (pre-holdout Check 2) was a separate decision,
+settled by ADR-0074: correlation is measured on both-exposed days, and diversification is no longer claimed from
+pairwise thresholds.
 
 ## Consequences
 At 3 Dec every pair among the eligible addresses is measured (129 common days), so the 3 Dec walk is unchanged by

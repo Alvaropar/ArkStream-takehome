@@ -2,9 +2,11 @@
 
 - Status: Accepted (the user approved ADRs 0086-0095 on 2026-11-24); criteria PLACEHOLDER, written before any Phase 5 run. The F6 shape test
   belongs to the user's decision 2 of 2026-11-23, written as decided. Population-run details pinned in ADR-0096.
+  Results (`decision/phase-5-results.md`): F1-F6 pass on development data; item 2's variants were both rejected at
+  P5-4; L1, which cannot fire on a training window, was measured out of sample on the test windows.
 - Date: 2026-11-23
 - Phase: Phase 5 (revision 4), steps P5-1 to P5-6
-- Source: `decision/phase-5-methodology-1.md` sections 6, 7 and 13 (revision 4)
+- Source: `decision/phase-5-methodology.md` sections 6, 7 and 13 (revision 4)
 
 ## Context
 The scheme's rules (ADRs 0086-0089) are set on development data only (ADR-0065). Two things keep that honest:
@@ -17,8 +19,8 @@ The scheme's rules (ADRs 0086-0089) are set on development data only (ADR-0065).
    - **Population:** every A/B single-sleeve copy over the training windows, each copy a basket of one, through the
      P5-3 engine.
    - **Reported per trigger:**
-     - the firing rate per sleeve-month (30 days of a sleeve with a usable `E_ref`; a firing is a transition into
-       the state, ADR-0089);
+     - the firing rate per sleeve-month (30 days of a sleeve with a usable `E_ref`; a firing is a trigger's condition
+       turning on, ADR-0089, pinned in ADR-0096 item 6);
      - the copy's 14-day return and drawdown after a firing against matched days without one (descriptive);
      - the false-alarm share: firings followed by a non-negative 14-day return.
    - **A threshold changes only** if it fires more than once per sleeve-month (operational noise), never to improve
@@ -36,6 +38,8 @@ The scheme's rules (ADRs 0086-0089) are set on development data only (ADR-0065).
      - The ES is the mean of the worst 5% of address-window returns (base), pooled over the four windows.
      - The cost is the mean of (current − variant) return per address-window.
    - The two items are decided separately, each against the current rule.
+   - **Result (P5-4):** both rejected. The cap denominator min(A, NAV) cut the ES95 by 1.3% and the high-water `E_ref`
+     by 1.6%, against the 20% required, so the current rules stay.
 3. **Sizing replays (P5-1):** the two sleeves at 2,500 and 5,000 USDC on the frozen tradable stack (10k exists).
    - **Reported:** the unscaled sub-minimum share and the expected live order rate per week. The share that sets the
      gray size is measured on G\* after `λ`, from the P5-3 engine on the four development test windows (P5-5;
@@ -50,7 +54,8 @@ The scheme's rules (ADRs 0086-0089) are set on development data only (ADR-0065).
      - raw return, α (excluding funding) and funding;
      - max drawdown, worst day, 95% ES;
      - time in each state and every firing;
-     - each sleeve's `λ_i` over time, its time-weighted mean and the limit that set it;
+     - each sleeve's `λ_i` over time, its time-weighted and exposure-weighted means (ADR-0096 item 11) and the
+       limit that set it;
      - P5 binding;
      - netting between sleeves (shared BTC);
      - participation clips and flatten-sweep closures;
