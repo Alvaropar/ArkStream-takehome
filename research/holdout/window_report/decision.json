@@ -1,0 +1,14 @@
+{
+  "D1": true,
+  "D2a": true,
+  "D2b": true,
+  "D3": true,
+  "D3_coins_measured": 4,
+  "D4": true,
+  "D4_ic": -0.08546286976004157,
+  "D4_statistic": "alpha",
+  "D4_threshold": -0.14,
+  "D5": true,
+  "decision": "CONDITIONAL GO",
+  "label": "pre-registered decision (ADR-0093)"
+}

@@ -1,0 +1,24 @@
+{
+  "origin": "2026-01-04",
+  "handoff": [
+    "0x2cd9f4645b14bf968212c7c108213eaeb193946e",
+    "0x3a122449de235a40481689442271c0731b805d69",
+    "0x971fc0c9becffd708c52a195b8a87c27359e77fa",
+    "0xe65c360b28bd3da42d9a07d97f500d8d480e8428"
+  ],
+  "D5": true,
+  "handoff_3_dec": [
+    "0x2cd9f4645b14bf968212c7c108213eaeb193946e"
+  ],
+  "differs_from_3_dec": [
+    "0x3a122449de235a40481689442271c0731b805d69",
+    "0x971fc0c9becffd708c52a195b8a87c27359e77fa",
+    "0xe65c360b28bd3da42d9a07d97f500d8d480e8428"
+  ],
+  "replayable_from_3_dec": {
+    "0x3a122449de235a40481689442271c0731b805d69": true,
+    "0x971fc0c9becffd708c52a195b8a87c27359e77fa": true,
+    "0xe65c360b28bd3da42d9a07d97f500d8d480e8428": true
+  },
+  "eligible_sha256": "8ed034f9082f7943b0268a43b320381240964aa5ac948c5ddeb03592846643a3"
+}

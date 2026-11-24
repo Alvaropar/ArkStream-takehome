@@ -1,0 +1,29 @@
+{
+  "D1": true,
+  "D2a": true,
+  "D2b": true,
+  "D3": true,
+  "D3_coins_measured": 4,
+  "D4": true,
+  "D4_ic": -0.08546286976004157,
+  "D4_statistic": "alpha",
+  "D4_threshold": -0.14,
+  "D5": true,
+  "decision": "CONDITIONAL GO",
+  "label": "pre-registered decision (ADR-0093)",
+  "window": "2025-12-03T00:00:00+00:00 -> 2026-01-04T00:00:00+00:00",
+  "origin": "2025-12-03",
+  "d2b_unmeasured_cutoff_addresses": [],
+  "freeze_hash": "62eba6dab41bf74838957d355538796fd59f30876317691219600755687b6648",
+  "d5_source": "research/cutoff/cutoff_handoff.json (the cutoff selection, ADR-0100), sha256 04ea3a9d8f5471231ae1113c069ccccfb148e19c573517da2d8c1866e5897987",
+  "run": "A (frozen cost model; decides, ADR-0098 item 7)",
+  "written": "2026-11-24T12:55:11+00:00",
+  "report_sha256": {
+    "h1_engine.csv": "5c2219c3a490d25466a6421b9514b8e6bb68c20a49dd7560d0ff21e407e1a156",
+    "h2_risk.csv": "592d00f6454c4e15708a01d840f5f5f4de12bf2fc25dd3ae1a8cc95e697b1434",
+    "h3_costs.csv": "0d7ff90678899b6ea7757ec0412eecdf541a7a39a731a6310d5f7805779a9e0d",
+    "h4_returns.csv": "1e7d63b43b82908113ba59d84a455bc49b87170ec3e9ea4095dd48c3192d9714",
+    "h5_cross_section.csv": "d7fa7750b813a07fb1d45a21ec2da37b3a28d38ecf347d9f277fe3639568f858",
+    "h6_binding.csv": "9519e6f8e285a149d2859558746cf0b6e625c51e45ae08f970a4119940f52361"
+  }
+}

@@ -1,0 +1,5 @@
+gate_passers,measured,unmeasured_low_coverage,positive,mean_return,unpriced,intents,scenario,variant,artifact,origin
+0,0,0,0,,0,0,base,part_ns_sweep_frozen,base_sqrt_cap_part_ns_sweep_frozen,2025-12-03
+0,0,0,0,,0,0,optimistic,part_ns_sweep_frozen,optimistic_sqrt_cap_part_ns_sweep_frozen,2025-12-03
+0,0,0,0,,0,0,severe,part_ns_sweep_frozen,severe_sqrt_cap_part_ns_sweep_frozen,2025-12-03
+0,0,0,0,,0,0,stress,part_ns_sweep_frozen,stress_sqrt_cap_part_ns_sweep_frozen,2025-12-03

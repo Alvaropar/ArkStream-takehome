@@ -1,0 +1,5 @@
+gate_passers,measured,unmeasured_low_coverage,positive,mean_return,unpriced,intents,scenario,variant,artifact,origin
+23,23,0,12,-0.0029871997328926635,70,3644,base,part_ns_sweep_frozen,base_sqrt_cap_part_ns_sweep_frozen,2025-12-03
+23,23,0,12,-0.0008765102239106485,106,3648,optimistic,part_ns_sweep_frozen,optimistic_sqrt_cap_part_ns_sweep_frozen,2025-12-03
+23,23,0,9,-0.028964123094690947,55,3646,severe,part_ns_sweep_frozen,severe_sqrt_cap_part_ns_sweep_frozen,2025-12-03
+23,23,0,8,-0.030593058864116163,54,3645,stress,part_ns_sweep_frozen,stress_sqrt_cap_part_ns_sweep_frozen,2025-12-03

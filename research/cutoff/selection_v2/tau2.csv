@@ -1,0 +1,2 @@
+origin,k,fe_mean,Q,df,Q_p,tau2,re_mean,mu0,robust_zero,prior_groups,bootstrap_blocks,n_E0,n_E-,n_E1,n_E2,placebo_required
+2026-01-04,256,-1.760076351835902e-17,3617.2021344578566,255,0.0,0.0,-1.760076351835902e-17,-1.760076351835902e-17,false,one_pool,7,167,124,132,0,false

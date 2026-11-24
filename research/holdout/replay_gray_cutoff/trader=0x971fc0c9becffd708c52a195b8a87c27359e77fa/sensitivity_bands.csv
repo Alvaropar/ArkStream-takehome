@@ -1,0 +1,5 @@
+hold_band,completed,addresses,gross_bps,cost_bps,funding_bps,net_bps,scenario,variant,artifact,origin
+1-7d,15,1,107.23295328795422,16.32201646346614,-2.707662898875623,88.20327392561245,base,part_ns_sweep_frozen,base_sqrt_cap_part_ns_sweep_frozen,2025-12-03
+1-7d,15,1,107.34726601781942,13.679225118550612,-2.7077639135909704,90.96027698567785,optimistic,part_ns_sweep_frozen,optimistic_sqrt_cap_part_ns_sweep_frozen,2025-12-03
+1-7d,15,1,107.11941023267896,92.10937535637376,-2.707389720876136,12.302645155429062,severe,part_ns_sweep_frozen,severe_sqrt_cap_part_ns_sweep_frozen,2025-12-03
+1-7d,15,1,107.14534917331545,89.44599827514061,-2.707447308826118,14.991903589348723,stress,part_ns_sweep_frozen,stress_sqrt_cap_part_ns_sweep_frozen,2025-12-03

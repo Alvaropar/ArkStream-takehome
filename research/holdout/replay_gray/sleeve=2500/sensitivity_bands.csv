@@ -1,0 +1,9 @@
+hold_band,completed,addresses,gross_bps,cost_bps,funding_bps,net_bps,scenario,variant,artifact,origin
+1-6h,22,1,114.35625398774413,16.305953347781934,-1.2301330927303662,96.82016754723182,base,part_ns_sweep_frozen,base_sqrt_cap_part_ns_sweep_frozen,2025-12-03
+1-7d,15,1,107.23295328795422,16.32201646346614,-2.707662898875623,88.20327392561245,base,part_ns_sweep_frozen,base_sqrt_cap_part_ns_sweep_frozen,2025-12-03
+1-6h,22,1,108.65801235196092,11.864759418735732,-1.2493301050588723,95.54392282816632,optimistic,part_ns_sweep_frozen,optimistic_sqrt_cap_part_ns_sweep_frozen,2025-12-03
+1-7d,15,1,107.34726601781945,13.679225118550612,-2.7077639135909704,90.96027698567788,optimistic,part_ns_sweep_frozen,optimistic_sqrt_cap_part_ns_sweep_frozen,2025-12-03
+1-6h,22,1,115.46111678817732,284.568298047485,-1.2167895110700533,-170.3239707703777,severe,part_ns_sweep_frozen,severe_sqrt_cap_part_ns_sweep_frozen,2025-12-03
+1-7d,15,1,107.11941023267896,92.10937535637377,-2.707389720876136,12.302645155429047,severe,part_ns_sweep_frozen,severe_sqrt_cap_part_ns_sweep_frozen,2025-12-03
+1-6h,23,1,117.58627189489154,268.8664537003585,-1.3283094769879091,-152.60849128245485,stress,part_ns_sweep_frozen,stress_sqrt_cap_part_ns_sweep_frozen,2025-12-03
+1-7d,15,1,107.14534917331544,89.44599827514058,-2.7074473088261177,14.991903589348738,stress,part_ns_sweep_frozen,stress_sqrt_cap_part_ns_sweep_frozen,2025-12-03
