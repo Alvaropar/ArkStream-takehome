@@ -109,13 +109,21 @@ def compute(
     ohlc: pl.DataFrame | None = None,
     extremes: pl.DataFrame | None = None,
     price_check: hlprices.PointInTimeCheck | None = None,
+    beyond_last_origin: bool = False,
 ) -> dict[str, pl.DataFrame]:
-    """Every leader-evidence table at asof for the addresses graded A/B at asof."""
+    """Every leader-evidence table at asof for the addresses graded A/B at asof.
+
+    `beyond_last_origin`: the holdout's trigger series at the window end (ADR-0099 item 11), after the last configured
+    origin and only behind `freeze.guard`."""
     assert_no_live_trading(ctx.root / "config")
     t = effective_asof(ctx, asof)
     rules = ctx.raw["leader"]
     if t > max(origins(ctx)):
-        raise ValueError("Phase 2 ends at the final configured origin")
+        if not beyond_last_origin:
+            raise ValueError("Phase 2 ends at the final configured origin")
+        from arkstream.freeze import guard
+
+        guard(ctx, t)
     quality = build(ctx, inputs, t).tables
     report = quality["quality_report"]
     frozen = quality["quality_evidence"].filter(pl.col("flag") == "frozen_snapshot")["src_row"]
@@ -435,12 +443,11 @@ def write(ctx: Context, tables: dict[str, pl.DataFrame], origin: date, out: Path
     return [*paths, d / "gate_counts.csv", d / "summary.md"]
 
 
-def run(ctx: Context, inputs: Inputs, out: Path, only: list[date] | None = None) -> list[Path]:
+def shared_panels(ctx: Context, inputs: Inputs, os_: list[datetime]) -> dict:
+    """The panels `run` shares across the origins `os_` (ADR-0044: each origin uses its own price-check list; the
+    panels cover the union of those lists and every consumer masks them by its origin's list)."""
     from arkstream import refprices as rf
 
-    os_ = [o for o in origins(ctx) if only is None or o.date() in only]
-    # ADR-0044: each origin uses its own price-check list. The shared panels cover the union of those lists and
-    # every consumer masks them by its origin's list.
     checker = hlprices.PointInTimeCheck.load(ctx)
     coins = checker.coins
     union = sorted(set().union(*(checker.passing(o) for o in os_)))
@@ -450,10 +457,16 @@ def run(ctx: Context, inputs: Inputs, out: Path, only: list[date] | None = None)
     ohlc = hlprices.load_candles_ohlc(ctx.path("hyperliquid_dir"), max(os_))
     extremes = lw.binance_extremes(ctx.path("binance_lake"), rf.load_map(ctx.path("binance_map")), union, max(os_))
     funding = load_funding(ctx, max(os_))
+    return {"px": px_all, "volume": volume, "funding": funding, "candles": candles, "ohlc": ohlc,
+            "extremes": extremes, "price_check": checker}
+
+
+def run(ctx: Context, inputs: Inputs, out: Path, only: list[date] | None = None) -> list[Path]:
+    os_ = [o for o in origins(ctx) if only is None or o.date() in only]
+    panels = shared_panels(ctx, inputs, os_)
     written, all_counts = [], []
     for o in os_:
-        tabs = compute(ctx, inputs, o, px=px_all, volume=volume, funding=funding, candles=candles, ohlc=ohlc,
-                       extremes=extremes, price_check=checker)
+        tabs = compute(ctx, inputs, o, **panels)
         written += write(ctx, tabs, o.date(), out)
         all_counts.append(gate_counts(tabs["gates"], o.date()))
         print(

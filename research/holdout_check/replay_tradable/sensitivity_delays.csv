@@ -1,0 +1,5 @@
+nonpositive_at_shortest,crossing_bracket,positive_through_grid,unmeasured,scenario,variant,artifact,origin
+11,2,10,2,base,part_ns_sweep_frozen,base_sqrt_cap_part_ns_sweep_frozen,2025-11-19
+11,2,10,2,optimistic,part_ns_sweep_frozen,optimistic_sqrt_cap_part_ns_sweep_frozen,2025-11-19
+14,0,9,2,severe,part_ns_sweep_frozen,severe_sqrt_cap_part_ns_sweep_frozen,2025-11-19
+14,0,9,2,stress,part_ns_sweep_frozen,stress_sqrt_cap_part_ns_sweep_frozen,2025-11-19

@@ -235,11 +235,26 @@ def main(argv: list[str] | None = None) -> int:
     sv = sub.add_parser("select-v2", help="Phase 4 v2 qualification at every origin (ADRs 0070-0075, 0076-0079)")
     sv.add_argument("--out", default=None, help="default: research/selection_v2")
     p5 = sub.add_parser("phase5", help="Phase 5 development steps on development data only (ADR-0095)")
-    p5.add_argument("step", choices=["risk-model", "population", "calibrate", "variants", "l1-oos", "pair", "report"],
+    p5.add_argument("step", choices=["risk-model", "population", "calibrate", "variants", "l1-oos", "pair", "report",
+                                     "cost-runs", "holdout"],
                     help="risk-model: P5-2; population: P5-4 calibration and variants (or one of them); "
                          "l1-oos: L1 on the test windows (descriptive); "
-                         "pair: P5-5 S*/U*/G*, random pairs, stress at the limits; report: P5-6 window report")
+                         "pair: P5-5 S*/U*/G*, random pairs, stress at the limits; report: P5-6 window report; "
+                         "cost-runs: runs B and C on the development windows (ADRs 0098-0099); "
+                         "holdout: the v2 holdout entry point (P5-8, refused unless the freeze holds; --check runs "
+                         "its code on the last development window)")
     p5.add_argument("--no-pairs", action="store_true", help="pair: skip the 200 random pairs per window")
+    p5.add_argument("--part", default="all", choices=["drift", "runs", "report", "all"],
+                    help="cost-runs: C's daily drift table, the runs, or the report tables")
+    p5.add_argument("--check", action="store_true",
+                    help="holdout: the entry point's code on 19 Nov -> 3 Dec, compared with the development outputs")
+    p5.add_argument("--stage", default="all", choices=["a", "bc", "all"],
+                    help="holdout: run A with its decision entry, then B and C (refused before the entry exists)")
+    p5.add_argument("--resume", action="store_true",
+                    help="holdout --check only: reuse the trees, marks and series an earlier check run finished")
+    p5.add_argument("--cutoff-handoff", nargs="*", default=None,
+                    help="holdout: the cutoff selection's hand-off addresses (ADR-0094 item 3; none = empty); "
+                         "without it D5 is unmeasured")
     p5.add_argument("--out", default=None, help="output folder (default depends on the step)")
     a = sub.add_parser("audit")
     a.add_argument("--asof", default=None)
@@ -271,6 +286,16 @@ def main(argv: list[str] | None = None) -> int:
             from arkstream import holdout_report
 
             print(f"wrote {holdout_report.run_development(ctx, out=out)}")
+        elif args.step == "cost-runs":
+            from arkstream import cost_runs
+
+            print(f"wrote {cost_runs.run(ctx, out, args.part)}")
+        elif args.step == "holdout":
+            from arkstream import holdout
+
+            cutoff = None if args.cutoff_handoff is None else [a for a in args.cutoff_handoff if a != "none"]
+            print(f"wrote {holdout.run(ctx, out, check=args.check, stage=args.stage, cutoff_handoff=cutoff,
+                                       resume=args.resume)}")
         return 0
     if args.cmd == "replay":
         out = Path(args.out) if args.out else None

@@ -21,6 +21,10 @@ Pure logic, no file I/O; `portfolio_replay` builds the inputs from the frozen tr
   impact and fee as in `replay_orders.execute`. FLATTEN orders use stress costs.
 * **States** (ADR-0089): NORMAL < HALVED < REDUCE_ONLY < FLATTEN < PAUSED < EXITED per sleeve, capped by the scheme
   state (P6 ladder); REDUCE_ONLY keeps the held legs' shape with a scale that can only fall, a sign flip gives 0.
+* **Cost runs B and C** (ADRs 0098-0099), all off by default (run A): `pricer` re-prices every order the frozen model
+  prices (the cost rebuild, O2 fill completeness); `risk_market` is the market the stress limits and the gray loss
+  cap read (C's daily refit); `shadow_market` logs C1 and O2 on that model without acting on them. C1 always
+  compares with `market`, the frozen model.
 """
 
 from __future__ import annotations
@@ -179,7 +183,8 @@ def exit_bps(market: Market, costs: Costs, coin: str, t: int, trader: str, notio
     if costs.impact_mult:
         if not vol_daily or vol_daily <= 0 or sigma is None:
             return None
-        impact = costs.impact_mult * BPS * costs.sqrt_y * sigma * math.sqrt(notional / vol_daily)
+        y = market.impact_y(coin, t) if hasattr(market, "impact_y") else costs.sqrt_y  # C's refit (ADR-0099 item 8)
+        impact = costs.impact_mult * BPS * y * sigma * math.sqrt(notional / vol_daily)
     return half + costs.fee_bps + max(d or 0.0, 0.0) + impact
 
 
@@ -384,6 +389,8 @@ class Sleeve:
     flatten_start: dict[str, float] = field(default_factory=dict)
     nontradable_hours: list[tuple[int, float, float]] = field(default_factory=list)  # (t, outside, total) notional
     shortfalls: list[tuple[int, float, float]] = field(default_factory=list)  # (t, realised bps, stress model bps)
+    shadow_shortfalls: list[tuple[int, float, float]] = field(default_factory=list)  # C: the updated stress model
+    shadow_active: bool = False
     cleared: set[str] = field(default_factory=set)
     active: set[str] = field(default_factory=set)  # trigger conditions true at the previous check
     u_gross: float = 0.0  # the U* twin's target gross at the latest update (exposure weight of λ)
@@ -402,14 +409,23 @@ class Result:
     events: list[dict]
     faults: list[str]
     intents: list[dict]
+    cost_records: list[dict] = field(default_factory=list)  # runs B and C (ADR-0099 item 10)
 
 
 class Engine:
     def __init__(self, rules: Rules, costs: Costs, market: Market, start: int, end: int,
                  triggers: dict[str, TriggerSeries] | None = None, reviews: list[int] | None = None,
                  resume_at_review: bool = True, feed_gaps: dict[str, list[tuple[int, int]]] | None = None,
-                 light: bool = False):
+                 light: bool = False, risk_market: Market | None = None, pricer=None,
+                 shadow_market: Market | None = None):
         self.rules, self.costs, self.market, self.start, self.end = rules, costs, market, start, end
+        # ADR-0099 item 9: the stress limits and the gray loss cap read `risk_market` (run C: the daily refit);
+        # C1 and O2 read `market` (the frozen model) in every run
+        self.risk_market: Market = risk_market if risk_market is not None else market
+        self.pricer = pricer  # runs B and C: the cost rebuild (ADR-0099 items 1-6)
+        self.shadow_market = shadow_market  # run C: shadow C1 and O2, logged, never acted on
+        self.cost_records: list[dict] = []
+        self._records: dict[int, dict] = {}
         self.sleeves = {i: Sleeve(i, a) for i, a in sorted(rules.allocations.items())}
         for s in self.sleeves.values():
             s.hwm = s.nav = s.allocation
@@ -526,7 +542,7 @@ class Engine:
                 m = self.mark(c, t)
                 if m is None or abs(q) < EPS:
                     continue
-                e = exit_bps(self.market, self.rules.stress_costs, c, t, s.trader, abs(q) * m)
+                e = exit_bps(self.risk_market, self.rules.stress_costs, c, t, s.trader, abs(q) * m)
                 total += abs(q) * m * (e or 0.0) / BPS
         return total
 
@@ -582,7 +598,7 @@ class Engine:
             if self.light:
                 continue
             tmarks = self.marks_for(set(targets), t)
-            t_stress = stress_loss(targets, tmarks, self.market, self.rules.stress_costs, t, i)
+            t_stress = stress_loss(targets, tmarks, self.risk_market, self.rules.stress_costs, t, i)
             self.decisions.append({
                 "t": t, "trader": i, "reason": reason, "state": st, "lambda": lam[i], "lambda_set_by": s.lam_by,
                 "s1": s1.get(i, 0.0), "state_scalar": scalar, "u_ratio": ratio, "reduce_only_legs": len(ro_legs),
@@ -719,13 +735,29 @@ class Engine:
                 status = "below_minimum" if clip == 0 else "participation_exhausted"
             trigger_trader = sig.trader if sig is not None else sorted(deltas)[0]
             px, fee, impact, half, why, ack, source, anchor = (None, 0.0, 0.0, 0.0, "", t, "", m)
+            record = None
             if status == "submitted":
                 px, fee, impact, half, why, ack, source, anchor = self.price(c, t, q, trigger_trader, sig, flatten)
+                if self.pricer is not None and px is not None and not why:
+                    # ADR-0099 item 6: the rebuild prices only what the frozen model prices
+                    record = self.pricer.price(self, c, t, q, trigger_trader, sig, flatten, px, impact, half, ack,
+                                               source, anchor)
+                    px, fee, impact, half, ack = (record["px"], record["fee"], record["impact_bps"],
+                                                  record["half_bps"], record["ack_ms"])
+                    if record["status"] != "filled":
+                        why = record["status"]  # rejected_o2: the engine's failure path (ADR-0099 item 5)
+                    if record.get("shadow_o2_reject"):
+                        self.log(t, "shadow_o2_reject", trigger_trader, coin=c, value=record["shortfall_bps"])
                 if px is not None and abs(q) * px < self.rules.min_notional:
                     status = "below_minimum_at_ack"
                 elif ack >= self.end:
                     status = "after_window"
             oid = len(self.orders)
+            if record is not None:
+                record.update(physical_id=oid, decision_ms=t, coin=c, quantity=q, reason=reason, flatten=flatten,
+                              order_status=status if status != "submitted" else (why or "filled"))
+                self.cost_records.append(record)
+                self._records[oid] = record
             shares = {i: d / sum(deltas.values()) for i, d in deltas.items()} if abs(sum(deltas.values())) > EPS else {}
             self.orders.append({"physical_id": oid, "coin": c, "decision_ms": t, "ack_ms": ack, "quantity": q,
                                 "mark": m, "anchor_px": anchor, "fill_px": px, "fee": fee, "impact_bps": impact,
@@ -768,6 +800,12 @@ class Engine:
                 realised = math.copysign(1, a) * (px / m - 1) * BPS + self.costs.fee_bps
                 if model is not None:
                     s.shortfalls.append((ack, realised, model))
+                if self.shadow_market is not None:
+                    shadow = exit_bps(self.shadow_market, self.rules.stress_costs, c, t, i, abs(a) * m)
+                    if shadow is not None:
+                        s.shadow_shortfalls.append((ack, realised, shadow))
+        if self.pricer is not None and not why and px is not None and oid in self._records:
+            self.pricer.filled(self._records[oid])
 
     # -- the decision paths
     def update(self, t: int, sig: Signal | None, reason: str) -> None:
@@ -775,7 +813,7 @@ class Engine:
         self.value(t)
         base, s1, marks = self.base_vectors(t)
         navs = {i: s.nav for i, s in self.sleeves.items()}
-        res = solve(self.rules, base, s1, marks, self.market, t, navs, self.loss_to_date(t),
+        res = solve(self.rules, base, s1, marks, self.risk_market, t, navs, self.loss_to_date(t),
                     include_p4=sig is not None)
         if res.fault:
             self.faults.append(f"{res.fault} at {t}")
@@ -794,8 +832,8 @@ class Engine:
         if reason == "hourly" and self.rules.kind in ("S", "G"):
             navs = {i: s.nav for i, s in self.sleeves.items()}
             only = ("S2", "P5") if self.rules.kind == "S" else None
-            res = solve(self.rules, base, s1, marks, self.market, t, navs, self.loss_to_date(t), include_p4=False,
-                        start=lam, only=only)
+            res = solve(self.rules, base, s1, marks, self.risk_market, t, navs, self.loss_to_date(t),
+                        include_p4=False, start=lam, only=only)
             for i, s in self.sleeves.items():
                 if res.lam[i] < lam[i] - EPS:
                     s.lam, s.lam_by = res.lam[i], res.set_by[i] + "_hourly"
@@ -806,7 +844,7 @@ class Engine:
                 for i in base:
                     for c, q in base[i].items():
                         netted[c] += lam[i] * q
-                usage = stress_loss(dict(netted), marks, self.market, self.rules.stress_costs, t,
+                usage = stress_loss(dict(netted), marks, self.risk_market, self.rules.stress_costs, t,
                                     sorted(base)[0] if base else "")
                 limit = self.rules.p4_share * self.rules.D
                 if usage > limit + 1e-9 and not self.p4_passive:
@@ -894,6 +932,18 @@ class Engine:
             model = sorted(x[2] for x in recent)[len(recent) // 2]
             if real > model:
                 fire.append(("REDUCE_ONLY", "C1", real - model))
+        if self.shadow_market is not None:  # run C: C1 on the updated stress model, logged only (ADR-0099 item 9)
+            while s.shadow_shortfalls and s.shadow_shortfalls[0][0] <= t - 14 * DAY:
+                s.shadow_shortfalls.pop(0)
+            sh = [x for x in s.shadow_shortfalls if x[0] <= t]
+            on = False
+            if len(sh) >= 5:
+                real_s = sorted(x[1] for x in sh)[len(sh) // 2]
+                model_s = sorted(x[2] for x in sh)[len(sh) // 2]
+                on = real_s > model_s
+                if on and not s.shadow_active:
+                    self.log(t, "shadow_trigger_on", s.trader, trigger="C1", value=real_s - model_s)
+            s.shadow_active = on
         active = {name for _, name, _ in fire}
         for _state, name, value in fire:
             if name not in s.active:  # a firing: the condition turns on (ADR-0089 item 3), whatever the state
@@ -968,7 +1018,8 @@ class Engine:
                 self.hourly.append({"t": t, "trader": s.trader, "nav": s.nav, "state": self.effective_state(s)})
                 continue
             held_marks = self.marks_for(set(s.held), t)
-            held_stress = stress_loss(dict(s.held), held_marks, self.market, self.rules.stress_costs, t, s.trader)
+            held_stress = stress_loss(dict(s.held), held_marks, self.risk_market, self.rules.stress_costs, t,
+                                      s.trader)
             if held_stress > self.max_stress_book.get(s.trader, (-1.0,))[0]:
                 book = {c: q for c, q in s.held.items() if abs(q) > EPS}
                 self.max_stress_book[s.trader] = (held_stress, t, book, {c: held_marks[c] for c in book
@@ -1047,4 +1098,5 @@ class Engine:
                 self.value(t)
                 self.recheck(t, "sweep")
         self.value(self.end - 1)
-        return Result(self.orders, self.fills, self.decisions, self.hourly, self.events, self.faults, self.intents)
+        return Result(self.orders, self.fills, self.decisions, self.hourly, self.events, self.faults, self.intents,
+                      self.cost_records)

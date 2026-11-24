@@ -1,0 +1,5 @@
+liq_bucket,orders,p99_bps,median_bps,label
+1M-5M,3893,2681.524514844202,30.362272024184733,"frozen O2 bound (ADR-0099 item 5): development stress p99, trigger legs"
+250k-1M,1832,436.2887959557764,26.52453503891761,"frozen O2 bound (ADR-0099 item 5): development stress p99, trigger legs"
+<250k,202,407.73545904257395,29.850492601454228,"frozen O2 bound (ADR-0099 item 5): development stress p99, trigger legs"
+>=5M,32350,430.4258479202476,6.780635374981081,"frozen O2 bound (ADR-0099 item 5): development stress p99, trigger legs"

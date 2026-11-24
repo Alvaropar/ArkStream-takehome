@@ -36,16 +36,18 @@ from arkstream.timeparse import parse_one_utc
 FREEZE_FILE = "provenance/HOLDOUT_FREEZE.txt"
 SHORTLIST = "research/selection_v2/origin=2025-12-03/eligible.parquet"
 RULE = ("phase4-v2 select-v2 run 4 with ADR-0084 (ADRs 0066-0084); phase5 revision 4 two-sleeve scheme "
-        "(ADRs 0086-0097)")
+        "(ADRs 0086-0097); holdout runs A, B, C and the v2 entry point (ADRs 0098-0099)")
 CONFIG_FILES = ("config/decision_context.yaml", "config/execution.yaml", "config/instruments.yaml",
                 "config/risk.yaml")
 SOURCE_GLOBS = ("selection*.py", "freeze.py", "replay*.py", "drift.py", "prices.py", "hlprices.py", "refprices.py",
                 "leader*.py", "copiers.py", "quality.py", "positions.py", "book_state.py", "funding.py",
                 "pipeline.py", "config.py", "timeparse.py",
                 # Phase 5 (ADR-0091 item 3)
-                "risk_model.py", "portfolio_*.py", "phase5_*.py", "holdout_report.py")
+                "risk_model.py", "portfolio_*.py", "phase5_*.py", "holdout_report.py",
+                # runs B and C and the v2 holdout entry point (ADR-0098 item 8, ADR-0099)
+                "cost_*.py", "holdout.py")
 ENTRY_FILES = ("__init__.py", "__main__.py", "cli.py")  # hashed, their imports not followed (ADR-0097 item 2)
-FROZEN_ADRS = (*range(65, 85), *range(86, 98))
+FROZEN_ADRS = (*range(65, 85), *range(86, 100))
 DOC_FILES = ("decision/phase-4-v2-methodology.md", "decision/phase-5-methodology.md", "decision/phase-5-results.md")
 OUTPUT_MANIFEST = "provenance/HOLDOUT_OUTPUT_MANIFEST.txt"
 MANIFEST_FILES = ("provenance/CHECKSUMS.txt", "data/reference/prices/MANIFEST.yaml",
@@ -56,7 +58,8 @@ MANIFEST_FILES = ("provenance/CHECKSUMS.txt", "data/reference/prices/MANIFEST.ya
                   "provenance/PRE_PHASE4_OUTPUT_CHECKSUMS.txt", OUTPUT_MANIFEST)
 OUTPUT_TREES = ("research/replay_tradable", "research/replay_allpriced", "research/selection_v2",
                 "research/leader", "research/replay_gray", "research/risk_model",
-                "research/phase5_population", "research/portfolio_replay", "research/window_report")
+                "research/phase5_population", "research/portfolio_replay", "research/window_report",
+                "research/cost_runs")  # ADR-0099 item 5: the frozen O2 bounds and the development runs B and C
 TEXT_SUFFIXES = (".py", ".md", ".yaml", ".yml", ".txt", ".csv", ".json", ".toml", ".lock")
 ENV_PACKAGES = ("polars", "numpy", "pyarrow", "pyyaml", "scipy")
 ENV_NOT_COMPARED = ("os",)

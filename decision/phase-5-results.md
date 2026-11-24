@@ -2,7 +2,9 @@
 
 Written 2026-11-24. **Development data only: the holdout is closed.** Every number below comes from the four
 development test windows (8 Oct, 22 Oct, 5 Nov and 19 Nov 2025, 14 days each) or from the training windows. The rules
-are ADRs 0086-0096, approved by the user on 2026-11-24, with `config/risk.yaml` v3.
+are ADRs 0086-0096, approved by the user on 2026-11-24, with `config/risk.yaml` v3. Section 9 adds the development
+runs of the holdout cost runs B and C (ADR-0098, accepted by the user on 2026-11-24, with the details pinned in
+ADR-0099 before anything was computed).
 
 > **Selection in-sample on these windows; machinery test, not skill.** Both sleeves were chosen with data up to
 > 3 Dec, which covers every development window (ADR-0086 item 3). These runs test the engine and the risk rules.
@@ -18,6 +20,8 @@ are ADRs 0086-0096, approved by the user on 2026-11-24, with `config/risk.yaml` 
 | P5-4 | `phase5 population`, `phase5 l1-oos` | `research/phase5_population/` | F4; variant criterion as written | F4 passes, L1 measured out of sample on the test windows; both variants rejected |
 | P5-5 | `phase5 pair` | `research/portfolio_replay/` | F2a, F2b, F3, F5 | all pass (section 6) |
 | P5-6 | `phase5 report` | `src/arkstream/holdout_report.py`, `research/window_report/` | identical schema across windows | identical; H5 reproduces the published Phase 4 ranking ICs exactly |
+| B, C | `phase5 cost-runs` | `research/cost_runs/` | run A unchanged; C's drift table at the origins | 384/384 files of A byte-identical; the daily table equals the frozen cells at all four origins (section 9) |
+| Entry point | `phase5 holdout --check` | `src/arkstream/holdout.py`, `research/holdout_check/` | reproduces the development outputs on 19 Nov | pass: every output reproduced (section 9.6) |
 
 The details pinned while building the engine are in ADR-0096. Every run is logged in `provenance/trial_log.md`.
 
@@ -299,12 +303,143 @@ order at stress costs and severe delays.
 **F5 (determinism):** the full P5-5 step run twice gives 389/389 byte-identical files. The first rerun found
 one difference, the JSON key order in `pair_summary.csv`; the keys are now sorted and the step was rerun.
 
-## 9. What is next
+## 9. Runs B and C on the development windows (ADRs 0098-0099)
+
+> **Rebuilt real conditions, development: not real fills.** Descriptive only: no strategy parameter changed on these
+> results (trial log, "Phase 5 cost runs B and C, development"). The selection is in-sample on these windows, as in
+> section 5. The rebuild is a reconstruction from prints and the Binance tape, not an order book.
+
+**What ran** (`phase5 cost-runs`, `research/cost_runs/`): B on S\*, U\* and G\* (2,500) and C on S\* and G\*, on
+the four test windows, with the base tree inputs and the P5-5 configurations. A is the P5-5 base run.
+
+### 9.1 Checks before the comparison
+- **Run A is unchanged.** The P5-5 runs, rerun with the engine that now carries the B and C hooks, match
+  `research/portfolio_replay` byte for byte on 384/384 files (four windows, four scenarios, S\*, U\*, G\*), and the
+  128 summary rows are equal (`scripts/check_run_a_unchanged.py`, `research/audit/run_a_unchanged.md`). A never reads
+  the BNB, AAVE or EIGEN tape (`replay_market.DIRECT` is unchanged), so BNB's development D3 p90 is unchanged too.
+- **C's daily drift table equals the frozen cells on every origin day:** 1,560, 3,000, 3,149 and 3,258 cells, with no
+  value or count different (`drift_daily_origin_check.csv`).
+
+### 9.2 A against B
+
+Pooled over the four windows, whole book:
+
+| Book | Run | P&L (USDC) | Worst max drawdown (USDC) | Worst loss incl. exit (USDC) | Physical fills | Cost per side, notional-weighted, with fee (bp) |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| S\* | A | +193.7 | 406.5 | 312.7 | 448 | 8.10 |
+| S\* | B | +259.5 | 379.7 | 295.3 | 448 | 6.60 |
+| U\* | A | +3,904.0 | 1,839.5 | 1,612.5 | 566 | 10.06 |
+| U\* | B | +4,103.4 | 1,851.2 | 1,628.9 | 566 | 7.86 |
+| G\* | A | +135.8 | 242.7 | 184.8 | 194 | 9.09 |
+| G\* | B | +147.5 | 246.4 | 189.7 | 194 | 7.98 |
+
+- **B ends above A in 11 of 12 book-windows,** by 1.6 to 103 USDC. The exception is G\* on 8 Oct, 4.6 USDC lower:
+  its same-day HYPE spread, notional-weighted, was 12.0 bp against the 5.0 bp A charges (the window holds the
+  10-11 Oct crash).
+- **The same orders.** Every order A prices, B prices, and no order was rejected (section 9.5). The fill counts are
+  equal. The traded notional differs by at most 0.07%, except S\* on 8 Oct (+7.2%, the C1 difference below).
+- **Firings** are the same except S\* on 8 Oct. In A, C1 fires on 0x971f (10 Oct 22:00) and L1 then finds the sleeve
+  already reduce-only; in B, C1 does not fire and L1 sets the state on both sleeves an hour later.
+
+### 9.3 B against C
+- **Identical fills, P&L, drawdown and firings in every window.** C's refit changes only the logged stress estimates
+  (the worst loss including exit differs by at most 6.2 USDC).
+- **The reason:** no stress limit (S2, P4, P5, `L_gray`) set `λ` in B or in C. `λ` was set by S1, P2, P3 or nothing,
+  and the highest stress usage at an update was 87% of the G\* budget (5 Nov) and 31% of S\*'s.
+- So B against C measures nothing in these windows: C's refit can matter only where a stress limit binds.
+
+### 9.4 Accuracy per part
+
+S\*, filled orders, model minus rebuild, bp per side without the fee, all four windows. S\* made 448 orders, all on
+tape coins (BNB 139, BTC 127, HYPE 108, ETH 74); the rows cover the 437 whose drift came from the tape:
+
+| Part | Frozen model | Rebuild | Frozen minus rebuild: mean, median, mean absolute | C's model | C minus rebuild: mean, mean absolute |
+| --- | ---: | ---: | --- | ---: | --- |
+| Delay (ms) | 1,200 | 1,450 | -250, -23, 361 | 1,200 | -250, 361 |
+| Drift | -0.05 | -0.86 | +0.81, 0.00, 4.28 | -0.10 | +0.77, 4.24 |
+| Half-spread | 3.16 | 3.48 | -0.32, 0.00, 1.27 | 3.19 | -0.29, 1.30 |
+| Impact | 0.54 | 0.43 | +0.11, +0.05, 0.29 | 0.02 | -0.41, 0.44 |
+| Total | 3.65 | 3.04 | +0.60, +0.90, 4.70 | 3.11 | +0.07, 4.60 |
+
+The 11 orders whose drift fell back have the frozen drift by construction.
+
+- **The frozen model overstates the cost on average:** by 0.6 bp per order, and by 1.5 bp per side notional-weighted
+  (8.10 against 6.60, section 9.2). Per order the two differ by about 4.7 bp, mostly the drift over a delay that
+  differs from the fixed 1,200 ms.
+- **By coin:** the frozen model overstates BTC (0.0 against -0.6 bp), ETH (1.7 against -0.2) and BNB (6.2 against
+  5.3; A's approximate drift, the rebuild's new tape). It understates HYPE (6.4 against 7.0): HYPE's same-day spread
+  averages 7.0 bp against the 5 bp floor A uses, whose own estimate is 4.4 bp.
+- **C's model is close on average (+0.07 bp) but no better per order** (4.6 against 4.7). Its trailing 14-day impact
+  `y` has a median of 0 (mean 0.06); the same-day fits have a median of 0.19.
+
+**Fallbacks** (share of the orders the rebuild priced):
+
+| Book | Orders | Drift (no print within 1 s) | Spread (fewer than 20 pairs that day) | Impact (fewer than 30 taker orders) |
+| --- | ---: | ---: | ---: | ---: |
+| S\* | 448 | 2.5% | 51% | 25% |
+| U\* | 566 | 2.3% | 60% | 26% |
+| G\* | 194 | 2.1% | 56% | 0% |
+
+The spread falls back on every BNB order and on 70% of HYPE's (ADR-0099, Context). Each fallback is the frozen
+value, so the fallbacks pull the rebuild toward A.
+
+### 9.5 O2, D3, C1 and the shadow logs
+- **O2 never bound.** The frozen bounds are 408-2,682 bp per side (`o2_bounds.csv`); the development stress p99
+  includes the 10-11 Oct crash. No order in B or C came near them.
+- **D3 on B passes in all four windows,** as on A (1, 2, 1 and 3 coins measured, all within the development p90).
+- **C1 on B fires 0 times,** against once on A (S\*, 8 Oct).
+- **Shadow C1 (C) fires once:** on 0x2cd9 at 10 Oct 21:00, where C's frozen C1 does not. C's own stress estimate,
+  with its lower `y`, is below the rebuilt cost there, so here letting C1 adapt would have added a firing, not
+  removed one.
+- **Shadow O2 (C) would have rejected 41 orders** (S\* 34, G\* 7) that the frozen bound passed. The updated model's
+  stress shortfall for an order is a much tighter bound than the development p99.
+
+### 9.6 The v2 holdout entry point, check mode
+
+`phase5 holdout --check` runs the entry point's code on the last development window (19 Nov → 3 Dec, trigger
+series at 3 Dec) into `research/holdout_check/` and reads nothing at or after 3 Dec 00:00 (`check.md`):
+
+| Output | Compared with | Result |
+| --- | --- | --- |
+| 10k tradable tree (the single-window path) | `research/replay_tradable`, 19 Nov test window | 26/26 files byte-identical |
+| 2,500 gray tree | `research/replay_gray/sleeve=2500`, 19 Nov | 26/26 |
+| Run A: S\*, U\*, G\* in the four scenarios | `research/portfolio_replay`, 19 Nov | 84/84 |
+| Runs B and C | `research/cost_runs`, 19 Nov | 40/40 |
+| Window report H1-H6 (`holdout_report.report`, unchanged) | `research/window_report`, 19 Nov | 6/6 tables identical |
+| Trigger series the engine reads (`daily_twr`, `book_hourly`) | `research/leader/origin=2025-12-03` | byte-identical |
+| The other 20 Phase 2 tables there | the same | 18 byte-identical; 2 equal to 3.5e-16 relative |
+| Valuation marks; H5 outcomes | the development outputs | equal |
+
+- **The two near-identical tables** (`evidence`, `trip_summary`) differ only in the last bits of three float
+  columns. The entry point bounds its inputs at the window end, so the frames are smaller and polars sums in a
+  different order.
+- **Two code fixes on the way,** logged in the trial log; neither changes a development output.
+  - The tradable tree now carries the window's marks, which the outcome α reads.
+  - The trigger series are built with the panels `leader.run` shares over the origins (`leader.shared_panels`).
+    Built alone, `leader.compute` makes narrower panels, which changed 4 of the 22 tables.
+- **Past the last configured origin:** with the origins cut to 8 Oct-5 Nov, the same code builds the 19 Nov tables
+  past the last origin (`beyond_last_origin.md`). `daily_twr` and `book_hourly` are byte-identical to the published
+  ones, as are 17 of the other 20 tables; 2 are equal to 1e-12. `daily_marks` differs because the shared price grid
+  then covers the coin lists of three origins instead of five (ADR-0044).
+- **Not exercised before the freeze:** the branch of `run_sensitivities` past 3 Dec, and `leader.compute` on its
+  holdout bound. Both run only behind `freeze.guard`, and the tests cover the refusals.
+
+### 9.7 For the memo
+- In development the rebuild finds the frozen cost model conservative by about 1.5 bp per side (notional-weighted),
+  except on HYPE, where the floor sits below the same-day spread.
+- Neither O2 nor the stress limits bound, so B against C carries no information yet. Both comparisons are labelled
+  rebuilt real conditions, not real fills; only the gray protocol measures our own orders (ADR-0090).
+
+## 10. What is next
 
 - **P5-7, the joint freeze (ADR-0091).** The user gave the go on 2026-11-24. This document is part of the frozen set.
   - `risk.yaml` holds no `OPEN` choice: the variants were settled at P5-4 and the gray size at P5-5.
   - L1 was measured out of sample before the freeze (section 4).
   - The freeze-mechanism changes listed in ADR-0091 are pinned in ADR-0097: the v2 shortlist, the manifests, the
     environment block and `verify_holdout_inputs.py`.
+  - Runs B and C, run C's refit and the v2 holdout entry point are built and run on development data (section 9),
+    and the frozen set holds them (ADR-0098 item 8, ADR-0099). One hash covers everything.
   - The user sends the hash to the reviewers.
+- **The cutoff selection (ADR-0094 item 3) has no entry point.** The holdout entry point takes the cutoff hand-off as
+  an input for D5 and the G\* rerun; without it D5 is unmeasured, which fails (ADR-0068).
 - **P5-8, the holdout, and P5-9, the cutoff deliverables,** each need their own go.

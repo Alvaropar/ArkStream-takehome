@@ -1,7 +1,8 @@
 # ADR-0097: The freeze mechanism for the joint freeze: what is hashed, the manifests and the environment block
 
 - Status: Accepted (pinned on 2026-11-24 for P5-7, on the user's go for the joint freeze, before the hash is
-  computed)
+  computed). The frozen set then grew by ADRs 0098-0099, the cost-run modules, the v2 holdout entry point and the
+  output tree `research/cost_runs` (ADR-0098 item 8, ADR-0099), before any hash was computed
 - Date: 2026-11-24
 - Phase: Phase 5 (revision 4), step P5-7
 - Refines: ADR-0091 items 2-4 (what one hash covers, the mechanism changes, the order); ADR-0065 (the freeze
@@ -111,10 +112,8 @@ not give:
   excludes `latency.py`.
 - **A change to any hashed file** after the freeze needs a new ADR and a new hash before the holdout (ADR-0091 item
   5). That includes a change to `cli.py`.
-- **The v2 holdout entry point is not written yet.** No code replays the 3 Dec origin's holdout window on the
-  tradable tree, computes the holdout outcomes for H5, or runs S\*, U\* and G\* on that window.
-  - `replay_tradable.py` says the holdout window is never computed, and `portfolio_replay.dev_windows` skips
-    origins at or after 3 Dec.
-  - The v1 entry point (`replay_coinfilter.run_holdout`) runs the v1 stack.
-  - Writing the v2 entry point changes hashed sources, so P5-8 needs a new hash first, unless that code is written
-    and tested before the hash is sent.
+- **The v2 holdout entry point was not written when this ADR was pinned.** No code then replayed the 3 Dec origin's
+  holdout window on the tradable tree, computed the holdout outcomes for H5, or ran S\*, U\* and G\* on that window
+  (`replay_tradable.py` never computes the holdout window; `portfolio_replay.dev_windows` skips origins at or after
+  3 Dec; the v1 entry point, `replay_coinfilter.run_holdout`, runs the v1 stack). It is now `holdout.py`, pinned in
+  ADR-0099 item 11 and tested on development data before the hash, so the one hash covers it.

@@ -1,0 +1,29 @@
+{
+  "D1": true,
+  "D2a": true,
+  "D2b": true,
+  "D3": true,
+  "D3_coins_measured": 3,
+  "D4": true,
+  "D4_ic": -0.14980786099926963,
+  "D4_statistic": "m",
+  "D4_threshold": -0.2,
+  "D5": null,
+  "decision": "NO-GO",
+  "label": "development: not a decision",
+  "window": "2025-11-19T00:00:00+00:00 -> 2025-12-03T00:00:00+00:00",
+  "origin": "2025-11-19",
+  "d2b_unmeasured_cutoff_addresses": [],
+  "freeze_hash": null,
+  "d5_source": "not given: unmeasured (ADR-0068)",
+  "run": "A (frozen cost model; decides, ADR-0098 item 7)",
+  "written": "2026-11-24T07:54:19+00:00",
+  "report_sha256": {
+    "h1_engine.csv": "57f5cef0109ef168fcbac91e3207c447986ba957135a514dd25238ca95ca9494",
+    "h2_risk.csv": "1c59cb3f49e8de7f7062dfca86e19b80f85a18b4a15002a0b6a3f57cd3065a7e",
+    "h3_costs.csv": "d5cfeb97a1f14350f642315d2d8d37ccd1625444fc1e4ac397a18439ab7157ea",
+    "h4_returns.csv": "267ee19dd7c76e0c2b8a1536be4e50dd2a5c076ca8d7d5f316f99163d1e66668",
+    "h5_cross_section.csv": "9733ed766e20ea9829252bcd3c52edd4be50ab21ef9c5c1ffe2d4144199038db",
+    "h6_binding.csv": "9bba12945cc6484d1e1f637758142eb70c74e628d1dbc905975007340f64b034"
+  }
+}

@@ -3,7 +3,8 @@
 - Status: Accepted (the user approved it on 2026-11-24: "Accept it"). It amends ADR-0092 (two more runs in the
   single opening), ADR-0093 (B and C reported, A still decides), ADR-0091 (the frozen set grows), ADR-0089 (C1's
   benchmark in run C) and rule 3 of `config/decision_context.yaml` (holdout data may set cost inputs inside B and C
-  only).
+  only). Its item 11 details are pinned in ADR-0099, which also reads item 5's "S1 stress cap" as the limits that
+  call `stress_loss` (S2, P4, P5; `L_gray` for G\*).
 - Date: 2026-11-24
 - Phase: Phase 5 (revision 4): built and tested before P5-7 (joint freeze), run at P5-8
 - Source: the user's design of 2026-11-24 (runs A, B, C; the cost rebuild is "not a run"), and the C1 point the user
@@ -171,8 +172,7 @@ each for S\*, 1 each for G\*. Source: `research/portfolio_replay/pair_summary.cs
 - The frozen set grows by the rebuild, C's refit and the holdout entry point.
 - The hash is computed once, after they are built and tested, and sent nowhere before then.
 
-**Follow-up edits.** These files are part of the two Phase 5 commits still pending, so they are edited after those
-commits:
+**Follow-up edits,** made with this ADR on 2026-11-24, after the Phase 5 commits:
 - the index row;
 - the status lines of ADRs 0089, 0091, 0092 and 0093;
 - the note on rule 3 in `config/decision_context.yaml`.

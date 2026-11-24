@@ -14,15 +14,19 @@ Phase 4 v2 evidence does not support. Its ADRs are **0086-0095**, the next free 
    750 USDC loss cap, called G\* (sections 2, 6, 8-9).
 
 **Status: accepted.** Written up as ADRs 0086-0095, which the user approved on 2026-11-24 before any Phase 5 result,
-and ADR-0096, the engine details pinned before any P5-4 or P5-5 result.
+and ADR-0096, the engine details pinned before any P5-4 or P5-5 result. ADR-0097 pins the freeze mechanism, ADR-0098
+(accepted by the user on 2026-11-24) adds the holdout cost runs B and C, and ADR-0099 pins their details and the v2
+holdout entry point before they were computed.
 
-**Note of 2026-11-24, at the joint freeze (P5-7).** This text now agrees with the accepted ADRs 0086-0096 and with
+**Note of 2026-11-24, at the joint freeze (P5-7).** This text now agrees with the accepted ADRs 0086-0099 and with
 the development results in [phase-5-results.md](phase-5-results.md). No rule changed in this edit.
 - The user's choices of 2026-11-24 are written in as decided (section 15): P5 in the budget form with no waiver
   (sections 4 and 4.1), and option C for G\* with the stress cap on the remaining budget (section 10.2).
 - The gray size is 2,500 USDC (section 10.2), and both risk-rule variants were rejected (section 6.2).
 - `λ ≈ 0.15` is marked as the pre-run estimate, with the measured values beside it (sections 4.1 and 7).
 - L1 is measured out of sample on the population (section 6.1).
+- Runs B and C and the v2 holdout entry point are described in section 8 (ADRs 0098-0099); their development runs
+  are in the results, section 9.
 - Revision 2 was deleted, and this file took its name.
 
 Scope and discipline come from ADR-0065:
@@ -347,11 +351,12 @@ The development run was to show three things the memo needs. What it showed is i
 
 **Joint freeze first** (ADR-0091). One hash covers:
 - the Phase 4 v2 specification as decided in the freeze-decision trial-log entry, including the funding treatment;
-- this document's rules, including the observation-sleeve declaration, ADRs 0086-0096, and the development results;
+- this document's rules, including the observation-sleeve declaration, ADRs 0086-0099, and the development results;
 - `risk.yaml`, `execution.yaml`, `instruments.yaml`;
 - every source the holdout path imports;
 - the data, replay and selection manifests (pre-holdout Check 3), and the environment block;
 - the window-report module, already run on all four development windows (Check 4);
+- the cost rebuild, run C's refit and the v2 holdout entry point, run on the development windows (ADR-0098 item 8);
 - the pre-registered tests below.
 
 The user sends the hash to the reviewers. No `HOLDOUT_FREEZE.txt` exists before the freeze writes it. The mechanism
@@ -364,6 +369,36 @@ scenarios.
 **If the cutoff hand-off differs** (section 10.3), that address's G\* is run on the same holdout window with the
 frozen rules before any gray start, and it must pass D2b as well. This step is declared here, so it is part of the
 single opening.
+
+**Three runs in the one opening, one frozen strategy** (ADR-0098; details in ADR-0099):
+
+| Run | Costs charged on fills | Cost model in the risk rules | Books | Role |
+| --- | --- | --- | --- | --- |
+| A | the frozen model, in the four scenarios | frozen | S\*, U\*, G\* | decides D1-D5 |
+| B | the cost rebuild | frozen | S\*, U\*, G\* | reported; D3 and C1 are also read on B |
+| C | the cost rebuild | refitted daily at 00:00 UTC on data before it | S\*, G\* | reported; a variant that decides nothing |
+
+- **The cost rebuild** prices each order from the market at its own time. It is "rebuilt real conditions", not real
+  fills:
+  - a delay drawn per order from the measured per-draw distribution;
+  - the Binance tape over that delay, on BTC, ETH, HYPE, SOL, BNB, AAVE and EIGEN;
+  - the same day's Hyperliquid spread estimate, without the floor;
+  - impact `y` fitted on the same day's taker orders;
+  - no fill above the frozen O2 bound of the order's liquidity bucket.
+
+  Each part falls back to the frozen value, flagged, when its data are short.
+- **In C,** the spread and impact `y` are refitted on the trailing 14 days and the drift table at daily vintages. The
+  refit feeds the stress limits (S2, P4, P5, `L_gray`) and the gray loss cap. C1 and O2 keep the frozen benchmark in
+  every run; C logs a shadow C1 and a shadow O2 on its own model and never acts on them.
+- **Order:** A runs first, and its outputs and D1-D5 entry are written before B or C starts. B and C never change the
+  verdict. If B fails a condition that A passes, the memo's summary says so.
+- **The entry point** (`phase5 holdout`, `src/arkstream/holdout.py`) is refused by the freeze guard until the freeze
+  holds. It builds the window's trees, marks and trigger series, runs A, writes the report and the decision entry,
+  then runs B and C.
+  - It takes the cutoff hand-off (section 10.3) as an input, for D5 and the G\* rerun. Without it, D5 is
+    unmeasured.
+  - Its code was run on the last development window and compared with the development outputs (results,
+    section 9.6).
 
 **Pre-registered outputs:**
 

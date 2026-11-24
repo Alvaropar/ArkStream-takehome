@@ -241,20 +241,22 @@ def funding_table(trees: list[Path], origin: date, window: str) -> pl.DataFrame:
 
 
 # ---------------------------------------------------------------------------------------------- triggers
-def trigger_series(ctx, origin: date, series_origin: date, traders: list[str], start: datetime | None = None
-                   ) -> dict[str, TriggerSeries]:
+def trigger_series(ctx, origin: date, series_origin: date, traders: list[str], start: datetime | None = None,
+                   series_dir: Path | None = None) -> dict[str, TriggerSeries]:
     """L1-L4 inputs: thresholds from the origin's Phase 2 evidence (history before it), values from the Phase 2 tables
-    at `series_origin` (>= the window end), each known from its own timestamp."""
+    at `series_origin` (>= the window end), each known from its own timestamp. `series_dir`: where those tables are
+    (default `research/leader`; the holdout's are built at its window end, ADR-0099 item 11)."""
     lead = ctx.root / "research/leader"
+    series = series_dir or lead
     ev = pl.read_parquet(lead / f"origin={origin}" / "evidence.parquet").filter(C("trader").is_in(traders))
     rules = ctx.raw["leader"]
     from arkstream.config import load_yaml
 
     trig = load_yaml("risk.yaml", ctx.root / "config")["triggers"]
-    twr = pl.read_parquet(lead / f"origin={series_origin}" / "daily_twr.parquet",
+    twr = pl.read_parquet(series / f"origin={series_origin}" / "daily_twr.parquet",
                           columns=["trader", "ts", "equity", "prev_equity", "d_net_deposit", "index_end", "usable"]
                           ).filter(C("trader").is_in(traders)).sort("trader", "ts")
-    hourly = pl.read_parquet(lead / f"origin={series_origin}" / "book_hourly.parquet",
+    hourly = pl.read_parquet(series / f"origin={series_origin}" / "book_hourly.parquet",
                              columns=["trader", "hour_end", "leverage"]).filter(C("trader").is_in(traders))
     del rules
     out = {}
@@ -292,6 +294,7 @@ class WindowInputs:
     start: datetime
     end: datetime
     series_origin: date
+    series_dir: Path | None = None  # the trigger series' Phase 2 tables (default research/leader)
 
 
 def dev_windows(ctx, kind: str = "test") -> list[WindowInputs]:
@@ -335,7 +338,7 @@ class WindowData:
                                  funding, rm["stress_shocks"], rm["betas"], costs, win.origin, edges,
                                  bucket_labels(edges))
         self.funding = funding
-        self.triggers = trigger_series(ctx, win.origin, win.series_origin, traders, win.start)
+        self.triggers = trigger_series(ctx, win.origin, win.series_origin, traders, win.start, win.series_dir)
 
 
 def review_times(start: datetime, end: datetime, days: int = 14) -> list[int]:
