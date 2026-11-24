@@ -15,18 +15,18 @@ Phase 4 v2 evidence does not support. Its ADRs are **0086-0095**, the next free 
 
 **Status: accepted.** Written up as ADRs 0086-0095, which the user approved on 2026-11-24 before any Phase 5 result,
 and ADR-0096, the engine details pinned before any P5-4 or P5-5 result. ADR-0097 pins the freeze mechanism, ADR-0098
-(accepted by the user on 2026-11-24) adds the holdout cost runs B and C, and ADR-0099 pins their details and the v2
-holdout entry point before they were computed.
+(accepted by the user on 2026-11-24) adds the holdout cost runs B and C, ADR-0099 pins their details and the v2
+holdout entry point before they were computed, and ADR-0100 pins the cutoff selection and the cutoff deliverables.
 
-**Note of 2026-11-24, at the joint freeze (P5-7).** This text now agrees with the accepted ADRs 0086-0099 and with
+**Note of 2026-11-24, at the joint freeze (P5-7).** This text now agrees with the accepted ADRs 0086-0100 and with
 the development results in [phase-5-results.md](phase-5-results.md). No rule changed in this edit.
 - The user's choices of 2026-11-24 are written in as decided (section 15): P5 in the budget form with no waiver
   (sections 4 and 4.1), and option C for G\* with the stress cap on the remaining budget (section 10.2).
 - The gray size is 2,500 USDC (section 10.2), and both risk-rule variants were rejected (section 6.2).
 - `λ ≈ 0.15` is marked as the pre-run estimate, with the measured values beside it (sections 4.1 and 7).
 - L1 is measured out of sample on the population (section 6.1).
-- Runs B and C and the v2 holdout entry point are described in section 8 (ADRs 0098-0099); their development runs
-  are in the results, section 9.
+- Runs B and C, the v2 holdout entry point and the cutoff selection are described in sections 8 and 10.3 (ADRs
+  0098-0100); their development runs are in the results, section 9.
 - Revision 2 was deleted, and this file took its name.
 
 Scope and discipline come from ADR-0065:
@@ -351,12 +351,13 @@ The development run was to show three things the memo needs. What it showed is i
 
 **Joint freeze first** (ADR-0091). One hash covers:
 - the Phase 4 v2 specification as decided in the freeze-decision trial-log entry, including the funding treatment;
-- this document's rules, including the observation-sleeve declaration, ADRs 0086-0099, and the development results;
+- this document's rules, including the observation-sleeve declaration, ADRs 0086-0100, and the development results;
 - `risk.yaml`, `execution.yaml`, `instruments.yaml`;
 - every source the holdout path imports;
 - the data, replay and selection manifests (pre-holdout Check 3), and the environment block;
 - the window-report module, already run on all four development windows (Check 4);
-- the cost rebuild, run C's refit and the v2 holdout entry point, run on the development windows (ADR-0098 item 8);
+- the cost rebuild, run C's refit, the v2 holdout entry point and the cutoff selection, run on development data
+  (ADR-0098 item 8, ADR-0100);
 - the pre-registered tests below.
 
 The user sends the hash to the reviewers. No `HOLDOUT_FREEZE.txt` exists before the freeze writes it. The mechanism
@@ -392,13 +393,16 @@ single opening.
   every run; C logs a shadow C1 and a shadow O2 on its own model and never acts on them.
 - **Order:** A runs first, and its outputs and D1-D5 entry are written before B or C starts. B and C never change the
   verdict. If B fails a condition that A passes, the memo's summary says so.
-- **The entry point** (`phase5 holdout`, `src/arkstream/holdout.py`) is refused by the freeze guard until the freeze
-  holds. It builds the window's trees, marks and trigger series, runs A, writes the report and the decision entry,
-  then runs B and C.
-  - It takes the cutoff hand-off (section 10.3) as an input, for D5 and the G\* rerun. Without it, D5 is
-    unmeasured.
-  - Its code was run on the last development window and compared with the development outputs (results,
-    section 9.6).
+- **The entry points** (`phase5 holdout`, `src/arkstream/holdout.py`; `phase5 cutoff`, `src/arkstream/cutoff.py`)
+  are refused by the freeze guard until the freeze holds. They enforce the P5-8 order (ADR-0100 item 5):
+  1. run A (`--stage a`): the window's trees, marks and trigger series, then S\*, U\* and G\* and the H5 outcomes;
+  2. the cutoff selection (`phase5 cutoff`, section 10.3), which waits for run A;
+  3. D5 from it, the G\* rerun for a differing hand-off, the report and the D1-D5 decision entry
+     (`--stage decision`), which wait for the cutoff selection;
+  4. runs B and C (`--stage bc`), which wait for the decision entry.
+
+  Both entry points were run on development data and compared with the development outputs (results, sections 9.6
+  and 9.8).
 
 **Pre-registered outputs:**
 
@@ -497,12 +501,18 @@ contradict ADR-0072 unless that money is something other than an allocation.
   consecutive reviews.
 - **Escalation to a capital stage (15k):** only through the paper revisit conditions in 10.1, never on PnL.
 
-### 10.3 Cutoff deliverables (both protocols)
+### 10.3 The cutoff selection and the cutoff deliverables (both protocols; ADR-0100)
 
-- **`trader_decisions.csv`:** every address, with its category, the first gate it fails, and its role (hand-off,
-  observation, none).
+- **The cutoff selection** runs the frozen Phase 4 v2 pipeline at the cutoff origin, 4 Jan 00:00 UTC. That is the
+  last midnight before the cutoff and the last origin the frozen replay admits, so the 4 Jan partial day is not used.
+  - The pipeline builds, by the frozen functions: the drift tables, the Phase 2 tables, the all-priced tree's shared
+    inputs, the cutoff training window of both trees, and the selection at that origin.
+  - Its hand-off decides D5 and, if it differs from 3 Dec, the G\* rerun (section 8).
+- **`trader_decisions.csv`:** every address in the package, with its grade, its category, the first gate it fails
+  (S1, S2, S3 in order, the category, the duplicate screen) and its role (hand-off, observation, none).
 - **`target_allocations.csv`:**
-  - deployed 0 (paper), or the live sleeves (gray);
+  - deployed 0 (paper), or the live sleeves (gray): at 2,500 each, at most two, ordered by category and then by D4's
+    statistic;
   - the observation sleeve marked zero-capital;
   - the reserve.
 

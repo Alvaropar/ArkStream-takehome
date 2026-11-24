@@ -20,7 +20,8 @@ The holdout (3 Dec 2025 to the cutoff, 2026-01-04T23:59:42.020Z) is the only out
      after the cutoff.
    - This matches pre-holdout Check 4 and the code, which read `splits.holdout.end` as an exclusive midnight
      (`freeze.guard(ctx, midnight(end))` in `replay_coinfilter.run_holdout`).
-   - 4 Jan data is used only by the cutoff selection (ADR-0094).
+   - 4 Jan data is not used by anything (corrected by ADR-0100 item 1: the cutoff selection's origin is 4 Jan 00:00,
+     the last origin the frozen replay admits).
    - The report states 32 calendar rows and, separately, the number of valid daily returns.
 2. **Selection** at 3 Dec with the frozen rules on data before it gives the hand-off 0x2cd9, with 0x971f as the
    observation sleeve.

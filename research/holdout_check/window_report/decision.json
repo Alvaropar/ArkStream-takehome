@@ -8,7 +8,7 @@
   "D4_ic": -0.14980786099926963,
   "D4_statistic": "m",
   "D4_threshold": -0.2,
-  "D5": null,
-  "decision": "NO-GO",
+  "D5": true,
+  "decision": "CONDITIONAL GO",
   "label": "development: not a decision"
 }

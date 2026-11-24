@@ -1,0 +1,4 @@
+trader,role,protocol,deployed_usdc,paper_notional_usdc,origin,decision,ordering_statistic
+0x2cd9f4645b14bf968212c7c108213eaeb193946e,hand-off,gray,2500.0,0.0,2025-12-03,CONDITIONAL GO,alpha
+0x971fc0c9becffd708c52a195b8a87c27359e77fa,observation,paper,0.0,10000.0,2025-12-03,CONDITIONAL GO,alpha
+reserve,reserve,off-exchange USDC,97500.0,0.0,2025-12-03,CONDITIONAL GO,alpha

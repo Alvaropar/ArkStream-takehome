@@ -338,7 +338,7 @@ def filter_checks(checks: pl.DataFrame, kept: list[str]) -> pl.DataFrame:
 
 
 def run_sensitivities(ctx, output=None, models=None, original=None, coin_sets=None, window=None, tradable=None,
-                      allocation_usdc=None, traders=None):
+                      allocation_usdc=None, traders=None, training=None):
     """Variants next to the original-model replay in `original` (default research/replay), written to `output`
     (default: the same folder). The original replay supplies the universe, drift cells, bands and spreads.
 
@@ -349,7 +349,10 @@ def run_sensitivities(ctx, output=None, models=None, original=None, coin_sets=No
     end. It is the holdout path (origin 3 Dec, 3 Dec - 4 Jan, behind `freeze.guard`) and, for a development window,
     its check (it must reproduce the full run's window byte for byte).
     `allocation_usdc` (ADR-0095 item 3, P5-1): the sleeve size in place of execution.yaml's, with the gross cap at the
-    same multiple; `traders`: replay only these addresses (every per-address input is unchanged)."""
+    same multiple; `traders`: replay only these addresses (every per-address input is unchanged).
+    `training` = an origin date: replay that origin's training window only, with every input bounded at the origin
+    (the cutoff selection, ADR-0100; at a development origin it must reproduce the full run's window byte for
+    byte)."""
     assert_no_live_trading(ctx.root / "config")
     if coin_sets is not None and tradable is not None:
         raise ValueError("coin_sets (ADR-A0140) and tradable (ADR-0076) exclude each other")
@@ -374,6 +377,11 @@ def run_sensitivities(ctx, output=None, models=None, original=None, coin_sets=No
 
             guard(ctx, w_end)  # the holdout runs only on the frozen rules
         stop = w_end  # every input is bounded at the window's end
+    if training is not None:
+        t_origin = midnight(training)
+        if window is not None or t_origin not in origins:
+            raise ValueError(f"invalid single training window {training}")
+        stop = t_origin  # the training window ends at its origin
     original = Path(original) if original else ctx.root / "research/replay"
     if not (original / "drift_cells.parquet").is_file():
         run(ctx, output=original)
@@ -431,7 +439,9 @@ def run_sensitivities(ctx, output=None, models=None, original=None, coin_sets=No
             return (*shared, tradable[origin.date()])
         return shared
 
-    if window is None:
+    if training is not None:
+        plan = [(t_origin, "training", first, t_origin)]
+    elif window is None:
         plan = list(windows(origins, first, last))
     else:
         plan = [(w_origin, "test", w_start, w_end)]
@@ -468,6 +478,8 @@ def run_sensitivities(ctx, output=None, models=None, original=None, coin_sets=No
             ([], ["universe", "coins"], ["hold_band"], []),
             strict=True,
         ):
+            if not parts:  # a single training window has no delay-grid rows (test windows only)
+                continue
             pl.concat(parts).sort("origin", "scenario", "variant", *extra).write_csv(dest / f"sensitivity_{name}.csv")
         for path in sorted(dest.rglob("*")):
             if path.is_file():

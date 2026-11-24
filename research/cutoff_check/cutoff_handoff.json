@@ -1,0 +1,13 @@
+{
+  "origin": "2025-12-03",
+  "handoff": [
+    "0x2cd9f4645b14bf968212c7c108213eaeb193946e"
+  ],
+  "D5": true,
+  "handoff_3_dec": [
+    "0x2cd9f4645b14bf968212c7c108213eaeb193946e"
+  ],
+  "differs_from_3_dec": [],
+  "replayable_from_3_dec": {},
+  "eligible_sha256": "280708498992f6f82ea22e9ebac90e2cd9cf68a5a8fbd8eac4f98f74ec0ee13e"
+}

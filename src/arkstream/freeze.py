@@ -36,7 +36,8 @@ from arkstream.timeparse import parse_one_utc
 FREEZE_FILE = "provenance/HOLDOUT_FREEZE.txt"
 SHORTLIST = "research/selection_v2/origin=2025-12-03/eligible.parquet"
 RULE = ("phase4-v2 select-v2 run 4 with ADR-0084 (ADRs 0066-0084); phase5 revision 4 two-sleeve scheme "
-        "(ADRs 0086-0097); holdout runs A, B, C and the v2 entry point (ADRs 0098-0099)")
+        "(ADRs 0086-0097); holdout runs A, B, C and the v2 entry point (ADRs 0098-0099); the cutoff selection "
+        "and deliverables (ADR-0100)")
 CONFIG_FILES = ("config/decision_context.yaml", "config/execution.yaml", "config/instruments.yaml",
                 "config/risk.yaml")
 SOURCE_GLOBS = ("selection*.py", "freeze.py", "replay*.py", "drift.py", "prices.py", "hlprices.py", "refprices.py",
@@ -45,9 +46,11 @@ SOURCE_GLOBS = ("selection*.py", "freeze.py", "replay*.py", "drift.py", "prices.
                 # Phase 5 (ADR-0091 item 3)
                 "risk_model.py", "portfolio_*.py", "phase5_*.py", "holdout_report.py",
                 # runs B and C and the v2 holdout entry point (ADR-0098 item 8, ADR-0099)
-                "cost_*.py", "holdout.py")
+                "cost_*.py", "holdout.py",
+                # the cutoff selection and the cutoff deliverables (ADR-0100)
+                "cutoff.py")
 ENTRY_FILES = ("__init__.py", "__main__.py", "cli.py")  # hashed, their imports not followed (ADR-0097 item 2)
-FROZEN_ADRS = (*range(65, 85), *range(86, 100))
+FROZEN_ADRS = (*range(65, 85), *range(86, 101))
 DOC_FILES = ("decision/phase-4-v2-methodology.md", "decision/phase-5-methodology.md", "decision/phase-5-results.md")
 OUTPUT_MANIFEST = "provenance/HOLDOUT_OUTPUT_MANIFEST.txt"
 MANIFEST_FILES = ("provenance/CHECKSUMS.txt", "data/reference/prices/MANIFEST.yaml",
@@ -236,7 +239,10 @@ def open_values(obj, path: str = "") -> list[str]:
 
 
 def holdout_start(raw: dict) -> datetime:
-    return parse_one_utc(raw["splits"]["holdout"]["start"] + "T00:00:00Z")
+    """The holdout start. A run context that moves the replay boundary (the cutoff selection, ADR-0100 item 2)
+    keeps the real one in `freeze_holdout_start`, so every guard inside the pipeline still needs the freeze."""
+    start = str(raw.get("freeze_holdout_start", raw["splits"]["holdout"]["start"]))
+    return parse_one_utc(start + "T00:00:00Z")
 
 
 def write_freeze(ctx, rule: str, now: datetime | None = None) -> tuple[Path, str]:

@@ -1,7 +1,10 @@
 # ADR-0099: Holdout cost runs B and C and the v2 holdout entry point: details pinned before computing
 
 - Status: Accepted (pinned on development data on 2026-11-24, before any run B or C was computed and before the
-  entry point was run; recorded in `provenance/trial_log.md`, "Phase 5 cost runs B and C, development")
+  entry point was run; recorded in `provenance/trial_log.md`, "Phase 5 cost runs B and C, development").
+  Item 11's D5 input and stage order are refined by ADR-0100: the cutoff hand-off now comes from the cutoff
+  selection's entry point, and the stages are run A, the cutoff selection, the decision entry, then B and C.
+  ADR-0098's "S1 stress cap" was corrected by an erratum to item 9's reading.
 - Date: 2026-11-24
 - Phase: Phase 5 (revision 4), built before P5-7 (joint freeze), run at P5-8
 - Refines: ADR-0098 items 2-6 and 11 (the cost rebuild, C's refit, the shadow logs), ADR-0092 (the holdout run),

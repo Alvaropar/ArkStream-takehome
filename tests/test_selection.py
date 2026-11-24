@@ -285,9 +285,9 @@ def test_frozen_set_covers_the_holdout_path():
               "config/risk.yaml", freeze.SHORTLIST, freeze.OUTPUT_MANIFEST, "data/reference/prices/MANIFEST.yaml"):
         assert p in paths, p
     adrs = {p for p in paths if p.startswith("decision/adr/")}
-    assert len(adrs) == 34 and any(p.startswith("decision/adr/0099-") for p in adrs)
+    assert len(adrs) == 35 and any(p.startswith("decision/adr/0100-") for p in adrs)
     for p in ("src/arkstream/holdout.py", "src/arkstream/cost_rebuild.py", "src/arkstream/cost_updated.py",
-              "src/arkstream/cost_runs.py"):
+              "src/arkstream/cost_runs.py", "src/arkstream/cutoff.py"):
         assert p in paths, p
     assert not any(p.startswith("decision/adr/0085-") for p in adrs)
     assert "src/arkstream/latency.py" not in paths  # the latency session's module is not on the holdout path

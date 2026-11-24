@@ -286,7 +286,9 @@ def gate(ok: pl.Expr, measured: pl.Expr) -> pl.Expr:
 def behaviour_features(ctx, origin: date, ev: pl.DataFrame) -> pl.DataFrame:
     """Plan table "Behavior": timing, sizing, market, execution and turnover features from Phase 2 at the origin.
     No outcome measure (returns, win rates, drawdowns) is used."""
-    leader = ctx.root / "research/leader" / f"origin={origin}"
+    from arkstream.config import research_dir
+
+    leader = research_dir(ctx, "leader") / f"origin={origin}"
     prof = pl.read_parquet(leader / "profiles.parquet",
                            columns=["trader", "n_fills", "n_orders", "notional", "active_days",
                                     "median_order_notional"])

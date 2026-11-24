@@ -2,8 +2,8 @@
 
 ## 1. Freeze
 - no `provenance/HOLDOUT_FREEZE.txt` yet (P5-7 writes it)
-- a freeze written now would record freeze_hash `aabf8bb1eae39e4307fcb79446ea2c9e24f358a4a01f84ae94a3a6013fc8e189` over 117 files and 8 environment lines
-- frozen set: 117 files: 66 sources, 37 documents, 4 config files, 9 manifests, the shortlist `research/selection_v2/origin=2025-12-03/eligible.parquet`
+- a freeze written now would record freeze_hash `62eba6dab41bf74838957d355538796fd59f30876317691219600755687b6648` over 119 files and 8 environment lines
+- frozen set: 119 files: 67 sources, 38 documents, 4 config files, 9 manifests, the shortlist `research/selection_v2/origin=2025-12-03/eligible.parquet`
 
 ## 2-4. Data manifests
 | Manifest | Files | OK | Stale or superseded (annotated) | Problems |

@@ -3,8 +3,10 @@
 - Status: Accepted (the user approved it on 2026-11-24: "Accept it"). It amends ADR-0092 (two more runs in the
   single opening), ADR-0093 (B and C reported, A still decides), ADR-0091 (the frozen set grows), ADR-0089 (C1's
   benchmark in run C) and rule 3 of `config/decision_context.yaml` (holdout data may set cost inputs inside B and C
-  only). Its item 11 details are pinned in ADR-0099, which also reads item 5's "S1 stress cap" as the limits that
-  call `stress_loss` (S2, P4, P5; `L_gray` for G\*).
+  only). Its item 11 details are pinned in ADR-0099.
+  **Erratum (2026-11-24):** the first draft said "the S1 stress cap" in three places (Context, the item 5 table,
+  Consequences). S1 is the sleeve gross cap and reads no cost model; the stress limits that read the cost model are
+  S2, P4 and P5 (and `L_gray` for G\*). The three places now say so, as ADR-0099 item 9 read them.
 - Date: 2026-11-24
 - Phase: Phase 5 (revision 4): built and tested before P5-7 (joint freeze), run at P5-8
 - Source: the user's design of 2026-11-24 (runs A, B, C; the cost rebuild is "not a run"), and the C1 point the user
@@ -28,7 +30,7 @@ So the cost check (D3) and the execution trigger (C1) in A compare the model wit
 4. How does it perform when the cost model updates through time on point-in-time data, as it would live?
 
 **The risk rules read the cost model.** The stress exit cost (`exit_bps` with the stress costs, `portfolio_engine.py`) feeds:
-- the S1 stress cap, through `stress_loss` in the λ solver;
+- the stress limits S2, P4 and P5 (and the `L_gray` stress cap for G\*), through `stress_loss` in the λ solver;
 - the gray loss cap, through `exit_cost` in the hourly loop;
 - C1, which compares the 14-day median realised shortfall with the stress model's for the same orders (≥ 5 orders).
 
@@ -97,7 +99,7 @@ each for S\*, 1 each for G\*. Source: `research/portfolio_replay/pair_summary.cs
 5. **A check that tests the cost model keeps a frozen benchmark. A rule that uses the cost model to estimate a loss
    may use the updated one.**
 
-   | | S1 stress cap, gray loss cap | C1, O2 |
+   | | The stress limits S2, P4 and P5, the gray loss cap | C1, O2 |
    | --- | --- | --- |
    | A | frozen model | frozen model |
    | B | frozen model | frozen model; realised = rebuilt cost |
@@ -149,8 +151,8 @@ each for S\*, 1 each for G\*. Source: `research/portfolio_replay/pair_summary.cs
 ## Consequences
 **What each comparison answers:**
 - **A vs B:** how much the frozen cost model's error changes P&L, with rules and risk inputs identical.
-- **B vs C:** what updating the cost model is worth through position sizing (S1, the loss cap). Both are charged
-  rebuilt costs.
+- **B vs C:** what updating the cost model is worth through position sizing (the stress limits S2, P4 and P5, the
+  gray loss cap). Both are charged rebuilt costs.
 - **Accuracy:** per order, the frozen model's cost against the rebuilt cost (B), and the updated model's cost against
   the rebuilt cost (C).
 - **The shadow logs:** the safety cost of letting C1 and O2 adapt.

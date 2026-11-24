@@ -22,6 +22,7 @@ ADR-0099 before anything was computed).
 | P5-6 | `phase5 report` | `src/arkstream/holdout_report.py`, `research/window_report/` | identical schema across windows | identical; H5 reproduces the published Phase 4 ranking ICs exactly |
 | B, C | `phase5 cost-runs` | `research/cost_runs/` | run A unchanged; C's drift table at the origins | 384/384 files of A byte-identical; the daily table equals the frozen cells at all four origins (section 9) |
 | Entry point | `phase5 holdout --check` | `src/arkstream/holdout.py`, `research/holdout_check/` | reproduces the development outputs on 19 Nov | pass: every output reproduced (section 9.6) |
+| Cutoff selection | `phase5 cutoff --check`, `phase5 cutoff --check --deliverables` | `src/arkstream/cutoff.py`, `research/cutoff_check/` | reproduces the 3 Dec selection | pass: `eligible.parquet` and every selection table byte-identical (section 9.8) |
 
 The details pinned while building the engine are in ADR-0096. Every run is logged in `provenance/trial_log.md`.
 
@@ -367,8 +368,12 @@ The 11 orders whose drift fell back have the frozen drift by construction.
   (8.10 against 6.60, section 9.2). Per order the two differ by about 4.7 bp, mostly the drift over a delay that
   differs from the fixed 1,200 ms.
 - **By coin:** the frozen model overstates BTC (0.0 against -0.6 bp), ETH (1.7 against -0.2) and BNB (6.2 against
-  5.3; A's approximate drift, the rebuild's new tape). It understates HYPE (6.4 against 7.0): HYPE's same-day spread
-  averages 7.0 bp against the 5 bp floor A uses, whose own estimate is 4.4 bp.
+  5.3; A's approximate drift, the rebuild's new tape).
+- **HYPE's same-day spread is unmeasured, not shown to be higher.** Its rebuilt total (7.0 against 6.4 bp) rests on
+  32 measured orders of 108; the other 70% fell back to the frozen 5 bp. The 32 have a median half-spread of 0.27 bp
+  and a mean of 11.7 bp: 14 of them, on 10 Oct (the crash), measured 26.6 bp. Raw Corwin-Schultz on one volatile day
+  inflates the mean. (Corrected on 2026-11-24; the first text said HYPE's same-day spread averaged 7.0 bp against the
+  floor.)
 - **C's model is close on average (+0.07 bp) but no better per order** (4.6 against 4.7). Its trailing 14-day impact
   `y` has a median of 0 (mean 0.06); the same-day fits have a median of 0.19.
 
@@ -425,10 +430,46 @@ series at 3 Dec) into `research/holdout_check/` and reads nothing at or after 3 
   holdout bound. Both run only behind `freeze.guard`, and the tests cover the refusals.
 
 ### 9.7 For the memo
-- In development the rebuild finds the frozen cost model conservative by about 1.5 bp per side (notional-weighted),
-  except on HYPE, where the floor sits below the same-day spread.
+- In development the rebuild finds the frozen cost model conservative by about 1.5 bp per side (notional-weighted).
+  HYPE's same-day spread is unmeasured (32 of 108 orders measured, median 0.27 bp, the mean inflated by 10 Oct).
 - Neither O2 nor the stress limits bound, so B against C carries no information yet. Both comparisons are labelled
   rebuilt real conditions, not real fills; only the gray protocol measures our own orders (ADR-0090).
+
+### 9.8 The cutoff selection's entry point, check mode (ADR-0100)
+
+`phase5 cutoff --check` runs the cutoff selection's code at the 3 Dec origin with the real configuration into
+`research/cutoff_check/`. It reads nothing at or after 3 Dec 00:00 (`check.md`).
+
+| Output | Compared with | Result |
+| --- | --- | --- |
+| Drift tables (the builder, on inputs bounded at 3 Dec) | `research/drift` | 3/3 files byte-identical |
+| Phase 2 tables at 3 Dec (the builder) | `research/leader/origin=2025-12-03` | 20/22 byte-identical; 2 equal to 3.5e-16 relative (section 9.6) |
+| The all-priced prepare step: shared inputs; every window's universe and leader series | `research/replay_allpriced` | 4/4 and 18/18 byte-identical |
+| The 3 Dec training window, all-priced (`run_sensitivities(training=)`) and its capture rows | the same | 28/28 files; 3/3 tables |
+| The 3 Dec tradable sets; the tradable training window and its capture rows | `research/replay_tradable` | identical; 28/28; 3/3 |
+| The selection at 3 Dec (`selection_v2.run(only=)`), `eligible.parquet` included | `research/selection_v2/origin=2025-12-03` | 12/12 byte-identical |
+
+- **The hand-off** at 3 Dec is 0x2cd9, as published, so D5 is true (`cutoff_handoff.json`).
+- **The holdout check, rerun with the cutoff check's hand-off as D5,** still reproduces every development output.
+  Its 19 Nov decision entry now reads CONDITIONAL GO, labelled "development: not a decision".
+- **The deliverables at 3 Dec** pass their consistency check (`deliverables/check.md`).
+  - `trader_decisions.csv` covers 1,313 addresses: every address with a snapshot before 3 Dec. They are 182 A, 176 B
+    and 955 C.
+  - Of the 358 A/B addresses, 335 first fail S2, 21 fail S3 and 1 fails on its category; 1 (0x2cd9) fails no gate.
+    The counts match `funnel_v2.csv`.
+  - `target_allocations.csv` was written for both protocols. NO-GO: everything in paper, reserve 100,000. CONDITIONAL
+    GO: 0x2cd9 live at 2,500, the observation sleeve zero-capital, reserve 97,500.
+- **A differing cutoff hand-off:**
+  - An address that cannot be replayed from 3 Dec gets D2b unmeasured and a NO-GO (tests).
+  - The G\* rerun path ran on development data with a synthetic hand-off that adds 0x971f: its own 2,500 gray tree was built from the origin's inputs, G\* ran in the four scenarios (worst loss 21.6 USDC against the 750 cap, no cap breach) and D2b was read over both G\* books (true)
+    (`g_rerun_check.md`).
+- **Unchanged:** run A, 384/384 files byte-identical; the development selection rerun at every origin, 72/72 files
+  byte-identical (`research/audit/selection_unchanged.md`).
+- **One code fix on the way,** logged in the trial log: a single training window has no delay-grid rows, so
+  `run_sensitivities` no longer writes an empty summary CSV. The full run always has those rows, so its output does
+  not change.
+- **An earlier development origin was not checked.** Its selection needs its test window's outcomes, which this path
+  does not build (ADR-0100 item 7).
 
 ## 10. What is next
 
@@ -437,9 +478,10 @@ series at 3 Dec) into `research/holdout_check/` and reads nothing at or after 3 
   - L1 was measured out of sample before the freeze (section 4).
   - The freeze-mechanism changes listed in ADR-0091 are pinned in ADR-0097: the v2 shortlist, the manifests, the
     environment block and `verify_holdout_inputs.py`.
-  - Runs B and C, run C's refit and the v2 holdout entry point are built and run on development data (section 9),
-    and the frozen set holds them (ADR-0098 item 8, ADR-0099). One hash covers everything.
+  - Runs B and C, run C's refit, the v2 holdout entry point and the cutoff selection are built and run on
+    development data (section 9), and the frozen set holds them (ADR-0098 item 8, ADRs 0099-0100). One hash covers
+    everything.
   - The user sends the hash to the reviewers.
-- **The cutoff selection (ADR-0094 item 3) has no entry point.** The holdout entry point takes the cutoff hand-off as
-  an input for D5 and the G\* rerun; without it D5 is unmeasured, which fails (ADR-0068).
+- **The cutoff selection and the cutoff deliverables** are built and checked at 3 Dec (section 9.8; ADR-0100). The
+  P5-8 order is enforced by the entry points: run A, the cutoff selection, the decision entry, then runs B and C.
 - **P5-8, the holdout, and P5-9, the cutoff deliverables,** each need their own go.

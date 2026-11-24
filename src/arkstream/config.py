@@ -36,6 +36,12 @@ class Context:
         return self.raw[key]
 
 
+def research_dir(ctx: Context, name: str) -> Path:
+    """`research/<name>`, or the folder a run's context sends it to (`research_dirs`; the cutoff selection,
+    ADR-0100). Without that key every run reads the published tree."""
+    return ctx.root / ctx.raw.get("research_dirs", {}).get(name, f"research/{name}")
+
+
 def load_context(config_dir: Path = CONFIG_DIR, root: Path = ROOT) -> Context:
     return Context(raw=load_yaml("decision_context.yaml", config_dir), root=root)
 

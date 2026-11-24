@@ -2,7 +2,8 @@
 
 - Status: Accepted (the user approved ADRs 0086-0095 on 2026-11-24); parameters PLACEHOLDER. The 6-month paper stop rule (section 15 item 2) is the
   user's choice of 2026-11-24. The full text, `decision/deployment-protocol.md`, is written at P5-9 with these parameters
-  unchanged.
+  unchanged. Items 3-4 (the cutoff selection and the deliverables) are pinned in ADR-0100: the cutoff origin is 4 Jan
+  00:00, the last origin the frozen replay admits, so the 4 Jan partial day is not used.
 - Date: 2026-11-23
 - Phase: Phase 5 (revision 4), step P5-9
 - Source: `decision/phase-5-methodology.md` sections 10 and 12 (revision 4)

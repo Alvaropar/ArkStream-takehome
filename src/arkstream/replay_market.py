@@ -135,9 +135,10 @@ def trade_queries(ctx, fills, rules, stop, basket=False, holdout=False):
 def vintages(ctx, inputs, rules, tape, asof):
     """Daily, strictly earlier calibration during warm-up, then published origin tables. ADR-0044: a coin's cells
     exist at a vintage only if the coin passes the price check as of that vintage (its 00:00 UTC)."""
+    from arkstream.config import research_dir
     from arkstream.hlprices import PointInTimeCheck
 
-    root = ctx.root / "research/drift"
+    root = research_dir(ctx, "drift")
     hist = pl.concat([pl.read_csv(root / f"drift_{p}.csv", try_parse_dates=True) for p in ("development", "stress")])
     bands = pl.read_csv(root / "drift_hold_bands.csv", try_parse_dates=True)
     end = midnight(rules.origin_dates[0])

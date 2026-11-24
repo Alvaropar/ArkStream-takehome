@@ -197,16 +197,14 @@ def book_runs(ctx, spec: Spec, win: PR.WindowInputs, trees: dict[float, Path], b
 def cutoff_reruns(ctx, spec: Spec, cutoff: list[str], handoff: list[str], out: Path
                   ) -> tuple[list[tuple[str, Path]], list[str]]:
     """ADR-0092 item 3: a 2,500 gray tree for each cutoff hand-off address other than the 3 Dec hand-off, from the
-    origin's inputs. Returns the replayable (address, tree) pairs and the unmeasured addresses."""
-    from arkstream import selection_v2_coins as SC
-
+    origin's inputs. Returns the replayable (address, tree) pairs and the unmeasured addresses: one outside the
+    origin's all-priced universe or without a published tradable set there has D2b unmeasured (ADR-0100 item 4)."""
     allpriced = ctx.root / ctx.raw["selection_v2"]["allpriced_dir"]
     universe = set(pl.read_parquet(allpriced / f"origin={spec.origin}" / "window=training" / "universe.parquet")[
         "trader"].to_list())
-    sets = SC.wallet_sets(ctx, spec.origin, allpriced)
     done, unmeasured = [], []
     for addr in sorted(set(cutoff) - set(handoff)):
-        s = sets.filter(C("trader") == addr).select("trader", "coin")
+        s = tradable_sets(ctx, spec.origin, [addr])
         if addr not in universe or s.height == 0:
             unmeasured.append(addr)
             continue
@@ -237,7 +235,7 @@ def outcomes(ctx, spec: Spec, tree: Path, marks: pl.DataFrame) -> pl.DataFrame:
 
 
 def decision_entry(ctx, spec: Spec, out: Path, tables: dict, d5: bool | None, unmeasured: list[str],
-                   freeze_hash: str | None) -> Path:
+                   freeze_hash: str | None, cutoff_file: Path | None = None) -> Path:
     from arkstream import holdout_report as HR
 
     dec = HR.decide(tables, d5, development=spec.check)
@@ -246,7 +244,8 @@ def decision_entry(ctx, spec: Spec, out: Path, tables: dict, d5: bool | None, un
         dec["decision"] = "NO-GO"
     dec.update(window=f"{spec.start.isoformat()} -> {spec.end.isoformat()}", origin=str(spec.origin),
                d2b_unmeasured_cutoff_addresses=unmeasured, freeze_hash=freeze_hash,
-               d5_source="cutoff hand-off given as input (ADR-0099 item 11)" if d5 is not None else
+               d5_source=(f"{cutoff_file.relative_to(ctx.root).as_posix()} (the cutoff selection, ADR-0100), "
+                          f"sha256 {sha256(cutoff_file)}") if cutoff_file is not None else
                "not given: unmeasured (ADR-0068)", run="A (frozen cost model; decides, ADR-0098 item 7)",
                written=datetime.now(UTC).isoformat(timespec="seconds"),
                report_sha256={p.name: sha256(p) for p in sorted((out / "window_report").glob("*.csv"))})
@@ -255,16 +254,14 @@ def decision_entry(ctx, spec: Spec, out: Path, tables: dict, d5: bool | None, un
     return path
 
 
-def stage_a(ctx, spec: Spec, out: Path, cutoff: list[str] | None, freeze_hash: str | None,
-            resume: bool = False) -> Path:
-    from arkstream import holdout_report as HR
+def stage_a(ctx, spec: Spec, out: Path, freeze_hash: str | None, resume: bool = False) -> Path:
+    """Run A on the window: trees, marks, trigger series, S*, U*, G* for the 3 Dec hand-off, the H5 outcomes; then
+    `run_A.json`, which the cutoff selection waits for (ADR-0100 item 5)."""
     from arkstream import replay_gray
 
-    costs, ex = PR.costs_by_scenario(ctx)
     sleeves = list(replay_gray.sleeves(ctx))
-    handoff = sorted(pl.read_parquet(ctx.root / "research/selection_v2" / f"origin={spec.origin}" /
-                                     "eligible.parquet")["trader"].to_list()) if not spec.check else sorted(
-        pl.read_parquet(ctx.root / "research/selection_v2/origin=2025-12-03/eligible.parquet")["trader"].to_list())
+    handoff = sorted(pl.read_parquet(ctx.root / "research/selection_v2/origin=2025-12-03/eligible.parquet")[
+        "trader"].to_list())
     rel = Path(f"origin={spec.origin}") / "window=test"
     t10, tg = out / "replay_tradable", out / "replay_gray" / f"sleeve={int(GRAY)}"
     if not (resume and (t10 / rel).is_dir()):
@@ -281,30 +278,60 @@ def stage_a(ctx, spec: Spec, out: Path, cutoff: list[str] | None, freeze_hash: s
     series = out / "leader"
     if not (resume and (series / f"origin={spec.series_asof.date()}" / "daily_twr.parquet").is_file()):
         trigger_tables(ctx, spec, series)
-    reruns, unmeasured = cutoff_reruns(ctx, spec, cutoff or [], handoff, out)
+    _, ex = PR.costs_by_scenario(ctx)
     plan = [(c, sc, 10000.0, sleeves, c) for sc in PR.SCENARIOS for c in ("S", "U")]
     plan += [("G", sc, GRAY, handoff, f"G{int(GRAY)}") for sc in PR.SCENARIOS]
-    trees = {10000.0: t10, GRAY: tg}
     tree_a = out / "portfolio" / "run=A"
-    bars = bars_to(ctx, spec.end, ex)
-    win = window_inputs(spec, series)
-    rows = book_runs(ctx, spec, win, trees, bars, marks, tree_a, plan)
-    for addr, tree in reruns:
-        rows += book_runs(ctx, spec, win, {GRAY: tree}, bars, marks, tree_a,
-                          [("G", sc, GRAY, [addr], f"G{int(GRAY)}_{addr[:6]}") for sc in PR.SCENARIOS])
-    pl.DataFrame(rows, infer_schema_length=None).write_csv(tree_a / "pair_summary.csv")
+    rows = book_runs(ctx, spec, window_inputs(spec, series), {10000.0: t10, GRAY: tg}, bars_to(ctx, spec.end, ex),
+                     marks, tree_a, plan)
+    pl.DataFrame(rows, infer_schema_length=None).write_csv(tree_a / "pair_summary_A.csv")
     oc = outcomes(ctx, spec, t10, marks)
     oc.write_parquet(out / "test_outcomes.parquet", compression="zstd", statistics=True)
-    from arkstream import drift
+    marker = out / "run_A.json"
+    marker.write_text(json.dumps({"window": f"{spec.start.isoformat()} -> {spec.end.isoformat()}",
+                                  "freeze_hash": freeze_hash,
+                                  "written": datetime.now(UTC).isoformat(timespec="seconds"),
+                                  "pair_summary_A_sha256": sha256(tree_a / "pair_summary_A.csv"),
+                                  "test_outcomes_sha256": sha256(out / "test_outcomes.parquet")}, indent=2) + "\n",
+                      encoding="utf-8")
+    return marker
 
+
+def stage_decision(ctx, spec: Spec, out: Path, freeze_hash: str | None, cutoff_file: Path) -> Path:
+    """D5 from the cutoff selection, the G* rerun for a differing hand-off (ADR-0092 item 3), the report and the
+    D1-D5 entry; refused until run A and the cutoff selection have run (ADR-0100 item 5)."""
+    from arkstream import drift
+    from arkstream import holdout_report as HR
+
+    if not (out / "run_A.json").is_file():
+        raise RuntimeError(f"{out / 'run_A.json'} missing: run A comes first (ADR-0100 item 5)")
+    if not cutoff_file.is_file():
+        raise RuntimeError(f"{cutoff_file} missing: the cutoff selection comes before the decision entry "
+                           "(ADR-0100 item 5)")
+    cut = json.loads(cutoff_file.read_text(encoding="utf-8"))
+    handoff = sorted(cut["handoff_3_dec"])
+    reruns, unmeasured = cutoff_reruns(ctx, spec, list(cut["handoff"]), handoff, out)
+    tree_a = out / "portfolio" / "run=A"
+    rows = pl.read_csv(tree_a / "pair_summary_A.csv", infer_schema_length=None)
+    if reruns:
+        _, ex = PR.costs_by_scenario(ctx)
+        extra = []
+        marks = pl.read_parquet(out / "valuation_marks.parquet")
+        bars = bars_to(ctx, spec.end, ex)
+        for addr, tree in reruns:
+            extra += book_runs(ctx, spec, window_inputs(spec, out / "leader"), {GRAY: tree}, bars, marks, tree_a,
+                               [("G", sc, GRAY, [addr], f"G{int(GRAY)}_{addr[:6]}") for sc in PR.SCENARIOS])
+        rows = pl.concat([rows, pl.DataFrame(extra, infer_schema_length=None)], how="diagonal_relaxed")
+    rows.write_csv(tree_a / "pair_summary.csv")
+    oc = pl.read_parquet(out / "test_outcomes.parquet")
     dr = drift.DriftRules.from_config(ctx.raw)
     dev = pl.concat([pl.read_parquet(ctx.root / "research/portfolio_replay" / f"origin={o}" / "config=S" /
                                      "scenario=base" / "fills.parquet")
                      for o in dr.origin_dates if o < dr.holdout_start], how="diagonal_relaxed")
-    d5 = None if cutoff is None else bool(cutoff)
+    d5 = bool(cut["D5"])
     tables = HR.report(ctx, spec.origin, tree_a, oc, dev, out / "window_report", development=spec.check,
                        handoff_nonempty=d5)
-    return decision_entry(ctx, spec, out, tables, d5, unmeasured, freeze_hash)
+    return decision_entry(ctx, spec, out, tables, d5, unmeasured, freeze_hash, cutoff_file)
 
 
 # ---------------------------------------------------------------------------------------------- B and C
@@ -355,24 +382,31 @@ def stage_bc(ctx, spec: Spec, out: Path) -> Path:
 
 
 # ---------------------------------------------------------------------------------------------- entry
-def run(ctx, out: Path | None = None, check: bool = False, stage: str = "all",
-        cutoff_handoff: list[str] | None = None, resume: bool = False) -> Path:
-    """`resume` (check mode only) reuses the trees, marks and trigger series an earlier check run finished."""
+def run(ctx, out: Path | None = None, check: bool = False, stage: str = "a", resume: bool = False,
+        cutoff_file: Path | None = None) -> Path:
+    """One stage of P5-8 (ADR-0100 item 5): `a` (run A), `decision` (after the cutoff selection), `bc` (after the
+    decision entry). `resume` (check mode only) reuses the trees, marks and series of an earlier check run."""
+    from arkstream import cutoff
     from arkstream.freeze import guard
 
     if resume and not check:
         raise ValueError("resume is for check mode only: the holdout runs once, from the start")
+    if stage not in ("a", "decision", "bc"):
+        raise ValueError(f"unknown stage {stage!r}")
     spec = check_spec(ctx) if check else holdout_spec(ctx)
     freeze_hash = guard(ctx, spec.end)  # the holdout: refused unless the freeze holds (ADR-0099 item 11)
     if not check and freeze_hash is None:
         raise RuntimeError("the holdout window must end after the holdout start")
     out = Path(out) if out else ctx.root / (CHECK_OUT if check else OUT)
     out.mkdir(parents=True, exist_ok=True)
-    if stage in ("a", "all"):
-        stage_a(ctx, spec, out, cutoff_handoff, freeze_hash, resume)
-    if stage in ("bc", "all"):
+    if stage == "a":
+        stage_a(ctx, spec, out, freeze_hash, resume)
+    elif stage == "decision":
+        cf = cutoff_file or ctx.root / (cutoff.CHECK_OUT if check else cutoff.OUT) / "cutoff_handoff.json"
+        stage_decision(ctx, spec, out, freeze_hash, cf)
+    else:
         stage_bc(ctx, spec, out)
-    if check:
+    if check and (out / "decision_A.json").is_file():
         compare(ctx, spec, out)
     return out
 

@@ -31,6 +31,7 @@ from arkstream import selection_v2_coins as SC
 from arkstream import selection_v2_comove as CM
 from arkstream import selection_v2_evidence as EV
 from arkstream import selection_v2_stats as ST
+from arkstream.config import research_dir
 from arkstream.replay_market import midnight
 from arkstream.selection_v2_market import load_window, scenario_dir
 
@@ -202,7 +203,9 @@ def order_profile(tree: Path, o: date) -> pl.DataFrame:
                                            copy_orders_filled=pl.len())
 
 
-def run(ctx, out: Path | None = None, verbose: bool = True) -> dict:
+def run(ctx, out: Path | None = None, verbose: bool = True, only: list[date] | None = None) -> dict:
+    """`only`: compute these origins and their per-origin tables only (the cutoff selection, ADR-0100); the
+    cross-origin tables, which need every origin, are not written then."""
     from arkstream import copiers
     from arkstream.freeze import guard
     from arkstream.replay_market import bounded_inputs
@@ -235,6 +238,8 @@ def run(ctx, out: Path | None = None, verbose: bool = True) -> dict:
     results: dict[str, Any] = {"origins": {}}
     gate7 = gate7_rerun_logged(ctx)
     for i, o in enumerate(os_):
+        if only is not None and o not in only:
+            continue
         base = out / f"origin={o}"
         uni = universe(tradable, o)
         traders = uni["trader"].to_list()
@@ -257,7 +262,7 @@ def run(ctx, out: Path | None = None, verbose: bool = True) -> dict:
         # P4-4: τ² first; behaviour clusters only when τ² > 0
         ev, tau = EV.evidence(ctx, o, stats, resid, trips)
         if (tau["tau2"] or 0.0) > 0:
-            phase2_all = pl.read_parquet(ctx.root / "research/leader" / f"origin={o}" / "evidence.parquet")
+            phase2_all = pl.read_parquet(research_dir(ctx, "leader") / f"origin={o}" / "evidence.parquet")
             feats = S.behaviour_clusters(S.behaviour_features(ctx, o, phase2_all),
                                          int(ctx.raw["selection"]["clusters"]["behaviour_k"]))
             ev, tau = EV.evidence(ctx, o, stats, resid, trips, clusters=feats)
@@ -291,7 +296,7 @@ def run(ctx, out: Path | None = None, verbose: bool = True) -> dict:
             results["stopped"] = f"trial log has no '{GATE7_ENTRY}' entry: S2 join not built"
             results["origins"][o] = {"tau": tau}
             continue
-        phase2 = pl.read_parquet(ctx.root / "research/leader" / f"origin={o}" / "evidence.parquet")
+        phase2 = pl.read_parquet(research_dir(ctx, "leader") / f"origin={o}" / "evidence.parquet")
         if not set(phase2["trader"]) == set(traders):
             raise ValueError(f"{o}: the replay universe differs from the Phase 2 A/B set")
         cop = copiers.screen(inp.fills, midnight(o), ctx.raw["copiers"])["clusters"]
@@ -335,6 +340,11 @@ def run(ctx, out: Path | None = None, verbose: bool = True) -> dict:
             print(f"{o}: tau2={tau['tau2']} Q={tau['Q']} p={tau['Q_p']} eligible={hand.height}", flush=True)
     tau_t = pl.DataFrame(taus)
     write(tau_t, out / "tau2.csv")
+    if only is not None:
+        if funnel:
+            write(pl.DataFrame(funnel), out / "funnel_v2.csv")
+        results.update(tau=tau_t)
+        return results
     rv, decision = EV.ranking_validation(per_rank, rk_rules)
     extras_skipped = not any(t.get("placebo_required", False) for t in taus)
     dec_rows = pl.DataFrame([{"origin": None, "key": "decision", "n": decision["origins"], "ic": decision["mean_ic_m"],
@@ -362,7 +372,7 @@ def run(ctx, out: Path | None = None, verbose: bool = True) -> dict:
 def handoff(ctx, o: date, cand: pl.DataFrame, ev: pl.DataFrame, stats: pl.DataFrame, traders: pl.DataFrame,
             tree: Path, tau: dict) -> pl.DataFrame:
     """ADR-0079 item 5: `eligible.parquet` (fixed schema, one row per E1/E2 address passing S1-S3 and duplicates)."""
-    prof = pl.read_parquet(ctx.root / "research/leader" / f"origin={o}" / "profiles.parquet",
+    prof = pl.read_parquet(research_dir(ctx, "leader") / f"origin={o}" / "profiles.parquet",
                            columns=["trader", "median_order_notional", "order_to_volume_bps_median",
                                     "order_to_volume_bps_p95"])
     eref = traders.select(snapshot_src_row="src_row", e_ref="equity")

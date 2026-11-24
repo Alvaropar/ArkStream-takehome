@@ -228,7 +228,9 @@ def _origin_series(daily_marks, proxy, rates, acc_all, frozen, breach_rows, stop
 
 def leader_reference(ctx, origin, window, start, end, universe, snapshot, sources, with_series=False):
     if window == "training":
-        series = pl.read_parquet(ctx.root / "research/leader" / f"origin={origin.date()}" / "daily_twr.parquet")
+        from arkstream.config import research_dir
+
+        series = pl.read_parquet(research_dir(ctx, "leader") / f"origin={origin.date()}" / "daily_twr.parquet")
         series = series.filter("usable").select("trader", "prev_ts", "ts", "period_days", "return_source", r="r_start")
     else:
         traders, ledger, marks, proxy, rates, ref, fills, frozen = sources
@@ -371,7 +373,9 @@ def run(ctx, output=None, simulate=True):
 
     guard(ctx, stop)  # ADR-A0139: a window ending after the holdout start needs the freeze
     inputs = bounded_inputs(ctx, stop)
-    origin_path = ctx.root / "research/leader"
+    from arkstream.config import research_dir
+
+    origin_path = research_dir(ctx, "leader")
     origin_tables = {}
     for origin in origins:
         ev = pl.read_parquet(origin_path / f"origin={origin.date()}" / "evidence.parquet")
