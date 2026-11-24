@@ -1,5 +1,9 @@
 # ArkStream Hyperliquid multi-trader copy pilot
 
+**The decision (as of the 4 Jan 2026 cutoff):** [decision memo](decision/decision-memo.md) ·
+[deployment protocol](decision/deployment-protocol.md) · deliverables in `research/cutoff/deliverables/`
+(`trader_decisions.csv`, `target_allocations.csv`) · holdout report in `research/holdout/window_report/`.
+
 Research and deployment configuration for deciding whether to deploy 100,000 USDC into a basket that
 copies Hyperliquid perp traders. Plan: *ArkStream Hyperliquid Pilot — Revised Research & Deployment
 Plan (v2)*. Phase 3 covers four development tests and the training history through the 3 December 2025 origin. [Follower replay results](decision/phase-3-results.md) · [Cost sensitivities](decision/phase-3-sensitivity-results.md). Pre-Phase 4 fixes: [results](decision/pre-phase-4-results.md) · [sizing comparison](decision/pre-phase-4-sizing-comparison.md) · [verify from a clean copy](VERIFY.md). Measured copy delay: [before/after results](decision/measured-latency-results.md); the delay scenarios come from measurement (ADR-0058: optimistic 1 s, base 1.2 s, stress 5 s, severe 60 s / 300 s as a labelled sensitivity). Alt-drift floor and receive delay: [before/after results and copy capture](decision/alt-floor-receive-results.md) (ADR-0061: split-order floor below 300 s in base; ADR-0062: receive 392 ms; ADR-0063: capture against a same-sizing benchmark, market-relative returns). Copies are sized on a frozen reference equity reviewed every 14 days, the only sizing policy (ADR-0052); Phase 4
