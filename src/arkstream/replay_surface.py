@@ -1,8 +1,8 @@
-"""Cost uncertainty surface (ADR-0117): base scenario, development test windows, all-gate passers.
+"""Cost uncertainty surface (ADR-0050): base scenario, development test windows, all-gate passers.
 
 One-at-a-time points around the placeholder costs (square-root impact Y, participation, address gross cap), then
 the most and least favourable combinations, each chosen per parameter from the one-at-a-time results. The archived
-comparison (`research/replay_sizing/`) evaluated both sizing variants of ADR-0116; from ADR-0119 on only the frozen
+comparison (`research/replay_sizing/`) evaluated both sizing variants of ADR-A0116; from ADR-0052 on only the frozen
 one is run (`policies=("frozen",)`). Reads the shared inputs in the output folder (universe, drift cells, bands,
 spreads) and writes `cost_surface.csv` there. The holdout is never computed.
 """
@@ -37,7 +37,7 @@ def one_at_a_time() -> list[tuple[str, dict]]:
 
 
 def corners(pooled: pl.DataFrame, policies: tuple[str, ...] = POLICIES) -> dict[str, list[tuple[str, dict]]]:
-    """ADR-0117: per policy, each parameter at its best (worst) one-at-a-time value; ties go to the centre."""
+    """ADR-0050: per policy, each parameter at its best (worst) one-at-a-time value; ties go to the centre."""
     out: dict[str, list[tuple[str, dict]]] = {}
     for policy in policies:
         p = pooled.filter((C("policy") == policy) & (C("origin") == "all_tests"))
@@ -88,7 +88,7 @@ def run(ctx, out: Path | None = None, policies: tuple[str, ...] = ("frozen",)) -
     if set(policies) - set(POLICIES):
         raise ValueError(f"unknown sizing policy in {policies}")
     scenarios, rules = replay_settings(load_yaml("execution.yaml", ctx.root / "config"))
-    base = scenarios["base"]  # ADR-0150: the base delay is the measured median, 1.2 s (in ms)
+    base = scenarios["base"]  # ADR-0058: the base delay is the measured median, 1.2 s (in ms)
     allocation = float(rules["allocation_usdc"])
     dr = drift.DriftRules.from_config(ctx.raw)
     stop = midnight(dr.holdout_start)

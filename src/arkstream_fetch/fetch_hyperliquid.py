@@ -2,11 +2,11 @@
 
     python -m arkstream_fetch.fetch_hyperliquid --dry-run                 # plan only, no network
     python -m arkstream_fetch.fetch_hyperliquid                           # funding, all coins in coins.csv
-    python -m arkstream_fetch.fetch_hyperliquid --kind candles_4h         # 4h candles (price check, ADR-0010)
+    python -m arkstream_fetch.fetch_hyperliquid --kind candles_4h         # 4h candles (price check, ADR-0008)
 
 Source: `POST https://api.hyperliquid.xyz/info` (public, no key), docs
 hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/info-endpoint (read 2026-11-19). History
-comes only from this endpoint (ADR-0010). Requests:
+comes only from this endpoint (ADR-0008). Requests:
 
 * funding: `{"type": "fundingHistory", "coin", "startTime", "endTime"}`; at most 500 rows per response,
   paginated with the last row's `time` + 1 as the next `startTime`.

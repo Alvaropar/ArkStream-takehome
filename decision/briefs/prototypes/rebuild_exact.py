@@ -1,6 +1,6 @@
 # PROTOTYPE (2026-11-19, main session), kept as a reference for the Phase 2 rework brief. Not part of the
 # package and not tested. It rebuilds account value changes from fills at the exact snapshot times, with
-# Hyperliquid funding, for core-perp-only addresses, and writes per-interval errors. Results: see ADR-0009.
+# Hyperliquid funding, for core-perp-only addresses, and writes per-interval errors. Results: see ADR-0007.
 # Key point: fills sharing a timestamp must be put in chain order (positions.order_fills) before taking the
 # position at a time; ordering by src_row gave misses of up to 29x equity.
 

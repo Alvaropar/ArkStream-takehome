@@ -1,4 +1,4 @@
-"""Hyperliquid hourly funding rates (ADR-0011), parsed from the saved fundingHistory responses. No network.
+"""Hyperliquid hourly funding rates (ADR-0009), parsed from the saved fundingHistory responses. No network.
 
 Input: `data/reference/hyperliquid/funding/` (written by `arkstream_fetch.fetch_hyperliquid`), read **only**
 through its `MANIFEST.csv`: every listed file must exist with its bytes and SHA-256, and any `.json` not in the
@@ -193,7 +193,7 @@ def user_funding_check(uf: pl.DataFrame, ledger: pl.DataFrame, rates: pl.DataFra
                        rel_tol: float = 0.01) -> pl.DataFrame:
     """One row per userFunding record, checked against rate x rebuilt position x Binance proxy price.
 
-    userFunding history is a **daily rollup** (ADR-0014): a record stamped D 00:00 UTC sums the hourly payments
+    userFunding history is a **daily rollup** (ADR-0012): a record stamped D 00:00 UTC sums the hourly payments
     of hours D 00:00 .. D 23:00, `nSamples` is the number of those hours with a position, `fundingRate` their
     mean rate and `szi` a position. So each record is expanded to its 24 hours; per hour the position is the
     pos_after of the leader's last fill strictly before the hour (null before the series' first fill), and

@@ -207,25 +207,47 @@ def test_stress_exposure_by_direction_and_unshocked():
                       ts("2025-10-01 02:00"), ts("2025-10-01 02:00")], "pos": [1.0, -1.0, 10.0],
                       "p_m": [100.0, 100.0, 1.0]})
     h = pl.DataFrame({"trader": [TR] * 2, "hour_end": [ts("2025-10-01 01:00"), ts("2025-10-01 02:00")],
-                      "equity_base": [100.0, 100.0]})
-    st = lk.stress_exposure(m, h, sh).row(0, named=True)
+                      "equity_base": [100.0, 100.0], "leverage": [1.0, 2.1]})
+    st = lk.stress_exposure(m, h, sh, 0.025).row(0, named=True)
     assert st["stress_peak"] == pytest.approx(0.5) and st["stress_typical"] == pytest.approx(0.35)
     assert st["unshocked_exposure_share"] == pytest.approx(10 / 210)
+    # ADR-0067: residual margin after the shock, 1 - loss/equity - MMR x leverage, minimum over hours
+    assert st["stress_headroom_min"] == pytest.approx(min(1 - 0.2 - 0.025 * 1.0, 1 - 0.5 - 0.025 * 2.1))
 
 
 def test_missing_metric_is_unmeasured_not_pass():
     ev = pl.DataFrame({"rt_closed": [25, 5], "intraday_max_dd": [-0.1, None], "worst_day": [-0.05, -0.3],
-                       "worst_3d": [-0.1, None], "max_dd_book": [-0.2, None], "stress_peak": [0.3, None],
+                       "worst_3d": [-0.1, None], "max_dd_book": [-0.2, None], "stress_headroom_min": [0.6, None],
                        "leverage_p95": [2.0, None], "liq_distance_min": [0.3, None], "liquidations": [0, 1],
-                       "top_pnl_share": [0.2, None], "unpriced_exposure_share": [0.0, None],
+                       "top_profit_share": [0.2, None], "unpriced_exposure_share": [0.0, None],
                        "median_hold_s":[3600,1],"orders_per_day":[2,99],
                        "maker_share":[0.2,0.8],
-                       "xc_n":[15,3],"within_1pct":[1.0,None],
+                       "xc_n":[20,3],"within_1pct_lower":[0.95,None],
                        "days_since_fill":[2,30],"xc_flag": ["ok", "too_few_intervals"],
-                       "wc_max_dd": [-0.3, None]})
+                       "wc_max_dd": [-0.3, None], "snapshot_days": [120, 40], "usable_days": [100, 30]})
     g = lk.apply_gates(ev, RULES)
     assert g["all_gates_pass"].to_list() == [True, False]
     assert g["gate_intraday_dd"].to_list() == ["pass", "unmeasured"]
     assert g["gate_worstcase_dd"].to_list() == ["pass", "unmeasured"]
     assert g["gate_book_account"].to_list() == ["pass", "unmeasured"]
     assert g["gate_worst_day"][1] == "fail" and g["gate_liquidations"][1] == "fail"
+    assert g["gate_history"].to_list() == ["pass", "fail"]
+
+
+def test_style_gates_are_diagnostics_and_categories_roll_up():
+    """ADR-0067: a fast, maker-heavy, high-order-rate leader passes when every binding gate passes; categories."""
+    ev = pl.DataFrame({"rt_closed": [25], "intraday_max_dd": [-0.1], "worst_day": [-0.05], "worst_3d": [-0.1],
+                       "max_dd_book": [-0.2], "stress_headroom_min": [0.4], "leverage_p95": [2.0],
+                       "liq_distance_min": [0.3], "liquidations": [0], "top_profit_share": [0.2],
+                       "unpriced_exposure_share": [0.0], "median_hold_s": [5], "orders_per_day": [500],
+                       "maker_share": [0.95], "xc_n": [20], "within_1pct_lower": [0.95], "days_since_fill": [1],
+                       "xc_flag": ["ok"], "wc_max_dd": [-0.3], "snapshot_days": [120], "usable_days": [100]})
+    g = lk.apply_gates(ev, RULES).row(0, named=True)
+    assert (g["gate_hold"], g["gate_order_rate"], g["gate_maker"]) == ("fail", "fail", "fail")
+    assert g["cat_style_diagnostic"] == "fail" and g["all_gates_pass"] is True
+    assert g["style_flags"] == "gate_hold:fail;gate_order_rate:fail;gate_maker:fail"
+    assert all(g[c] == "pass" for c in ("cat_data_integrity", "cat_evidence", "cat_risk_historical",
+                                        "cat_risk_position", "cat_risk_stress", "cat_risk"))
+    stressed = lk.apply_gates(ev.with_columns(stress_headroom_min=pl.lit(-0.01)), RULES).row(0, named=True)
+    assert stressed["gate_stress_peak"] == "fail" and stressed["cat_risk_stress"] == "fail"
+    assert stressed["cat_risk"] == "fail" and stressed["all_gates_pass"] is False

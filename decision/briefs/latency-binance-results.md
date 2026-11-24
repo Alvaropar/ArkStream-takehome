@@ -1,7 +1,10 @@
 # Brief: latency study results from the Binance trading repository
 
+> ADR numbers below follow the renumbering of 2026-11-23 (ADR-0085; old numbers in
+> `decision/adr/RENUMBERING.md`), except the reserved number blocks, which are quoted as they were reserved.
+
 Written 2026-11-20 for a session in the user's separate Binance trading repository. Purpose: supply measured order
-latency to the ArkStream copy-pilot replay (`C:\Projects\quant-task-arkstream`, ADR-0044), which today assumes its
+latency to the ArkStream copy-pilot replay (`C:\Projects\quant-task-arkstream`, ADR-0038), which today assumes its
 copy delay.
 
 ## Prompt to start the session
@@ -28,6 +31,6 @@ copy delay.
 ## How the result is used here
 
 Copy both files into `data/reference/latency/binance/`, record their checksums, and record the source (repository,
-commit, period, environment) in ADR-0044. The decision-compute and order-acknowledgement legs feed the replay's
+commit, period, environment) in ADR-0038. The decision-compute and order-acknowledgement legs feed the replay's
 scenarios, labelled `transferred_from_binance`; the receive leg comes from the Hyperliquid recorder instead
 (`decision/briefs/latency-hl-receive.md`).

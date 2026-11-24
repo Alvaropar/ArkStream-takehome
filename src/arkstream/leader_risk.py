@@ -1,6 +1,6 @@
 """Leader evidence: tail-risk gates and profiles (computed, never applied to select anyone; Phase 4 selects).
 
-Tail-risk metrics (ADR-0024, ADR-0025):
+Tail-risk metrics (ADR-0017, ADR-0018):
 
 * intraday max drawdown: compounded hourly book returns (priced hours only; unpriced hours are counted);
 * worst day, worst 3 consecutive days and max drawdown: daily book returns (complete calendar, an inactive
@@ -15,7 +15,7 @@ Tail-risk metrics (ADR-0024, ADR-0025):
 * liquidations and auto-deleveraging from the fill `dir`;
 * dependence on the top 1% of round trips (leader_trips.trip_summary).
 
-Profiles (ADR-0026): median holding time and band (drift.BAND_LABELS), orders per day, maker share, fee rate
+Profiles (ADR-0019): median holding time and band (drift.BAND_LABELS), orders per day, maker share, fee rate
 from the fee column, median equity and band, typical order size against Binance traded volume (impact risk).
 """
 
@@ -34,7 +34,7 @@ from arkstream.positions import pit
 def shocks(px: pl.DataFrame, asof: datetime, horizon_h: int) -> pl.DataFrame:
     """Largest observed fall and rise per coin over `horizon_h` hours, at hour marks t <= asof (both ends priced).
 
-    shock_down (>= 0) is applied to long exposure and shock_up to short exposure (ADR-0024).
+    shock_down (>= 0) is applied to long exposure and shock_up to short exposure (ADR-0017).
     """
     p = px.filter((pl.col("t") <= asof) & pl.col("price").is_not_null()).select("coin", "t", "price")
     lag = p.with_columns(t=(pl.col("t") + pl.duration(hours=horizon_h)).dt.cast_time_unit("ms")).rename(
@@ -49,8 +49,9 @@ def shocks(px: pl.DataFrame, asof: datetime, horizon_h: int) -> pl.DataFrame:
         horizon_h=pl.lit(horizon_h), asof=pl.lit(asof).dt.cast_time_unit("ms")).sort("coin")
 
 
-def stress_exposure(marks: pl.DataFrame, hourly: pl.DataFrame, sh: pl.DataFrame) -> pl.DataFrame:
-    """Per address: typical and peak implied stress loss / equity, and the share of exposure without a shock."""
+def stress_exposure(marks: pl.DataFrame, hourly: pl.DataFrame, sh: pl.DataFrame, mmr: float = 0.0) -> pl.DataFrame:
+    """Per address: typical and peak implied stress loss / equity, the share of exposure without a shock, and
+    (ADR-0067) the minimum stressed residual margin headroom 1 - loss / equity - mmr x gross leverage over hours."""
     m = (marks.filter(pl.col("p_m").is_not_null())
          .join(sh.select(pl.col("coin").alias("symbol"), "shock_down", "shock_up"), on="symbol", how="left")
          .with_columns(expo=pl.col("pos").abs() * pl.col("p_m"),
@@ -58,10 +59,13 @@ def stress_exposure(marks: pl.DataFrame, hourly: pl.DataFrame, sh: pl.DataFrame)
     per = m.group_by("trader", "hour_end").agg(
         loss=(pl.col("expo") * pl.col("shock")).sum(), expo=pl.col("expo").sum(),
         unshocked=pl.col("expo").filter(pl.col("shock").is_null()).sum(),
-    ).join(hourly.select("trader", "hour_end", "equity_base"), on=["trader", "hour_end"], how="left").with_columns(
-        stress=pl.when(pl.col("equity_base") > 0).then(pl.col("loss") / pl.col("equity_base")))
+    ).join(hourly.select("trader", "hour_end", "equity_base", "leverage"), on=["trader", "hour_end"],
+           how="left").with_columns(
+        stress=pl.when(pl.col("equity_base") > 0).then(pl.col("loss") / pl.col("equity_base"))).with_columns(
+        headroom=1 - pl.col("stress") - mmr * pl.col("leverage"))
     return per.sort("trader", "hour_end").group_by("trader").agg(  # sorted: float sums in a fixed order
         stress_typical=pl.col("stress").median(), stress_peak=pl.col("stress").max(),
+        stress_headroom_min=pl.col("headroom").min(),
         unshocked_exposure_share=pl.when(pl.col("expo").sum() > 0)
         .then(pl.col("unshocked").sum() / pl.col("expo").sum()),
     ).sort("trader")
@@ -85,6 +89,7 @@ def risk_metrics(hourly: pl.DataFrame, daily: pl.DataFrame, acc: pl.DataFrame, m
         unpriced_exposure_share=pl.when(pl.col("exposure_w").sum() > 0)
         .then(pl.col("unpriced_exposure_w").sum() / pl.col("exposure_w").sum()),
         leverage_p95=pl.col("leverage").filter(pl.col("gross_exposure") > 0).quantile(0.95, "nearest"),
+        leverage_p99=pl.col("leverage").filter(pl.col("gross_exposure") > 0).quantile(0.99, "nearest"),
         leverage_max=pl.col("leverage").filter(pl.col("gross_exposure") > 0).max(),
     ).with_columns(
         liq_distance_min=pl.when(pl.col("leverage_max") > 0)
@@ -108,7 +113,7 @@ def risk_metrics(hourly: pl.DataFrame, daily: pl.DataFrame, acc: pl.DataFrame, m
         liquidation_first_src_row=pl.col("src_row").filter(pl.col("dir").str.starts_with("Liquidated")).min(),
         adl_first_src_row=pl.col("src_row").filter(pl.col("dir") == "Auto-Deleveraging").min(),
     )
-    st = stress_exposure(marks, hourly, sh)
+    st = stress_exposure(marks, hourly, sh, float(r["maintenance_margin_rate"]))
     out = (hu.join(h, on="trader", how="left").join(dd, on="trader", how="left").join(a, on="trader", how="full",
                                                                                          coalesce=True)
            .join(f, on="trader", how="left").join(st, on="trader", how="left"))
@@ -118,7 +123,8 @@ def risk_metrics(hourly: pl.DataFrame, daily: pl.DataFrame, acc: pl.DataFrame, m
 
 
 def apply_gates(metrics: pl.DataFrame, rules: dict) -> pl.DataFrame:
-    """One status column per gate: pass | fail | unmeasured (a missing metric never passes)."""
+    """One status column per gate: pass | fail | unmeasured (a missing metric never passes, ADR-0068), a status per
+    category (ADR-0067) and `all_gates_pass` over the binding gates. Style gates are diagnostics."""
     g = rules["gates"]
 
     def gate(col: str, ok: pl.Expr) -> pl.Expr:
@@ -128,42 +134,77 @@ def apply_gates(metrics: pl.DataFrame, rules: dict) -> pl.DataFrame:
 
     m = metrics
     gates = {
+        # data integrity
         "gate_rebuild_fit": pl.when(pl.col("xc_n").fill_null(0) < rules["book"]["min_intervals"])
-        .then(pl.lit("unmeasured")).otherwise(gate("within_1pct", pl.col("within_1pct") >= g["min_fit_within_1pct"])),
+        .then(pl.lit("unmeasured"))
+        .otherwise(gate("within_1pct_lower", pl.col("within_1pct_lower") >= g["min_fit_within_1pct"])),
+        "gate_book_account": pl.when(pl.col("xc_flag") == "ok").then(pl.lit("pass"))
+        .when(pl.col("xc_flag").str.starts_with("disagree")).then(pl.lit("fail")).otherwise(pl.lit("unmeasured")),
+        "gate_unpriced": gate("unpriced_exposure_share",
+                              pl.col("unpriced_exposure_share") <= g["max_unpriced_exposure_share"]),
+        # evidence sufficiency
+        "gate_evidence": gate("rt_closed", pl.col("rt_closed") >= g["min_round_trips"]),
+        "gate_active": gate("days_since_fill", pl.col("days_since_fill") <= g["recent_fill_days"]),
+        "gate_history": pl.when(pl.col("snapshot_days").is_null() | pl.col("usable_days").is_null())
+        .then(pl.lit("unmeasured"))
+        .when((pl.col("snapshot_days") >= g["min_snapshot_days"]) & (pl.col("usable_days") >= g["min_usable_days"]))
+        .then(pl.lit("pass")).otherwise(pl.lit("fail")),
+        # trading style (diagnostic since ADR-0067)
         "gate_hold": gate("median_hold_s", pl.col("median_hold_s") >= g["min_hold_seconds"]),
         "gate_order_rate": gate("orders_per_day", pl.col("orders_per_day") <= g["max_orders_per_day"]),
         "gate_maker": gate("maker_share", pl.col("maker_share") <= g["max_maker_share"]),
-        "gate_active": gate("days_since_fill", pl.col("days_since_fill") <= g["recent_fill_days"]),
-        "gate_evidence": gate("rt_closed", pl.col("rt_closed") >= g["min_round_trips"]),
+        # risk and account safety: historical
         "gate_intraday_dd": gate("intraday_max_dd", pl.col("intraday_max_dd") >= -g["max_intraday_dd"]),
         "gate_worst_day": gate("worst_day", pl.col("worst_day") >= -g["max_worst_day_loss"]),
         "gate_worst_3d": gate("worst_3d", pl.col("worst_3d") >= -g["max_worst_3d_loss"]),
         "gate_max_dd": gate("max_dd_book", pl.col("max_dd_book") >= -g["max_drawdown"]),
-        "gate_worstcase_dd": gate("wc_max_dd", pl.col("wc_max_dd") >= -g["max_worstcase_dd"]),
-        "gate_stress_peak": gate("stress_peak", pl.col("stress_peak") <= g["max_stress_peak_loss"]),
+        "gate_liquidations": gate("liquidations", pl.col("liquidations") <= g["max_liquidations"]),
+        "gate_top_dependence": gate("top_profit_share", pl.col("top_profit_share") <= g["max_top_profit_share"]),
+        # position
         "gate_leverage_p95": gate("leverage_p95", pl.col("leverage_p95") <= g["max_leverage_p95"]),
         "gate_liq_distance": gate("liq_distance_min", pl.col("liq_distance_min") >= g["min_liq_distance"]),
-        "gate_liquidations": gate("liquidations", pl.col("liquidations") <= g["max_liquidations"]),
-        "gate_top_dependence": gate("top_pnl_share", pl.col("top_pnl_share") <= g["max_top_pnl_share"]),
-        "gate_unpriced": gate("unpriced_exposure_share",
-                              pl.col("unpriced_exposure_share") <= g["max_unpriced_exposure_share"]),
-        "gate_book_account": pl.when(pl.col("xc_flag") == "ok").then(pl.lit("pass"))
-        .when(pl.col("xc_flag").str.starts_with("disagree")).then(pl.lit("fail")).otherwise(pl.lit("unmeasured")),
+        # stress
+        "gate_worstcase_dd": gate("wc_max_dd", pl.col("wc_max_dd") >= -g["max_worstcase_dd"]),
+        "gate_stress_peak": gate("stress_headroom_min", pl.col("stress_headroom_min") >= g["min_stress_headroom"]),
     }
     m = m.with_columns(**gates)
-    cols = list(gates)
+
+    def status(cols: tuple[str, ...]) -> pl.Expr:
+        return (pl.when(pl.any_horizontal([pl.col(c) == "fail" for c in cols])).then(pl.lit("fail"))
+                .when(pl.any_horizontal([pl.col(c) == "unmeasured" for c in cols])).then(pl.lit("unmeasured"))
+                .otherwise(pl.lit("pass")))
+
+    m = m.with_columns(**{cat: status(cols) for cat, cols in CATEGORIES.items()})
     return m.with_columns(
-        gates_failed=pl.concat_list([pl.when(pl.col(c) == "fail").then(pl.lit(c)) for c in cols]).list.drop_nulls()
-        .list.join(";"),
-        gates_unmeasured=pl.concat_list([pl.when(pl.col(c) == "unmeasured").then(pl.lit(c)) for c in cols])
+        gates_failed=pl.concat_list([pl.when(pl.col(c) == "fail").then(pl.lit(c)) for c in BINDING])
+        .list.drop_nulls().list.join(";"),
+        gates_unmeasured=pl.concat_list([pl.when(pl.col(c) == "unmeasured").then(pl.lit(c)) for c in BINDING])
+        .list.drop_nulls().list.join(";"),
+        style_flags=pl.concat_list([pl.when(pl.col(c) != "pass").then(pl.lit(c) + ":" + pl.col(c)) for c in STYLE])
         .list.drop_nulls().list.join(";"),
     ).with_columns(all_gates_pass=(pl.col("gates_failed") == "") & (pl.col("gates_unmeasured") == ""))
 
 
-GATE_COLS = ["gate_evidence", "gate_intraday_dd", "gate_worst_day", "gate_worst_3d", "gate_max_dd",
-             "gate_stress_peak", "gate_leverage_p95", "gate_liq_distance", "gate_liquidations",
-             "gate_top_dependence", "gate_unpriced", "gate_book_account", "gate_hold","gate_order_rate",
-             "gate_maker", "gate_active", "gate_rebuild_fit", "gate_worstcase_dd"]
+# ADR-0067: four categories; the risk category in three subgroups. Style gates are reported, not binding.
+DATA_INTEGRITY = ("gate_rebuild_fit", "gate_book_account", "gate_unpriced")
+EVIDENCE = ("gate_evidence", "gate_active", "gate_history")
+STYLE = ("gate_hold", "gate_order_rate", "gate_maker")
+RISK_HISTORICAL = ("gate_intraday_dd", "gate_worst_day", "gate_worst_3d", "gate_max_dd", "gate_liquidations",
+                   "gate_top_dependence")
+RISK_POSITION = ("gate_leverage_p95", "gate_liq_distance")
+RISK_STRESS = ("gate_worstcase_dd", "gate_stress_peak")
+CATEGORIES = {
+    "cat_data_integrity": DATA_INTEGRITY,
+    "cat_evidence": EVIDENCE,
+    "cat_style_diagnostic": STYLE,
+    "cat_risk_historical": RISK_HISTORICAL,
+    "cat_risk_position": RISK_POSITION,
+    "cat_risk_stress": RISK_STRESS,
+    "cat_risk": RISK_HISTORICAL + RISK_POSITION + RISK_STRESS,
+}
+BINDING = DATA_INTEGRITY + EVIDENCE + RISK_HISTORICAL + RISK_POSITION + RISK_STRESS
+GATE_COLS = [*DATA_INTEGRITY, *EVIDENCE, *STYLE, *RISK_HISTORICAL, *RISK_POSITION, *RISK_STRESS]
+CATEGORY_COLS = list(CATEGORIES)
 
 
 # ---------------------------------------------------------------------------------------------- profiles
@@ -200,8 +241,19 @@ def profiles(fills: pl.DataFrame, rt: pl.DataFrame, traders: pl.DataFrame, volum
         orders_per_day=pl.when(pl.col("active_days") > 0).then(pl.col("n_orders") / pl.col("active_days")),
         maker_heavy=pl.col("maker_share") > p["maker_heavy_share"],
     )
-    hold = rt.filter((pl.col("status") == "closed") & ~pl.col("left_censored")).group_by("trader").agg(
-        median_hold_s=pl.col("hold_s").median())
+    closed = rt.filter((pl.col("status") == "closed") & ~pl.col("left_censored"))
+    profit = pl.col("net_pnl").clip(lower_bound=0)
+    shorts = []
+    for cut in rules["gates"].get("short_hold_s", []):
+        short = pl.col("hold_s") < cut
+        share = pl.when(profit.sum() > 0).then(profit.filter(short).sum() / profit.sum())
+        shorts += [share.alias(f"short_profit_share_{cut}s"),
+                   pl.col("net_pnl").filter(short).sum().alias(f"short_net_pnl_{cut}s")]
+    hold = closed.group_by("trader").agg(
+        *shorts,
+        median_hold_s=pl.col("hold_s").median(),
+        hold_p10_s=pl.col("hold_s").quantile(0.10, "nearest"),
+        hold_p25_s=pl.col("hold_s").quantile(0.25, "nearest"))
     labels: pl.Expr = pl.lit(BAND_LABELS[-1])
     for edge, lab in reversed(list(zip(BAND_EDGES_S, BAND_LABELS[:-1], strict=True))):
         labels = pl.when(pl.col("median_hold_s") < edge).then(pl.lit(lab)).otherwise(labels)
@@ -209,7 +261,10 @@ def profiles(fills: pl.DataFrame, rt: pl.DataFrame, traders: pl.DataFrame, volum
     lo, hi = p["equity_band_usdc"]
     eq = pit(traders, asof).group_by("trader").agg(median_equity=pl.col("equity").median()).with_columns(
         equity_in_band=(pl.col("median_equity") >= lo) & (pl.col("median_equity") <= hi))
-    out = act.join(hold, on="trader", how="left").join(eq, on="trader", how="full", coalesce=True)
+    out = act.join(hold, on="trader", how="left").join(eq, on="trader", how="full", coalesce=True).with_columns(
+        # ADR-0067 gate 3 (reported): notional turnover per active day as a multiple of median equity
+        turnover_equity_per_day=pl.when((pl.col("active_days") > 0) & (pl.col("median_equity") > 0))
+        .then(pl.col("notional") / pl.col("active_days") / pl.col("median_equity")))
     if volume is not None:
         w0 = asof.date() - timedelta(days=int(p["volume_window_days"]))
         v = volume.filter((pl.col("day") >= w0) & (pl.col("day") < asof.date())).group_by("coin").agg(

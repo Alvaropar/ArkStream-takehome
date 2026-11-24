@@ -4,8 +4,8 @@ Steps (each reads only manifest-verified files from inputs.hyperliquid_dir):
 
 * coins        - data/reference/hyperliquid/coins.csv: core perps traded in eligible fills (the fetch list).
 * table        - funding.parquet (rates only), funding_coverage.csv, funding_gaps.csv.
-* price-check  - ADR-0012 rule: price_check.csv, price_check_bars.parquet, candles_dropped.csv.
-* price-check-origins - ADR-0110: the same rule as of each origin: price_check_by_origin.csv and
+* price-check  - ADR-0010 rule: price_check.csv, price_check_bars.parquet, candles_dropped.csv.
+* price-check-origins - ADR-0044: the same rule as of each origin: price_check_by_origin.csv and
                  price_check_changes.csv (coins that differ from the CUTOFF list, orders and notional moved).
 * user-check   - actual payments of a few leaders vs rebuilt position x rate x Binance proxy price:
                  user_funding_check.parquet (every payment) and user_funding_summary.csv. A check only.
@@ -66,7 +66,7 @@ def run(ctx: Context, steps: list[str], out_dir: str | None) -> int:
         res.write_csv(out / "price_check.csv")
         print(res.group_by("outcome").agg(coins=pl.len(), notional=pl.col("notional").sum()).sort("outcome"))
     if "price-check-origins" in steps:
-        # ADR-0110: the same rule on the bars closing by each origin (reads research/hyperliquid/ inputs).
+        # ADR-0044: the same rule on the bars closing by each origin (reads research/hyperliquid/ inputs).
         from datetime import UTC, date, datetime
 
         pit = hp.PointInTimeCheck.load(ctx)
@@ -76,7 +76,7 @@ def run(ctx: Context, steps: list[str], out_dir: str | None) -> int:
                                    datetime.min.time(), UTC)
         recorded = pl.read_csv(ctx.root / hp.COINS_FILE).select("coin", "outcome")
         if not pit.checks(cut).equals(recorded.sort("coin")):
-            raise ValueError("the bars no longer reproduce the CUTOFF price check (ADR-0013)")
+            raise ValueError("the bars no longer reproduce the CUTOFF price check (ADR-0011)")
         pit.by_origin(origins).write_csv(out / "price_check_by_origin.csv")
         changes = hp.origin_changes(pit, origins, cut, inp.fills, holdout)
         changes.write_csv(out / "price_check_changes.csv")

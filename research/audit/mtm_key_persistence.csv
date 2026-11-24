@@ -1,0 +1,21 @@
+origin,key,scope,n,spearman_test
+2025-10-08,key,all A/B,33,-0.1611
+2025-10-08,key,eligible,1,
+2025-10-08,mtm_key,all A/B,173,-0.0096
+2025-10-08,mtm_key,eligible,3,-0.5000
+2025-10-22,key,all A/B,92,-0.0688
+2025-10-22,key,eligible,1,
+2025-10-22,mtm_key,all A/B,243,0.2749
+2025-10-22,mtm_key,eligible,2,
+2025-11-05,key,all A/B,117,0.0725
+2025-11-05,key,eligible,3,1.0000
+2025-11-05,mtm_key,all A/B,266,0.3050
+2025-11-05,mtm_key,eligible,3,0.5000
+2025-11-19,key,all A/B,138,0.1726
+2025-11-19,key,eligible,4,-0.4000
+2025-11-19,mtm_key,all A/B,290,-0.1884
+2025-11-19,mtm_key,eligible,5,-0.4000
+2025-12-03,key,all A/B,0,
+2025-12-03,key,eligible,0,
+2025-12-03,mtm_key,all A/B,0,
+2025-12-03,mtm_key,eligible,0,

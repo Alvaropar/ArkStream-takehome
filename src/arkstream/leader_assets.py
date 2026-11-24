@@ -1,4 +1,4 @@
-"""Primary address returns, cross-margin snapshot checks and daily exposure (ADRs 0063, 0065)."""
+"""Primary address returns, cross-margin snapshot checks and daily exposure (ADRs 0026, 0028)."""
 
 from datetime import datetime
 
@@ -24,13 +24,13 @@ def twr_series(acc: pl.DataFrame, asof: datetime) -> pl.DataFrame:
 
 
 def primary_source() -> pl.Expr:
-    """ADR-0065 (superseded for the choice by ADR-0111): any snapshot beyond the tight tolerance selects the book.
+    """ADR-0028 (superseded for the choice by ADR-0045): any snapshot beyond the tight tolerance selects the book.
     Kept to report the old rule next to the new one."""
     return pl.when(C("pnl_rows_gt_tight") > 0).then(pl.lit(BOOK)).otherwise(pl.lit(SNAPSHOT))
 
 
 def identity_breaches(traders: pl.DataFrame, asof: datetime, rule: dict) -> tuple[pl.DataFrame, pl.DataFrame]:
-    """ADR-0111. Per snapshot known by asof: `breach` when abs(pnl - (equity - net_deposit)) > max(abs floor,
+    """ADR-0045. Per snapshot known by asof: `breach` when abs(pnl - (equity - net_deposit)) > max(abs floor,
     relative share of equity). Per address: snapshots, breaches, breach share and the longest run of consecutive
     breaching snapshots (in time order)."""
     from arkstream.positions import pit
@@ -56,14 +56,14 @@ def identity_breaches(traders: pl.DataFrame, asof: datetime, rule: dict) -> tupl
 
 
 def material_source(rule: dict) -> pl.Expr:
-    """ADR-0111: the rebuilt book is primary only on material and persistent breaches known by the origin."""
+    """ADR-0045: the rebuilt book is primary only on material and persistent breaches known by the origin."""
     persistent = (C("pnl_breach_share") >= float(rule["book_min_breach_share"])) | (
         C("pnl_breach_max_run") >= int(rule["book_min_breach_run"]))
     return pl.when(persistent.fill_null(False)).then(pl.lit(BOOK)).otherwise(pl.lit(SNAPSHOT))
 
 
 def exclude_breaches(acc: pl.DataFrame, breach_rows: pl.Series, traders: pl.Series) -> pl.DataFrame:
-    """ADR-0111: intervals of the given addresses whose opening or closing snapshot breaches leave the series."""
+    """ADR-0045: intervals of the given addresses whose opening or closing snapshot breaches leave the series."""
     rows = breach_rows.implode()
     hit = C("trader").is_in(traders.implode()) & (C("src_row").is_in(rows) | C("prev_src_row").is_in(rows))
     return acc.with_columns(
@@ -73,7 +73,7 @@ def exclude_breaches(acc: pl.DataFrame, breach_rows: pl.Series, traders: pl.Seri
 
 
 def book_check(daily_book: pl.DataFrame, frozen_rows: pl.Series, asof: datetime, min_equity: float) -> pl.DataFrame:
-    """ADR-0111 item 4: the funded book compounded over its usable days (ADR-0065 exclusions), for every address."""
+    """ADR-0045 item 4: the funded book compounded over its usable days (ADR-0028 exclusions), for every address."""
     ok = daily_book.filter(
         (C("ts") <= asof) & (C("missing_terms") == 0) & C("equity_base").is_not_null()
         & ~C("equity_src_row").is_in(frozen_rows.implode()) & (C("equity_base") >= min_equity)

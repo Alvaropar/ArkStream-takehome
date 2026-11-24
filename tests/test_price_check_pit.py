@@ -1,4 +1,4 @@
-"""ADR-0110: the price check as of each origin, with a seeded look-ahead leak that must be caught."""
+"""ADR-0044: the price check as of each origin, with a seeded look-ahead leak that must be caught."""
 
 from datetime import timedelta
 
@@ -91,7 +91,7 @@ def test_bars_reproduce_the_cutoff_record_and_the_origin_file(ctx):
         pytest.skip("run `python -m arkstream funding --step price-check-origins`")
     checker = PointInTimeCheck.load(ctx)
     recorded = pl.read_csv(ctx.root / hlprices.COINS_FILE).select("coin", "outcome").sort("coin")
-    assert checker.checks(ctx.cutoff).equals(recorded)  # ADR-0013 is the same rule at the CUTOFF
+    assert checker.checks(ctx.cutoff).equals(recorded)  # ADR-0011 is the same rule at the CUTOFF
     saved = pl.read_csv(path, try_parse_dates=True)
     for (origin,), part in saved.group_by("origin", maintain_order=True):
         t = ts(f"{origin} 00:00:00")

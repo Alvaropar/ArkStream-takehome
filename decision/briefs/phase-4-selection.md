@@ -1,5 +1,8 @@
 # Brief: Phase 4, selection, the freeze and the single holdout evaluation
 
+> ADR numbers below follow the renumbering of 2026-11-23 (ADR-0085; old numbers in
+> `decision/adr/RENUMBERING.md`), except the reserved number blocks, which are quoted as they were reserved.
+
 Written 2026-11-21. Project: `C:\Projects\quant-task-arkstream` (ArkStream Hyperliquid copy pilot, take-home).
 ADR numbers reserved for this session: **0130-0149**. The main session will not edit the project while this runs.
 The Hyperliquid latency session may still be recording: do not touch `src/arkstream_fetch/hl_ws_latency.py`,
@@ -15,14 +18,14 @@ and the order.
 
 ## Where things stand (read, do not recompute)
 
-- **Sizing policy:** frozen `E_ref` only (ADR-0119): copy multiplier min(allocation / E_ref, 1), reviews at the
+- **Sizing policy:** frozen `E_ref` only (ADR-0052): copy multiplier min(allocation / E_ref, 1), reviews at the
   window start (or first usable snapshot) and every 14 days; target-position mirroring with netting. No dynamic runs.
 - **Copy series:** `research/replay_frozen/` (full stack: square-root impact Y = 1, 1.5x cap, 0.5% participation,
   no scale-up, leader-sweep anchor, conservative alt drift, point-in-time price check, stress fallback and the
-  ADR-0122 coverage measure). Per origin: `window=training` (from 27 Jul to the origin; ranking input) and
+  ADR-0055 coverage measure). Per origin: `window=training` (from 27 Jul to the origin; ranking input) and
   `window=test` (the next 14 days; the outcome). The 3 Dec origin has training only.
 - **Leader evidence and gates:** `research/leader/origin=<date>/` (grades, the 18 gates including the worst-case
-  gate of ADR-0045, profiles, market exposure, `share_not_copyable`).
+  gate of ADR-0039, profiles, market exposure, `share_not_copyable`).
 - **Development result of all gate-passers** (56 test address-windows, frozen, base): +0.47% mean, positive in 3 of 4
   tests, 6.2 bps per side of headroom; least favourable cost point -0.06%; stress -1.40% over 55 measured, 9 fail the
   -10% check. **All A/B addresses do better than gate-passers in base (+0.95%)**: the gates screen risk, not copy
@@ -61,7 +64,7 @@ slightly; use the new outputs.
    and common margin is Phase 5, not here.)
 5. **Development walk-forward.** At each development origin (8 Oct, 22 Oct, 5 Nov, 19 Nov) apply the rule to data up
    to the origin, then score the selected basket on the following test window: mean of the selected sleeves' copy
-   returns (frozen, base; also optimistic and stress with the ADR-0122 coverage rule and stress check). Baselines on
+   returns (frozen, base; also optimistic and stress with the ADR-0055 coverage rule and stress check). Baselines on
    the same window:
    - matched random-k from the same eligible pool (after all gates; 1,000 seeded draws): does the *ranking* add value?
    - random-k from all A/B addresses (1,000 draws): do the *gates* add value? (They did not in base so far.)
@@ -205,7 +208,7 @@ orders, now or later, unless explicitly enabled").
 > single holdout evaluation and the selection at the cutoff. Before writing code, read the plan's sections "Selection
 > and point-in-time validation" and "Decision gates" in
 > `ArkStream Hyperliquid Pilot — Revised Research & Deployment Plan (v2).md`, `decision/adr/README.md` with ADRs
-> 0009, 0043, 0045, 0119 and 0122, `decision/pre-phase-4-results.md`, `config/decision_context.yaml`, and the outputs
+> 0007, 0037, 0039, 0052 and 0055, `decision/pre-phase-4-results.md`, `config/decision_context.yaml`, and the outputs
 > in `research/leader/` and `research/replay_frozen/`. Use the frozen sizing policy only. **Stop after item 7** (the
 > freeze) and report the development results, the 3 Dec shortlist with reasons and the freeze hash; do not open the
 > holdout until I say so. Record decisions as ADRs numbered 0130-0149, and do not touch the latency session's files.

@@ -1,4 +1,4 @@
-"""Cost sensitivities for the nine Phase 3 windows (ADRs 0084-0088)."""
+"""Cost sensitivities for the nine Phase 3 windows (ADRs 0033-0036)."""
 
 from contextlib import ExitStack
 from pathlib import Path
@@ -39,8 +39,8 @@ SUFFIX = {
     "part_ns_sweep_frozen": "_sqrt_cap_part_ns_sweep_frozen",
 }
 # Which target plan each variant trades, and which execution rules it adds. Cumulative from sqrt_cap:
-# part = + participation cap (ADR-0086); part_ns = + no scale-up (ADR-0087); part_ns_sweep = + leader sweep anchor
-# (ADR-0088); part_ns_sweep_frozen = the same stack sized on the frozen reference equity (ADR-0116).
+# part = + participation cap (ADR-0035); part_ns = + no scale-up (ADR-A0087); part_ns_sweep = + leader sweep anchor
+# (ADR-0036); part_ns_sweep_frozen = the same stack sized on the frozen reference equity (ADR-A0116).
 SPEC = {
     "sqrt": {"plan": "uncapped", "sqrt": True},
     "cap": {"plan": "capped", "sqrt": False},
@@ -50,7 +50,7 @@ SPEC = {
     "part_ns_sweep": {"plan": "capped_ns", "sqrt": True, "part": True, "ns": True, "sweep": True},
     "part_ns_sweep_frozen": {"plan": "capped_frozen", "sqrt": True, "part": True, "ns": True, "sweep": True},
 }
-SIZING_MODELS = ("part_ns_sweep", "part_ns_sweep_frozen")  # dynamic vs frozen reference equity (ADR-0116)
+SIZING_MODELS = ("part_ns_sweep", "part_ns_sweep_frozen")  # dynamic vs frozen reference equity (ADR-A0116)
 
 
 def canonical(scenario, model):
@@ -76,7 +76,7 @@ BENCHMARK_SETTINGS = {"fee_bps": 0.0, "impact": "none", "half_spread_bps": {"maj
 
 def benchmark_orders(plan, sizing, bars, checks, mapping, tape, bands, origins, spreads, params, rules, start, end,
                      minute_marks):
-    """ADR-0162 benchmark: the frozen plan's decisions (multiplier, cap, leader budget) acknowledged at the leader
+    """ADR-0063 benchmark: the frozen plan's decisions (multiplier, cap, leader budget) acknowledged at the leader
     fill's own time and price, without spread, impact, fee, minimum size or participation budget, on every coin."""
     frame = order_inputs(plan, sizing, bars, checks, mapping, tape, bands, origins, spreads, rules, start, end, 0)
     priced = quotes(frame, "unattainable_all", BENCHMARK_SETTINGS, params)
@@ -143,8 +143,18 @@ def chunks(universe, events):
         yield block
 
 
+def mark_tradable(plan, pairs):
+    """ADR-0076: flag every leg outside the wallet's tradable set (`pairs`: trader, coin); `quotes` makes it
+    `not_tradable`. The plan itself (cap scale, resize legs) is the all-priced one."""
+    keep = pairs.select("trader", "coin").unique().with_columns(_tradable=pl.lit(True))
+    return plan.join(keep, on=["trader", "coin"], how="left", maintain_order="left").with_columns(
+        not_tradable=C("_tradable").is_null()).drop("_tradable")
+
+
 def window_variants(dest, original, universe, start, end, shared, scenarios, rules, horizons, test, models):
-    events, snaps, bars, checks, mapping, tape, bands, origins, spreads, params, marks, funding, minute_marks = shared
+    (events, snaps, bars, checks, mapping, tape, bands, origins, spreads, params, marks, funding,
+     minute_marks) = shared[:13]
+    tradable = shared[13] if len(shared) > 13 else None
     ev = events.filter(
         C("event_ms").is_between(int(start.timestamp() * 1000), int(end.timestamp() * 1000), closed="left")
     )
@@ -161,35 +171,34 @@ def window_variants(dest, original, universe, start, end, shared, scenarios, rul
             needed = {SPEC[m]["plan"] for m in models}
             for plan_name, no_scale_up in (("capped", False), ("capped_ns", True), ("capped_frozen", True)):
                 if plan_name in needed:
-                    # ADR-0116: the frozen plan sizes on the reference equity fixed at each review.
+                    # ADR-A0116: the frozen plan sizes on the reference equity fixed at each review.
                     sizing = (
                         reference_equity(snaps, traders, start, end, rules["review_days"])
                         if plan_name == "capped_frozen"
                         else snaps
                     )
-                    plans[plan_name] = (
-                        cap_legs(
-                            batch,
-                            signals,
-                            sizing,
-                            minute_marks,
-                            passing,
-                            rules["allocation_usdc"],
-                            rules["cap_usdc"],
-                            rules["receive_ms"],
-                            start,
-                            end,
-                            no_scale_up=no_scale_up,
-                        ),
-                        True,
+                    legs = cap_legs(
+                        batch,
+                        signals,
                         sizing,
+                        minute_marks,
+                        passing,
+                        rules["allocation_usdc"],
+                        rules["cap_usdc"],
+                        rules["receive_ms"],
+                        start,
+                        end,
+                        no_scale_up=no_scale_up,
                     )
+                    if tradable is not None:
+                        legs = mark_tradable(legs, tradable)
+                    plans[plan_name] = (legs, True, sizing)
             for plan_name, (plan, cap, sizing) in plans.items():
                 variants = [m for m in models if SPEC[m]["plan"] == plan_name]
                 if not variants:
                     continue
                 if "part_ns_sweep_frozen" in variants:
-                    # ADR-0162: the same frozen plan at zero delay, leader prices, zero cost, every coin.
+                    # ADR-0063: the same frozen plan at zero delay, leader prices, zero cost, every coin.
                     bench = benchmark_orders(plan, sizing, bars, checks, mapping, tape, bands, origins, spreads,
                                              params, rules, start, end, minute_marks)
                     daily, fund, _ = value_book(bench, u, marks, funding, start, end, rules["allocation_usdc"])
@@ -203,7 +212,7 @@ def window_variants(dest, original, universe, start, end, shared, scenarios, rul
                             writer = pq.ParquetWriter(path, arrow.schema, compression="zstd")
                             writers[path] = files.enter_context(writer)
                         writers[path].write_table(arrow)
-                # ADR-0150: every grid point (ms) for the scenarios that own a grid, then any main delay off the grid
+                # ADR-0058: every grid point (ms) for the scenarios that own a grid, then any main delay off the grid
                 # (severe's 60 s / 300 s thin-coin rule). A grid point that is a scenario's own delay is its main run.
                 for h, runs in delay_plan(scenarios, horizons):
                     frame = order_inputs(
@@ -319,7 +328,7 @@ def window_variants(dest, original, universe, start, end, shared, scenarios, rul
 
 
 def filter_checks(checks: pl.DataFrame, kept: list[str]) -> pl.DataFrame:
-    """ADR-0140: every coin outside the rule's coin set gets outcome `coin_filter`, its price-check outcome kept in
+    """ADR-A0140: every coin outside the rule's coin set gets outcome `coin_filter`, its price-check outcome kept in
     `price_check_outcome`. The follower never trades it (a passing coin is `coin_filter_excluded`, a failing one keeps
     its price-check status), the benchmark never trades it, and the cap book and resize legs (built on the passing
     coins) leave it out."""
@@ -328,16 +337,25 @@ def filter_checks(checks: pl.DataFrame, kept: list[str]) -> pl.DataFrame:
         outcome=pl.when(~C("coin").is_in(sorted(kept))).then(pl.lit("coin_filter")).otherwise(C("outcome")))
 
 
-def run_sensitivities(ctx, output=None, models=None, original=None, coin_sets=None, window=None):
+def run_sensitivities(ctx, output=None, models=None, original=None, coin_sets=None, window=None, tradable=None,
+                      allocation_usdc=None, traders=None):
     """Variants next to the original-model replay in `original` (default research/replay), written to `output`
     (default: the same folder). The original replay supplies the universe, drift cells, bands and spreads.
 
-    `coin_sets` (ADR-0140): {origin date: kept coins}; every window at that origin copies only those coins.
+    `coin_sets` (ADR-A0140): {origin date: kept coins}; every window at that origin copies only those coins.
+    `tradable` (ADR-0076): {origin date: (trader, coin) tradable pairs}; the cap plan stays the all-priced one and
+    every other leg is `not_tradable`. The two options exclude each other.
     `window` = (origin, start, end) dates: replay that one test-shaped window only, with every input bounded at its
     end. It is the holdout path (origin 3 Dec, 3 Dec - 4 Jan, behind `freeze.guard`) and, for a development window,
-    its check (it must reproduce the full run's window byte for byte)."""
+    its check (it must reproduce the full run's window byte for byte).
+    `allocation_usdc` (ADR-0095 item 3, P5-1): the sleeve size in place of execution.yaml's, with the gross cap at the
+    same multiple; `traders`: replay only these addresses (every per-address input is unchanged)."""
     assert_no_live_trading(ctx.root / "config")
+    if coin_sets is not None and tradable is not None:
+        raise ValueError("coin_sets (ADR-A0140) and tradable (ADR-0076) exclude each other")
     scenarios, rules = replay_settings(load_yaml("execution.yaml", ctx.root / "config"))
+    if allocation_usdc is not None:
+        rules["allocation_usdc"] = allocation_usdc
     rules["cap_usdc"] = rules["allocation_usdc"] * load_yaml("risk.yaml", ctx.root / "config")["gross_exposure_max_x"]
     dr = drift.DriftRules.from_config(ctx.raw)
     delay_plan(scenarios, dr.horizons_ms)  # every scenario delay is a grid point (checked before any work)
@@ -364,13 +382,14 @@ def run_sensitivities(ctx, output=None, models=None, original=None, coin_sets=No
     for origin in origins:
         for win in ["training"] if origin == last else ["training", "test"]:
             folder = original / f"origin={origin.date()}" / f"window={win}"
-            # A prepare-only tree (ADR-0119) has the universe itself; a full replay has it in its base summary.
+            # A prepare-only tree (ADR-0052) has the universe itself; a full replay has it in its base summary.
             path = folder / UNIVERSE
             if not path.is_file():
                 path = folder / "scenario=base" / "address_summary.parquet"
-            origin_tables[origin, win] = pl.read_parquet(
+            table = pl.read_parquet(
                 path, columns=["trader", "return_source", "all_gates_pass", "hold_band", "leader_return", "leader_days"]
             )
+            origin_tables[origin, win] = table if traders is None else table.filter(C("trader").is_in(list(traders)))
     candidate = pl.concat(list(origin_tables.values())).select("trader").unique()
     inputs = bounded_inputs(ctx, stop)
     first = midnight(inputs.fills["ts"].min().date())
@@ -379,7 +398,7 @@ def run_sensitivities(ctx, output=None, models=None, original=None, coin_sets=No
     )
     tape = trade_queries(ctx, eligible, dr, stop, basket=True, holdout=holdout)
     print("Prepared causal trade endpoints for basket resizes", flush=True)
-    # ADR-0110: every window uses the price-check list as of its origin.
+    # ADR-0044: every window uses the price-check list as of its origin.
     checker = hlprices.PointInTimeCheck.load(ctx)
     checks_by = {origin: checker.checks(origin) for origin in origins}
     union = sorted(set().union(*(checker.passing(origin) for origin in origins)))
@@ -389,7 +408,7 @@ def run_sensitivities(ctx, output=None, models=None, original=None, coin_sets=No
     per_origin = {
         origin: parts[:5] for origin, parts in model_inputs_by_origin(ctx, inputs, stop, candidate, checks_by).items()
     }
-    # Leader fill sizes give each batch its own notional, VWAP and deepest fill (ADRs 0087-0088).
+    # Leader fill sizes give each batch its own notional, VWAP and deepest fill (ADR-0036).
     events = per_origin[origins[0]][0].join(inputs.fills.select("src_row", "size"), on="src_row", how="left")
     marks = per_origin[origins[0]][3]  # Hyperliquid daily closes: the same at every origin
     del inputs, eligible
@@ -404,10 +423,13 @@ def run_sensitivities(ctx, output=None, models=None, original=None, coin_sets=No
     def shared_for(origin):
         _, snaps, _, _, funding = per_origin[origin]
         checks = checks_by[origin]
-        if coin_sets is not None:  # ADR-0140: the leader-side inputs above keep the unfiltered list
+        if coin_sets is not None:  # ADR-A0140: the leader-side inputs above keep the unfiltered list
             checks = filter_checks(checks, coin_sets[origin.date()])
-        return (events, snaps, bars, checks, mapping, tape, bands, dr.origin_dates, spreads, params,
-                marks, funding, minute_marks)
+        shared = (events, snaps, bars, checks, mapping, tape, bands, dr.origin_dates, spreads, params,
+                  marks, funding, minute_marks)
+        if tradable is not None:  # ADR-0076: the origin's per-wallet sets; checks stay unfiltered
+            return (*shared, tradable[origin.date()])
+        return shared
 
     if window is None:
         plan = list(windows(origins, first, last))

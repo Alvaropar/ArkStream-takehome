@@ -1,12 +1,15 @@
 # Brief: Hyperliquid public data (funding, price check)
 
+> ADR numbers below follow the renumbering of 2026-11-23 (ADR-0085; old numbers in
+> `decision/adr/RENUMBERING.md`), except the reserved number blocks, which are quoted as they were reserved.
+
 Written 2026-11-19. Project: `C:\Projects\quant-task-arkstream` (ArkStream Hyperliquid copy pilot, take-home).
 ADR numbers reserved for this session: **0010-0019**.
 
 ## Why
 
 The follower replay (Phase 3) must cost held positions, and Hyperliquid perps pay or receive funding every
-hour. The package has no funding ledger (plan A07). ADR-0007 now allows public market data. Second, every
+hour. The package has no funding ledger (plan A07). ADR-A0007 now allows public market data. Second, every
 price used so far is a Binance price (ADR-0002); before relying on it for Hyperliquid positions we want
 evidence that it matches Hyperliquid closely enough, coin by coin, and a decision on the coins it does not
 cover.
@@ -34,7 +37,7 @@ cover.
 1. **Feasibility first (half a day at most).** One small script run that fetches, for BTC and one thin coin:
    funding for 2025-07-27..2026-01-04, candles at 1h/4h/1d for the same range, and `userFunding` for one leader
    address from `data/raw/traders.csv`. Report what each returns (rows, earliest time, gaps, pagination, rate
-   limit). Write ADR-0010 with the findings and the go/no-go for each source.
+   limit). Write ADR-0008 with the findings and the go/no-go for each source.
 2. **Funding fetcher** `src/arkstream_fetch/fetch_hyperliquid.py`: funding history for every core perp traded
    in eligible fills (`symbol` where `eligible`), 2025-07-27 to CUTOFF. Same rules as `fetch_aggtrades.py`:
    standard library only, host allowlist (`api.hyperliquid.xyz`), bounded retries with backoff, a rate limiter
@@ -58,7 +61,7 @@ cover.
 ## Out of scope
 
 Selection, the follower replay, and Phase 2 (another session is doing leader evidence). HIP-3 and spot
-(ADR-0007). Any code that places orders. Any paid source (the Hyperliquid S3 archive is requester-pays: note it
+(ADR-A0007). Any code that places orders. Any paid source (the Hyperliquid S3 archive is requester-pays: note it
 in an ADR if relevant, do not use it).
 
 ## Rules (project spec, verbatim where quoted)
@@ -84,7 +87,7 @@ each edit, make small additive edits, never rewrite or reformat it.
 
 ## Done when
 
-- ADR-0010 (feasibility) and the price-check ADR written; the index updated.
+- ADR-0008 (feasibility) and the price-check ADR written; the index updated.
 - Funding for every eligible core perp 2025-07-27..CUTOFF on disk, verified, with a coverage table and every gap
   explained.
 - `uv run ruff check src tests`, `uv run mypy src`, `uv run pytest -q` and `uv run python -m arkstream audit`
@@ -101,7 +104,7 @@ each edit, make small additive edits, never rewrite or reformat it.
 > a pre-registered check of whether the Binance reference prices match Hyperliquid closely enough that we do not
 > need Hyperliquid price history. Start with the feasibility step and stop after it to report what each
 > Hyperliquid endpoint actually returns for 2025 (history comes from the REST info endpoint; the WebSocket is
-> live-only, so confirm that first). Also read `decision/adr/README.md` and ADRs 0002, 0003 and 0007, the
+> live-only, so confirm that first). Also read `decision/adr/README.md` and ADRs 0002, 0003 and A0007, the
 > `README.md`, `config/decision_context.yaml` and `src/arkstream_fetch/fetch_aggtrades.py`, which is the
 > pattern to follow. Record decisions as ADRs numbered 0010-0019. Another session is working on Phase 2 in
 > the same folder with no git, so keep to the file ownership in the brief.

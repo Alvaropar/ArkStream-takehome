@@ -3,32 +3,32 @@
 live_trading_enabled: false
 replay:
   allocation_usdc: 10000
-  max_participation: 0.005           # PLACEHOLDER, ADR-0086
+  max_participation: 0.005           # PLACEHOLDER, ADR-0035
   min_notional_usdc: 10
-  receive_ms: 392                     # ADR-0161: measured Hyperliquid userFills receive delay, pooled median (ADR-0104)
+  receive_ms: 392                     # ADR-0062: measured Hyperliquid userFills receive delay, pooled median (ADR-0056)
   debounce_ms: 250                    # remainder of scenario delay is acknowledgement
   thin_volume_usdc: 1000000           # PLACEHOLDER, most recent completed Hyperliquid 4h candle
   spreads: {min_prints: 2, min_pairs: 20, seed: 8082, simulation_pairs: 2048}
-  square_root: {y: 1.0, volatility_bars: 42}  # PLACEHOLDER, ADR-0084
-  stress_min_priced_share: 0.80       # PLACEHOLDER, ADR-0115: a stress result below this priced share is unmeasured
-  review_days: 14                     # ADR-0116: frozen reference equity reviewed at window start and every 14 days
-  # ADR-0120 (PLACEHOLDER): parameterised stress orders without their own crash-sample cell use
+  square_root: {y: 1.0, volatility_bars: 42}  # PLACEHOLDER, ADR-0033
+  stress_min_priced_share: 0.80       # PLACEHOLDER, ADR-0049: a stress result below this priced share is unmeasured
+  review_days: 14                     # ADR-0052: frozen reference equity reviewed at window start and every 14 days
+  # ADR-0053 (PLACEHOLDER): parameterised stress orders without their own crash-sample cell use
   # max(liquidity-bucket stress estimate, multiple x max(own 300 s base drift, 0), 0); buckets by completed 4h volume
   stress_fallback: {multiple: 3.0, bucket_edges_usdc: [250000, 1000000, 5000000], min_orders: 30}
-  # ADR-0160 (amends ADR-0114; decided after seeing results, fixed before running): base drift of a parameterised
+  # ADR-0061 (amends ADR-0048; decided after seeing results, fixed before running): base drift of a parameterised
   # coin below 300 s = max(four-coin proxy, the point-in-time Hyperliquid split-order estimate of the delay's bin, 0);
-  # without an estimate (no bin, or fewer than min_orders) the ADR-0114 floor max(proxy, own 300 s, 0).
-  # rule: hl_split_orders | own_300s (ADR-0114, kept only to reproduce the before/after report).
+  # without an estimate (no bin, or fewer than min_orders) the ADR-0048 floor max(proxy, own 300 s, 0).
+  # rule: hl_split_orders | own_300s (ADR-0048, kept only to reproduce the before/after report).
   # bins_ms: right-closed elapsed-time bins (0,1], (1,2], (2,5], (5,10] s by upper edge; buckets: stress_fallback.
   alt_short_floor: {rule: hl_split_orders, bins_ms: [1000, 2000, 5000, 10000], sequence_gap_ms: 60000, min_orders: 30}
-# Copy delay per scenario, leader fill -> our acknowledged fill, in whole milliseconds (ADR-0150, amending ADR-0044).
-# Measured (ADR-0104): Hyperliquid userFills receive (pooled 284 fills, p50 392 ms, p99 1,218 ms) + debounce 250 ms
+# Copy delay per scenario, leader fill -> our acknowledged fill, in whole milliseconds (ADR-0058, amending ADR-0038).
+# Measured (ADR-0056): Hyperliquid userFills receive (pooled 284 fills, p50 392 ms, p99 1,218 ms) + debounce 250 ms
 # + compute ~120 ms + Binance USD-M Demo acknowledgement (p50 354 ms, p99 2,767 ms; transferred_from_binance) is
 # about 1.1-1.2 s at the median and 3.5-4.4 s at the 99th percentile. Chosen by the user on 2026-11-21 from that
 # measurement, before any Phase 4 (selection) result. Every delay must also be a point of drift.horizons_s.
 # `delay_thin_ms`: the delay for a coin whose latest completed Hyperliquid 4h bar is below thin_volume_usdc.
 # `costs_of`: the scenario takes every cost and stress rule of the named one (stress-period drift, deepest sweep
-# anchor, the ADR-0120 fallback, the ADR-0115/0122 coverage rule and stress check) and only its own delays; its
+# anchor, the ADR-0053 fallback, the ADR-0049/0055 coverage rule and stress check) and only its own delays; its
 # delay grid is that scenario's (same costs at each fixed delay).
 scenarios:
   # about the measured 10th percentile total (957-994 ms); unchanged

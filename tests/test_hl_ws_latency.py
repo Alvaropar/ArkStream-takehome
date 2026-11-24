@@ -1,4 +1,4 @@
-"""Recorder (offline, fake transport) and receive-delay analysis (ADR-0100..0104)."""
+"""Recorder (offline, fake transport) and receive-delay analysis (ADRs 0040..0043, 0056)."""
 
 from __future__ import annotations
 
@@ -195,7 +195,7 @@ def test_clock_fit_interpolates_and_corrects():
     assert f.offset_ns(-5) == 10_000_000 and f.offset_ns(50) == 15_000_000 and f.offset_ns(500) == 20_000_000
     assert f.correct(50) == 50 + 15_000_000 and f.change_ms == 10.0
     assert L.usability(f, 0.0) == ""
-    assert L.usability(L.ClockFit(0, 0, 100, 90_000_000), 0.0) == ""     # steady drift is corrected (ADR-0105)
+    assert L.usability(L.ClockFit(0, 0, 100, 90_000_000), 0.0) == ""     # steady drift is corrected (ADR-0057)
     assert "step" in L.usability(f, 25.0)
     assert L.usability(None, 0.0).startswith("no NTP")
 

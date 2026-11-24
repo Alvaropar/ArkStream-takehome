@@ -1,11 +1,14 @@
 # Brief: Phase 3, follower replay and copy series
 
+> ADR numbers below follow the renumbering of 2026-11-23 (ADR-0085; old numbers in
+> `decision/adr/RENUMBERING.md`), except the reserved number blocks, which are quoted as they were reserved.
+
 Written 2026-11-19. Project: `C:\Projects\quant-task-arkstream` (ArkStream Hyperliquid copy pilot, take-home).
 ADR numbers reserved for this session: **0080-0099**. No other session edits the project while this one runs.
 
 ## Why
 
-ADR-0009 makes each address an asset whose investable "price" is its **copy series**: the return a follower would
+ADR-0007 makes each address an asset whose investable "price" is its **copy series**: the return a follower would
 have earned copying it, after delay, fees, spread, impact, drift and funding. Phase 3 builds that series and the
 plan's first economic screen (the delay break-even study). Phase 4 ranks and Phase 5 allocates on its output, never
 on the leader's own returns. Method: the plan's section **Follower replay**. This brief fixes the inputs and the
@@ -13,7 +16,7 @@ choices left open.
 
 ## Inputs already built (read the ADRs before using them)
 
-- **Leader universe and evidence per origin:** `research/leader/origin=<date>/` (ADRs 0020-0027, 0060-0065): grades,
+- **Leader universe and evidence per origin:** `research/leader/origin=<date>/` (ADRs 0013-0019, 0023-0028): grades,
   suitability gates, daily TWR, rebuilt positions, funding payments, daily marks. Origins 2025-10-08, 10-22, 11-05,
   11-19, and 12-03 (holdout).
 - **Drift:** per origin, by coin x holding-time band x horizon (1, 10, 60, 300 s), from Binance aggTrades for BTC,
@@ -22,10 +25,10 @@ choices left open.
   +-2.6 bps outside the crash; stress at 5 min reaches +35 bps (BTC) and -58 bps (HYPE).
 - **aggTrades zips** 2025-09-08..2026-01-04 for the four coins (`data/reference/binance/aggtrades/`, verified).
 - **Prices:** Binance 1m reference for the 163 coins that pass the price check (intraday source); Hyperliquid 4h
-  closes for every coin (daily marks); the 22 failing and 10 unmapped coins have no intraday price (ADR-0040).
-- **Funding:** Hyperliquid hourly rates with `known_at` (ADR-0011); payment = -position x price x rate, checked
-  against actual leader payments to about 0.05% (ADR-0014).
-- **Scope:** core perps; HIP-3 and spot out (ADRs 0041, 0042). `equity` is cross-margin equity (ADR-0041).
+  closes for every coin (daily marks); the 22 failing and 10 unmapped coins have no intraday price (ADR-0020).
+- **Funding:** Hyperliquid hourly rates with `known_at` (ADR-0009); payment = -position x price x rate, checked
+  against actual leader payments to about 0.05% (ADR-0012).
+- **Scope:** core perps; HIP-3 and spot out (ADRs 0021, 0022). `equity` is cross-margin equity (ADR-0021).
 - **Scenarios:** `config/execution.yaml` (optimistic 1 s, base 10 s, stress 60 s / 300 s thin; taker fee 4.5 bps;
   half-spread majors/other 0.5/2, 1/5, 3/15 bps; impact none / linear / 3x). `config/risk.yaml` is a proposal only.
 
@@ -38,8 +41,8 @@ choices left open.
    fill not yet visible) must be caught.
 2. **Sizing.** Proportional copy on a fixed allocation per address (state it, for example 10,000 USDC): follower
    target position = leader position x allocation / leader equity, with leader equity the latest cross-margin
-   snapshot known at the decision time (point in time; ADR-0041). Where the address's return source is the rebuilt
-   book (ADR-0065), say which equity is used. Orders below Hyperliquid's minimum notional (check the current docs;
+   snapshot known at the decision time (point in time; ADR-0021). Where the address's return source is the rebuilt
+   book (ADR-0028), say which equity is used. Orders below Hyperliquid's minimum notional (check the current docs;
    $10 is the planning value) are skipped and counted, never rounded up.
 3. **Execution price.** Decide by ADR, in this order of preference:
    - BTC, ETH, HYPE, SOL: the actual Binance aggTrades price at order time (venue lead-lag A16 noted), so every
@@ -48,7 +51,7 @@ choices left open.
      and holding band at that delay (ADR-0004), labelled `parameterised`; for delays under 300 s on coins without
      aggTrades there is no measured drift, so state what is used (the pooled four-coin value, the stress value, or
      a labelled assumption) and never read a 1m kline under 300 s;
-   - the 32 coins without an intraday price (ADR-0040 item 5): either not copied, or copied under a stated
+   - the 32 coins without an intraday price (ADR-0020 item 5): either not copied, or copied under a stated
      conservative cost; decide by ADR and report how many orders and how much PnL that choice moves.
    Then add half-spread and impact per scenario, and the taker fee. A follower is always a taker.
 4. **Spread estimate (plan).** Corwin-Schultz from one-minute high/low bars of the package's pooled prints, and
@@ -58,7 +61,7 @@ choices left open.
    (linear in order size over traded volume; Hyperliquid 4h candle volume is available for every coin).
 5. **Funding** on the follower's own positions, hourly, using a rate only after `known_at`.
 6. **Copy series.** Per address, origin and scenario: the follower's daily TWR on its allocation (the investable
-   series, ADR-0009), before and after funding; copy efficiency (copy return / leader return); break-even delay and
+   series, ADR-0007), before and after funding; copy efficiency (copy return / leader return); break-even delay and
    break-even cost (where copy return reaches zero); share of orders skipped for minimum size; share unpriced; the
    zero-delay, zero-cost upper bound labelled unattainable.
 7. **Delay break-even study (first go/no-go screen).** By holding-time band: average gross result per round trip
@@ -71,7 +74,7 @@ choices left open.
    The plan opens it once, after the Phase 4 freeze hash. The 3 Dec origin gets its training-side series only.
 
 Optional, only with the user's explicit go-ahead: Hyperliquid historical L2 data (requester-pays archive, needs an
-AWS account and costs money; ADR-0041) for the few coins the candidates trade most, to replace assumed spread and
+AWS account and costs money; ADR-0021) for the few coins the candidates trade most, to replace assumed spread and
 impact. Do not fetch it without that go-ahead.
 
 ## Out of scope
@@ -87,7 +90,7 @@ later, unless explicitly enabled"; `live_trading_enabled` stays false).
   timestamp <= asof". For the replay this means: a decision uses only fills visible by its decision time, equity
   known by then, drift and spread parameters estimated before the origin, and funding rates after `known_at`.
 - "Never invent missing inputs: no imputed prices, funding or quotes. Missing -> flag and exclude, with a reason".
-- "Determinism: same inputs give byte-identical outputs" (total sort order on every table; ADR-0008).
+- "Determinism: same inputs give byte-identical outputs" (total sort order on every table; ADR-0006).
 - "Traceability: every derived row keeps the source keys (trader, tid, oid, timestamp)": each follower order keeps
   the leader fills it copies.
 - Extend `tests/pit_check.py` to the replay tables, and add the event-time seeded leak.
@@ -116,7 +119,7 @@ later, unless explicitly enabled"; `live_trading_enabled` stays false).
 > daily TWR after delay, fees, spread, impact, drift and funding) under the optimistic, base and stress scenarios,
 > plus the delay break-even study. Before writing code, read the plan's sections "Follower replay" and "Decision
 > gates" in `ArkStream Hyperliquid Pilot — Revised Research & Deployment Plan (v2).md`, `decision/adr/README.md` and
-> ADRs 0003-0005, 0009, 0011, 0014, 0040-0042 and 0060-0065, `config/execution.yaml`, `config/decision_context.yaml`,
+> ADRs 0003-0005, 0007, 0009, 0012, 0020-0022 and 0023-0028, `config/execution.yaml`, `config/decision_context.yaml`,
 > and `src/arkstream/drift.py`, `funding.py`, `hlprices.py`, `positions.py` and `leader*.py`. Start by writing the
 > execution-price ADR and stop to report it before building the replay. Never compute the holdout test window
 > (2025-12-03..2026-01-04). Record decisions as ADRs numbered 0080-0099. Do not start selection.

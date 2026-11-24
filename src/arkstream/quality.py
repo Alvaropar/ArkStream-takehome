@@ -154,7 +154,8 @@ def address_table(traders: pl.DataFrame, snaps: pl.DataFrame, ledger: pl.DataFra
         mixed_ms_groups=(pl.col("group_kind") == "mixed").sum(),
     )
     rs = recon_snap.select("trader", "pnl_match_share", "pnl_rows_gt_tight", "pnl_rows_gt_loose", "pnl_diff_mean",
-                           "pnl_offset_cv", "pnl_larger_when_loose",
+                           "pnl_offset_cv", "pnl_larger_when_loose", "material_match_share", "pnl_rows_material",
+                           "offset_level", "offset_mad", "offset_match_share", "offset_shift",
                            pl.col("first_mismatch_src_row").alias("pnl_mismatch_first_src_row"))
     rf = recon_fill.select("trader", "closed_pnl_total", "rebuilt_realized_known", "closed_pnl_known",
                            "realized_diff", "realized_diff_rel", "fills_unknown_entry", "fills_pnl_mismatch",
@@ -185,19 +186,25 @@ def grade(table: pl.DataFrame, cfg: dict) -> pl.DataFrame:
     """A: trustworthy as is; B: usable with a stated fix; C: excluded, with the reason."""
     g = cfg["grades"]
     a, b, cc = g["A"], g["B"], g["C"]
-    stable_offset = pl.col("pnl_offset_cv").is_not_null() & (pl.col("pnl_offset_cv") <= b["max_offset_cv"])
+    # ADR-0066: the PnL-identity residual graded by economic size (ADR-0045 materiality), not a cent tolerance + CV
+    mismatch = pl.col("material_match_share") < a["min_material_match_share"]
+    # stable = around its median the residual passes the same materiality test as A (episodic breaches cannot hide
+    # behind a robust median) and the median does not shift between the halves of the history
+    stable = ((pl.col("offset_match_share") >= b["min_offset_match_share"])
+              & (pl.col("offset_shift") <= b["max_offset_shift"])).fill_null(False)
+    bounded = pl.col("offset_level") <= b["max_offset_level"]
     c_reasons = [
         (pl.col("no_snapshots"), "no_snapshots"),
         (pl.col("no_fills"), "no_fills"),
         (pl.col("continuity_breaks") > 0, "continuity_break"),
         (pl.col("near_zero_equity_share") > cc["max_near_zero_equity_share"], "equity_near_zero"),
         (pl.col("unusable_day_share") > b["max_unusable_day_share"], "too_many_unusable_days"),
-        ((pl.col("pnl_match_share") < a["min_pnl_match_share"]) & ~stable_offset, "unstable_scope_mismatch"),
+        (mismatch & ~stable, "unstable_scope_mismatch"),
+        (mismatch & stable & ~bounded, "scope_offset_too_large"),
     ]
     b_reasons = [
         (pl.col("days_present_share") < a["min_days_present_share"], "snapshot_gaps:use_multi_day_returns"),
-        ((pl.col("pnl_match_share") < a["min_pnl_match_share"]) & stable_offset,
-         "stable_scope_offset:use_rebuilt_book"),
+        (mismatch & stable & bounded, "stable_scope_offset:use_rebuilt_book"),
         (pl.col("zero_equity_holding_rows") > a["max_zero_equity_days_with_position"],
          "zero_equity_while_holding:use_rebuilt_book"),
     ]

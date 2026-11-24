@@ -1,0 +1,9 @@
+{
+  "coins_requested": 29,
+  "coins_used": 29,
+  "complete_days": 60,
+  "delta": 0.19727060506818803,
+  "fit_date": "2025-11-19",
+  "last_day": 20410,
+  "use": "reporting only; no limit uses the covariance (ADR-0088 item 2)"
+}

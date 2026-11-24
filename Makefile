@@ -2,7 +2,7 @@
 ASOF ?=
 UV ?= uv
 
-.PHONY: data build test audit lint all prices aggtrades-plan drift leader replay replay-sensitivities replay-frozen replay-sizing replay-cost-surface replay-size-study figures latency-probe latency-record latency
+.PHONY: data build test audit lint all prices aggtrades-plan drift leader replay replay-sensitivities replay-frozen replay-sizing replay-cost-surface replay-size-study figures latency-probe latency-record latency replay-gray phase5-risk-model phase5-population phase5-pair phase5-report phase5
 
 data:            ## checksum raw inputs, ingest to date-partitioned Parquet
 	$(UV) run python -m arkstream ingest
@@ -40,17 +40,34 @@ replay-sensitivities:
 
 all: data build test audit
 
-replay-frozen:   ## ADR-0119/0122 the current replay, frozen E_ref only (+ stress coverage, cost surface, size study) -> research/replay_frozen
+replay-frozen:   ## ADR-0052/0055 the current replay, frozen E_ref only (+ stress coverage, cost surface, size study) -> research/replay_frozen
 	$(UV) run python -m arkstream replay --frozen
 
-replay-sizing:   ## archived (ADR-0116/0119, not rerun): frozen vs dynamic comparison -> research/replay_sizing
+replay-sizing:   ## archived (ADR-A0116/0052, not rerun): frozen vs dynamic comparison -> research/replay_sizing
 	$(UV) run python -m arkstream replay --sizing
 
-replay-cost-surface:   ## ADR-0117 frozen base cost surface on the test windows -> research/replay_frozen
+replay-cost-surface:   ## ADR-0050 frozen base cost surface on the test windows -> research/replay_frozen
 	$(UV) run python -m arkstream replay --cost-surface
 
 replay-size-study:
 	$(UV) run python -m arkstream replay --size-study
+
+replay-gray:     ## P5-1 (ADR-0095 item 3): the two Phase 5 sleeves at 2,500 and 5,000 USDC -> research/replay_gray
+	$(UV) run python -m arkstream replay --gray
+
+phase5-risk-model:  ## P5-2: stress shocks, betas, covariance per origin -> research/risk_model
+	$(UV) run python -m arkstream phase5 risk-model
+
+phase5-population:  ## P5-4: trigger calibration and risk-rule variants on all A/B copies -> research/phase5_population
+	$(UV) run python -m arkstream phase5 population
+
+phase5-pair:     ## P5-5: S*, U*, G* on the test windows, random pairs, stress tests -> research/portfolio_replay
+	$(UV) run python -m arkstream phase5 pair
+
+phase5-report:   ## P5-6: the window report (H1-H6, D1-D5) on the development windows -> research/window_report
+	$(UV) run python -m arkstream phase5 report
+
+phase5: replay-gray phase5-risk-model phase5-population phase5-pair phase5-report  ## P5-1 to P5-6, development only
 
 figures:         ## key review figures from saved outputs (decision/figures/)
 	$(UV) run --group figures python scripts/make_figures.py

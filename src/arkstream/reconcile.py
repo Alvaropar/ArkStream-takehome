@@ -22,10 +22,30 @@ def snapshot_rows(traders: pl.DataFrame, asof: datetime) -> pl.DataFrame:
     )
 
 
-def snapshot_summary(traders: pl.DataFrame, asof: datetime, tight: float, loose: float) -> pl.DataFrame:
+def snapshot_summary(traders: pl.DataFrame, asof: datetime, tight: float, loose: float,
+                     material: dict | None = None) -> pl.DataFrame:
+    """Per address. `material` (ADR-0066, config `grades.B`) adds the materiality-based offset statistics."""
     rows = snapshot_rows(traders, asof)
     d = pl.col("pnl_identity_diff")
-    return (rows.sort("trader", "ts").group_by("trader", maintain_order=True).agg(
+    extra: list[pl.Expr] = []
+    if material is not None:
+        e = pl.col("equity")
+        bound = pl.max_horizontal(pl.lit(float(material["material_abs_usdc"])),
+                                  pl.when(e > 0).then(e * material["material_rel_equity"]).otherwise(0.0))
+        scale = pl.max_horizontal(e.median(), pl.lit(float(material["offset_scale_floor_usdc"])))
+        n, half = pl.len(), pl.len() // 2
+        idx = pl.int_range(pl.len())
+        extra = [
+            (d.abs() <= bound).mean().alias("material_match_share"),
+            (d.abs() > bound).sum().alias("pnl_rows_material"),
+            (d.median().abs() / scale).alias("offset_level"),
+            ((d - d.median()).abs().median() / scale).alias("offset_mad"),
+            ((d - d.median()).abs() <= bound).mean().alias("offset_match_share"),
+            pl.when(n >= 4).then((d.filter(idx >= half).median() - d.filter(idx < half).median()).abs() / scale)
+            .alias("offset_shift"),
+        ]
+    return (rows.sort("trader", "ts", "src_row").group_by("trader", maintain_order=True).agg(
+        *extra,
         n_snapshots=pl.len(),
         pnl_rows_gt_tight=(d.abs() > tight).sum(),
         pnl_rows_gt_loose=(d.abs() > loose).sum(),

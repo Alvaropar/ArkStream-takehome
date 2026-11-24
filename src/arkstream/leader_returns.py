@@ -2,7 +2,7 @@
 
 Point in time: every function takes `asof` and uses only rows with ts <= asof.
 
-Cross-margin account returns (ADRs 0021, 0041 and 0065). For consecutive snapshots of one address,
+Cross-margin account returns (ADRs 0014, 0021 and 0028). For consecutive snapshots of one address,
 E is cross-margin account equity and ND is reported net deposits:
 
     pnl     = E_t - E_{t-1} - (ND_t - ND_{t-1})
@@ -14,8 +14,8 @@ excluded, with a reason, when opening equity is below `min_open_equity_usdc`, a 
 or the two conventions differ by more than `max_convention_gap`. Transfers to other margin accounts or spot
 can move E without a corresponding change in ND. The identity check determines the primary series at each origin.
 
-Book returns (ADR-0022). Positions come from `positions.rebuild` (core perps only) and are marked at hour
-boundaries using the ADR-0040 Binance panel on its validated coins. The following terms give the PnL
+Book returns (ADR-0015). Positions come from `positions.rebuild` (core perps only) and are marked at hour
+boundaries using the ADR-0020 Binance panel on its validated coins. The following terms give the PnL
 of hour (m, m + 1h] per coin.
 
     pos_m * (P_{m+1h} - P_m)                           position held at the mark          (term "hold")

@@ -1,5 +1,8 @@
 # Brief: fixes before Phase 4 (from the external review)
 
+> ADR numbers below follow the renumbering of 2026-11-23 (ADR-0085; old numbers in
+> `decision/adr/RENUMBERING.md`), except the reserved number blocks, which are quoted as they were reserved.
+
 Written 2026-11-20. Project: `C:\Projects\quant-task-arkstream` (ArkStream Hyperliquid copy pilot, take-home).
 ADR numbers reserved for this session: **0110-0129**. The main session will not edit the project while this runs.
 A separate Hyperliquid latency session may run at the same time: do not touch `src/arkstream_fetch/hl_ws_latency.py`,
@@ -13,11 +16,11 @@ been checked against the code and data; do not re-litigate the findings, fix the
 
 | Finding | Validated evidence |
 | --- | --- |
-| **Sizing denominator differs from the plan.** The plan (section "Sizing and portfolio construction") freezes each leader's reference equity `E_ref` between reviewed rebalances; the replay divides by the latest snapshot equity. | `src/arkstream/replay_orders.py:342`, `src/arkstream/replay_cap.py:136,144`, ADR-0081 |
-| **Price-check look-ahead.** The pre-registered Binance-vs-Hyperliquid price check (ADR-0012/0013) is computed once over all bars to the cutoff and applied at every origin. Rerun with only bars known at each origin, 2-14 coins classify differently, worth 0.02-0.98% of the next window's notional. | `research/hyperliquid/price_check.csv` used by `replay_orders.order_inputs`, `replay_market.vintages`, `leader.py`, `leader_worstcase` |
-| **One-cent source switch.** ADR-0065 moves an address's whole return series to the rebuilt book after a single snapshot with abs(pnl - (equity - net_deposit)) > 0.01 USDC. | `src/arkstream/leader_assets.py:28` |
+| **Sizing denominator differs from the plan.** The plan (section "Sizing and portfolio construction") freezes each leader's reference equity `E_ref` between reviewed rebalances; the replay divides by the latest snapshot equity. | `src/arkstream/replay_orders.py:342`, `src/arkstream/replay_cap.py:136,144`, ADR-0030 |
+| **Price-check look-ahead.** The pre-registered Binance-vs-Hyperliquid price check (ADR-0010/0011) is computed once over all bars to the cutoff and applied at every origin. Rerun with only bars known at each origin, 2-14 coins classify differently, worth 0.02-0.98% of the next window's notional. | `research/hyperliquid/price_check.csv` used by `replay_orders.order_inputs`, `replay_market.vintages`, `leader.py`, `leader_worstcase` |
+| **One-cent source switch.** ADR-0028 moves an address's whole return series to the rebuilt book after a single snapshot with abs(pnl - (equity - net_deposit)) > 0.01 USDC. | `src/arkstream/leader_assets.py:28` |
 | Cost headroom is thin and rests on placeholders (impact Y = 1, participation 0.5%, cap 1.5x). | `decision/phase-3-sensitivity-results.md` |
-| Drift for the ~159 coins without aggTrades below 300 s is a pooled four-coin proxy (optimistic for thin coins). | ADR-0080 |
+| Drift for the ~159 coins without aggTrades below 300 s is a pooled four-coin proxy (optimistic for thin coins). | ADR-0029 |
 | The 8 Oct stress result is 65.3% unpriced (the crash sample did not exist yet) but is reported as a number. | `research/replay/economic_screen.csv` |
 | ADL and liquidation fills are included in drift estimation and in the leader-sweep anchor. They are forced fills, not signals. (The replay correctly mirrors them as position reductions; keep that.) | `drift.leader_orders`, `replay_orders.sweep_anchor`, `replay_size` |
 | A clean copy cannot reproduce the work: the kline lake was built by an external tool (qh_data), and large inputs and outputs are not shipped. | `data/lake`, `research/replay` (7.2 GB), `data/reference/binance/aggtrades` (7.2 GB) |
@@ -26,7 +29,7 @@ been checked against the code and data; do not re-litigate the findings, fix the
 
 **A. Inputs (no long runs yet)**
 
-1. **Point-in-time price check.** For each origin, apply the unchanged ADR-0012 rule (`hlprices.price_check`,
+1. **Point-in-time price check.** For each origin, apply the unchanged ADR-0010 rule (`hlprices.price_check`,
    thresholds in `config/decision_context.yaml: funding.price_check`) to the bars in
    `research/hyperliquid/price_check_bars.parquet` whose close is at or before the origin. Write
    `research/hyperliquid/price_check_by_origin.csv` (origin, coin, outcome, stats). Every consumer uses the
@@ -35,7 +38,7 @@ been checked against the code and data; do not re-litigate the findings, fix the
    flags, intraday marks and the worst-case Binance check use the origin's list. `insufficient` (fewer than 30
    bars) counts as not passing (no intraday price, not copied). Report, per origin, which coins change status and
    the orders and notional that moves.
-2. **Materiality rule for the return source (amends ADR-0065).** The rebuilt book becomes an address's primary
+2. **Materiality rule for the return source (amends ADR-0028).** The rebuilt book becomes an address's primary
    series only when reconciliation breaches known by the origin are material and persistent. Default
    (PLACEHOLDER, fix it in the ADR before looking at any return or gate outcome): a breach is
    abs(pnl - (equity - net_deposit)) > max(10 USDC, 0.5% of equity); the book is primary when at least 5% of the
@@ -60,7 +63,7 @@ Then rerun, in order: `python -m arkstream drift`, `python -m arkstream leader`,
    `unmeasured`, not as a return, and is never counted as positive or negative.
 7. **Frozen-equity sizing variant.** Implement `E_ref`: the leader's latest usable cross-margin snapshot equity at
    each review, with reviews at the start of every window and every 14 days after it (UTC midnight); fixed between
-   reviews. Copy multiplier = min(allocation / E_ref, 1) (no scale-up, ADR-0043). An unusable equity at a review
+   reviews. Copy multiplier = min(allocation / E_ref, 1) (no scale-up, ADR-0037). An unusable equity at a review
    means reduce-only until the next usable review. Everything else is the current full stack (square-root impact,
    1.5x cap, 0.5% participation, no scale-up, leader-sweep anchor, the new alt drift, the point-in-time price check).
    Run frozen and dynamic side by side on the nine windows and compare, per address and pooled: target exposure,
@@ -136,7 +139,7 @@ replay and operations; record it in an ADR.
 > excluding forced fills from drift and the sweep anchor, conservative drift for alts, unmeasured stress at low
 > coverage, a frozen-equity sizing variant compared with the current dynamic one, a cost uncertainty surface, and
 > reproducibility from a clean copy). The findings are already validated; fix them, do not re-argue them. Before
-> writing code, read `decision/adr/README.md` and ADRs 0012, 0013, 0043, 0045, 0065, 0080, 0081 and 0084-0088, the
+> writing code, read `decision/adr/README.md` and ADRs 0010, 0011, 0037, 0039, 0028, 0029, 0030 and 0033-0036, the
 > plan's sections "Sizing and portfolio construction" and "Follower replay" in
 > `ArkStream Hyperliquid Pilot — Revised Research & Deployment Plan (v2).md`, `config/execution.yaml`,
 > `config/decision_context.yaml`, and `src/arkstream/replay*.py`, `leader*.py`, `drift.py` and `hlprices.py`. Work

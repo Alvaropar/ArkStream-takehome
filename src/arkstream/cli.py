@@ -168,25 +168,34 @@ def main(argv: list[str] | None = None) -> int:
     replay = sub.add_parser("replay", help="Phase 3 follower replay through the last development window")
     replay.add_argument("--sensitivities", action="store_true", help="Run square-root impact and address cap variants")
     replay.add_argument("--size-study", action="store_true",
-                        help="leader-size drift study on BTC/ETH/HYPE/SOL (ADR-0088), research/replay/leader_size")
+                        help="leader-size drift study on BTC/ETH/HYPE/SOL (ADR-0036), research/replay/leader_size")
     replay.add_argument("--models", default=None,
                         help="comma-separated sensitivity variants (default: all); e.g. part,part_ns,part_ns_sweep")
     replay.add_argument("--frozen", action="store_true",
-                        help="ADR-0119: the current replay, frozen reference equity only: shared inputs, frozen "
-                             "full stack, stress coverage (ADR-0122), cost surface, size study "
+                        help="ADR-0052: the current replay, frozen reference equity only: shared inputs, frozen "
+                             "full stack, stress coverage (ADR-0055), cost surface, size study "
                              "(default research/replay_frozen)")
     replay.add_argument("--sizing", action="store_true",
-                        help="archived (ADR-0116/0119, not rerun): the dynamic vs frozen comparison in "
+                        help="archived (ADR-A0116/0052, not rerun): the dynamic vs frozen comparison in "
                              "research/replay_sizing")
     replay.add_argument("--cost-surface", action="store_true",
-                        help="ADR-0117: frozen base cost surface on the test windows "
+                        help="ADR-0050: frozen base cost surface on the test windows "
                              "(reads/writes research/replay_frozen)")
     replay.add_argument("--capture", action="store_true",
-                        help="ADR-0162: capture and market-relative tables from an existing frozen tree "
+                        help="ADR-0063: capture and market-relative tables from an existing frozen tree "
                              "(default research/replay_frozen; also run at the end of --frozen)")
     replay.add_argument("--coin-filter", action="store_true",
-                        help="ADR-0140: the frozen replay with the selection rule's coin filter executed inside it "
+                        help="ADR-A0140: the frozen replay with the selection rule's coin filter executed inside it "
                              "(default research/replay_coinfilter)")
+    replay.add_argument("--allpriced", action="store_true",
+                        help="ADR-0076: the frozen stack on every priced coin, current A/B universes "
+                             "(default research/replay_allpriced)")
+    replay.add_argument("--tradable", action="store_true",
+                        help="ADR-0076: the frozen stack on each wallet's tradable set "
+                             "(default research/replay_tradable; reads research/replay_allpriced)")
+    replay.add_argument("--gray", action="store_true",
+                        help="P5-1 (ADR-0095 item 3): the two Phase 5 sleeves at 2,500 and 5,000 USDC on the frozen "
+                             "tradable stack (default research/replay_gray)")
     replay.add_argument("--holdout", action="store_true",
                         help="with --coin-filter: the holdout window only (refused unless the freeze holds)")
     replay.add_argument("--out", default=None, help="output folder (default depends on the mode)")
@@ -207,19 +216,27 @@ def main(argv: list[str] | None = None) -> int:
     le = sub.add_parser("leader", help="Phase 2 leader evidence per origin (drift.origins), point in time")
     le.add_argument("--origin", action="append", default=None, help="YYYY-MM-DD; repeatable; default: all origins")
     le.add_argument("--out", default=None, help="default: research/leader")
-    hl = sub.add_parser("funding", help="Hyperliquid funding table, price check, userFunding check (ADR-0011..0013)")
+    hl = sub.add_parser("funding", help="Hyperliquid funding table, price check, userFunding check (ADRs 0009..0011)")
     hl.add_argument("--step", action="append",
                     choices=["coins", "table", "price-check", "price-check-origins", "user-check"], default=None,
                     help="repeatable; default: table, price-check, price-check-origins, user-check")
     hl.add_argument("--out", default=None, help="default: research/hyperliquid")
-    lat = sub.add_parser("latency", help="Hyperliquid receive delay from recorded stream runs (ADR-0100..0104)")
+    lat = sub.add_parser("latency", help="Hyperliquid receive delay from recorded stream runs (ADRs 0040..0043, 0056)")
     lat.add_argument("--runs", default=None, help="default: data/reference/latency/hyperliquid")
     lat.add_argument("--out", default=None, help="default: research/latency")
-    se = sub.add_parser("select", help="Phase 4 selection at every origin (ADRs 0130-0139)")
+    se = sub.add_parser("select", help="Phase 4 selection at every origin (ADRs A0130-A0139)")
     se.add_argument("--evaluate", action="store_true",
-                    help="read the development test windows (ADRs 0133-0137 first)")
+                    help="read the development test windows (ADRs A0133-A0137 first)")
     se.add_argument("--freeze", action="store_true",
-                    help="ADR-0139: write provenance/HOLDOUT_FREEZE.txt (needs frozen: true and the 3 Dec shortlist)")
+                    help="ADR-A0139: write provenance/HOLDOUT_FREEZE.txt (needs frozen: true and the 3 Dec shortlist)")
+    sv = sub.add_parser("select-v2", help="Phase 4 v2 qualification at every origin (ADRs 0070-0075, 0076-0079)")
+    sv.add_argument("--out", default=None, help="default: research/selection_v2")
+    p5 = sub.add_parser("phase5", help="Phase 5 development steps on development data only (ADR-0095)")
+    p5.add_argument("step", choices=["risk-model", "population", "calibrate", "variants", "pair", "report"],
+                    help="risk-model: P5-2; population: P5-4 calibration and variants (or one of them); "
+                         "pair: P5-5 S*/U*/G*, random pairs, stress at the limits; report: P5-6 window report")
+    p5.add_argument("--no-pairs", action="store_true", help="pair: skip the 200 random pairs per window")
+    p5.add_argument("--out", default=None, help="output folder (default depends on the step)")
     a = sub.add_parser("audit")
     a.add_argument("--asof", default=None)
     args = ap.parse_args(argv)
@@ -230,6 +247,26 @@ def main(argv: list[str] | None = None) -> int:
     ctx = load_context()
     if args.cmd == "checksums":
         cmd_checksums(ctx)
+        return 0
+    if args.cmd == "phase5":
+        out = Path(args.out) if args.out else None
+        if args.step == "risk-model":
+            from arkstream import risk_model
+
+            print(f"wrote {risk_model.run(ctx, out)}")
+        elif args.step in ("population", "calibrate", "variants"):
+            from arkstream import phase5_population
+
+            steps = ("calibrate", "variants") if args.step == "population" else (args.step,)
+            print(f"wrote {phase5_population.run(ctx, out, steps)}")
+        elif args.step == "pair":
+            from arkstream import phase5_pair
+
+            print(f"wrote {phase5_pair.run(ctx, out, pairs=not args.no_pairs)}")
+        elif args.step == "report":
+            from arkstream import holdout_report
+
+            print(f"wrote {holdout_report.run_development(ctx, out=out)}")
         return 0
     if args.cmd == "replay":
         out = Path(args.out) if args.out else None
@@ -263,6 +300,17 @@ def main(argv: list[str] | None = None) -> int:
 
             print(f"wrote {replay_frozen.run(ctx, out)}")
             return 0
+        if args.allpriced or args.tradable:
+            from arkstream import replay_tradable
+
+            run_v2 = replay_tradable.run_allpriced if args.allpriced else replay_tradable.run_tradable
+            print(f"wrote {run_v2(ctx, out)}")
+            return 0
+        if args.gray:
+            from arkstream import replay_gray
+
+            print(f"wrote {replay_gray.run(ctx, out)}")
+            return 0
         if args.sizing:
             from arkstream import replay_sizing
 
@@ -293,6 +341,12 @@ def main(argv: list[str] | None = None) -> int:
                                args.out)
     if args.cmd == "audit":
         return cmd_audit(ctx, args.asof)
+    if args.cmd == "select-v2":
+        from arkstream import selection_v2
+
+        res = selection_v2.run(ctx, Path(args.out) if args.out else None)
+        print(res.get("stopped") or f"ordering used: {res['decision']['ordering_used']}")
+        return 0
     if args.cmd == "select":
         from arkstream import selection_run
 

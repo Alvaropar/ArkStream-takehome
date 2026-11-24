@@ -1,7 +1,10 @@
 # Brief: measure Hyperliquid receive delay from the public WebSocket
 
+> ADR numbers below follow the renumbering of 2026-11-23 (ADR-0085; old numbers in
+> `decision/adr/RENUMBERING.md`), except the reserved number blocks, which are quoted as they were reserved.
+
 Written 2026-11-20. Project: `C:\Projects\quant-task-arkstream` (ArkStream Hyperliquid copy pilot). ADR numbers
-reserved for this session: **0100-0109**. Decision this implements: ADR-0044 item 1.
+reserved for this session: **0100-0109**. Decision this implements: ADR-0038 item 1.
 
 ## Why
 
@@ -45,7 +48,7 @@ event time it carries.
 
 The recorder and analysis exist with tests; ruff, mypy, pytest and the audit pass; three usable runs are on disk;
 `research/latency/hl_receive_delay.csv` gives the `userFills` delay distribution, with clock offsets stated; and an
-ADR records the result and how it feeds ADR-0044.
+ADR records the result and how it feeds ADR-0038.
 
 ---
 
@@ -54,7 +57,7 @@ ADR records the result and how it feeds ADR-0044.
 > Read `decision/briefs/latency-hl-receive.md` in `C:\Projects\quant-task-arkstream` and carry it out: build a
 > read-only recorder for Hyperliquid's public WebSocket (`userFills` for a few active leader addresses and `trades`
 > for a few coins) and measure the receive delay, local arrival time minus event time, with the clock offset to NTP
-> measured and corrected. Read `decision/adr/README.md`, ADR-0044 and `src/arkstream_fetch/fetch_aggtrades.py`
+> measured and corrected. Read `decision/adr/README.md`, ADR-0038 and `src/arkstream_fetch/fetch_aggtrades.py`
 > first. Never send anything but subscribe messages, and keep the host allowlist and the no-order tests. Build and
 > test the recorder, then stop and tell me before the long recording runs so I can choose when to run them.
 > Record decisions as ADRs numbered 0100-0109.

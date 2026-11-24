@@ -1,6 +1,6 @@
-"""Pre-Phase 4 fixes on synthetic data: return-source materiality (ADR-0111), forced fills (ADR-0112), the
-not-copyable exposure (ADR-0113), the alt drift bound (ADR-0114), unmeasured stress (ADR-0115, narrowed by ADR-0122)
-and the frozen reference equity with reviews and reduce-only (ADR-0116, ADR-0119)."""
+"""Pre-Phase 4 fixes on synthetic data: return-source materiality (ADR-0045), forced fills (ADR-0046), the
+not-copyable exposure (ADR-0047), the alt drift bound (ADR-0048), unmeasured stress (ADR-0049, narrowed by ADR-0055)
+and the frozen reference equity with reviews and reduce-only (ADR-A0116, ADR-0052)."""
 
 from datetime import timedelta
 
@@ -23,7 +23,7 @@ RULE = {"breach_abs_usdc": 10, "breach_rel_equity": 0.005, "book_min_breach_shar
 ASOF = ts("2025-11-01 00:00:00")
 
 
-# ------------------------------------------------------------------------------------ ADR-0111 materiality
+# ------------------------------------------------------------------------------------ ADR-0045 materiality
 def _snapshots(diffs: list[float], equity: float = 1000.0, trader: str = "a") -> pl.DataFrame:
     """Daily snapshots whose PnL identity residual pnl - (equity - net_deposit) is the given value."""
     n = len(diffs)
@@ -44,7 +44,7 @@ def _source(diffs, equity=1000.0):
 
 
 def test_small_and_isolated_breaches_keep_the_snapshot_series():
-    tiny = [0.0] * 95 + [0.02] * 5  # ADR-0065 would have switched on any of these
+    tiny = [0.0] * 95 + [0.02] * 5  # ADR-0028 would have switched on any of these
     assert _source(tiny)["source"] == leader_assets.SNAPSHOT and _source(tiny)["pnl_breaches"] == 0
     one = [0.0] * 50 + [50.0] + [0.0] * 49
     r = _source(one)
@@ -86,7 +86,7 @@ def test_breaches_after_asof_are_not_known_and_intervals_are_excluded():
     assert untouched["usable"].sum() == 8  # book-primary addresses keep their snapshot check unchanged
 
 
-# ------------------------------------------------------------------------------------ ADR-0112 forced fills
+# ------------------------------------------------------------------------------------ ADR-0046 forced fills
 def test_forced_fills_leave_the_drift_sample_but_stay_in_the_replay():
     rows = [{"ts": "2025-10-10 21:00:00", "trader": "a", "symbol": "ETH", "side": "sell", "size": 1.0,
              "start_position": 2.0, "dir": d, "oid": 70 + i} for i, d in
@@ -104,7 +104,7 @@ def test_forced_fills_leave_the_drift_sample_but_stay_in_the_replay():
     assert base["anchor_px"].to_list() == [99.0, 100.0]
 
 
-# ------------------------------------------------------------------------------------ ADR-0113 exposure
+# ------------------------------------------------------------------------------------ ADR-0047 exposure
 def test_not_copyable_exposure_shares():
     legs = [("BTC", 6.0), ("XPL", 3.0), ("xyz:TSLA", 1.0), ("@107", 50.0)]  # spot @107: in neither share
     f = make_fills([{"ts": f"2025-10-01 00:00:0{i}", "trader": "a", "symbol": sym, "side": "buy", "size": size,
@@ -114,7 +114,7 @@ def test_not_copyable_exposure_shares():
     assert (r["share_not_passing"], r["share_hip3"], r["share_not_copyable"]) == pytest.approx((0.3, 0.1, 0.4))
 
 
-# ------------------------------------------------------------------------------------ ADR-0114 alt drift
+# ------------------------------------------------------------------------------------ ADR-0048 alt drift
 def _cells(proxy, own_dev, own_stress=None):
     cells = [(START.date(), "development", c, "all", 10_000, proxy, 30) for c in ("BTC", "ETH", "HYPE", "SOL")]
     cells += [(START.date(), "stress", c, "all", 10_000, proxy, 30) for c in ("BTC", "ETH", "HYPE", "SOL")]
@@ -143,7 +143,7 @@ def test_base_bound_needs_the_coin_estimate():
     assert parameters().lookup(START.date(), "development", "ALT", "all", 10_000, conservative=True)[0] == 4.0
 
 
-# ------------------------------------------------------------------------------------ ADR-0115 stress coverage
+# ------------------------------------------------------------------------------------ ADR-0049 stress coverage
 def _summary_inputs(statuses):
     n = len(statuses)
     orders = pl.DataFrame({"trader": ["a"] * n, "status": statuses, "intended_notional": [100.0] * n,
@@ -170,7 +170,7 @@ def test_stress_result_below_80pct_priced_is_unmeasured():
     assert ok["parameterised_notional_share"] == pytest.approx(1.0)
 
 
-# ------------------------------------------------------------------------------------ ADR-0122 pricing failures
+# ------------------------------------------------------------------------------------ ADR-0055 pricing failures
 @pytest.mark.parametrize("status", [*PRICING_FAILURES, *MEASURED_OUTCOMES])
 def test_only_pricing_failures_are_unpriced(status):
     daily, orders, uni = _summary_inputs(["filled"] * 4 + [status])
@@ -185,7 +185,7 @@ def test_policy_outcomes_count_as_measured_and_the_broad_measure_is_kept():
     daily, orders, uni = _summary_inputs(statuses)
     r = summaries(daily, orders, uni, 10_000, 0.80).row(0, named=True)
     assert r["unpriced"] == 1 and r["priced_share"] == pytest.approx(0.9) and r["measurement"] == "measured"
-    assert r["unpriced_broad"] == 4 and r["priced_share_broad"] == pytest.approx(0.6)  # ADR-0115: would be unmeasured
+    assert r["unpriced_broad"] == 4 and r["priced_share_broad"] == pytest.approx(0.6)  # ADR-0049: would be unmeasured
     assert r["cap_headroom"] == 2 and r["copy_return"] == pytest.approx(0.01)
     daily, orders, uni = _summary_inputs(["filled"] * 7 + ["missing_participation_volume"] * 3)
     assert summaries(daily, orders, uni, 10_000, 0.80)["measurement"][0] == "unmeasured_low_coverage"
@@ -198,7 +198,7 @@ def test_an_unclassified_status_stops_the_summary():
 
 
 def _stress_rows():
-    # trader, origin, narrow share, broad share, return, drawdown (both null when unmeasured under ADR-0122)
+    # trader, origin, narrow share, broad share, return, drawdown (both null when unmeasured under ADR-0055)
     rows = [("t1", "A", 1.0, 0.9, 0.02, -0.03), ("t2", "A", 0.9, 0.7, -0.05, -0.12),
             ("t3", "A", 0.5, 0.4, None, None), ("t4", "B", 0.6, 0.5, None, None)]
     return pl.DataFrame(rows, schema=["trader", "origin", "priced_share", "priced_share_broad", "copy_return",
@@ -224,7 +224,7 @@ def test_unmeasured_stress_fails_the_check_and_takes_the_worst_measured_return()
     assert (n["imputed"], n["not_imputable"]) == (1, 1)  # origin B has no measured window
     assert n["mean_return_worst_imputed"] == pytest.approx((0.02 - 0.05 - 0.05) / 3)
     assert narrow["B"]["worst_measured_return"] is None and narrow["B"]["mean_return_worst_imputed"] is None
-    # ADR-0115 side by side: only t1 is measured; t2's return exists but is not counted under the broad measure.
+    # ADR-0049 side by side: only t1 is measured; t2's return exists but is not counted under the broad measure.
     assert (b["measured"], b["positive"], b["stress_check_pass"], b["stress_check_fail_unmeasured"]) == (1, 1, 1, 3)
     assert b["mean_return"] == pytest.approx(0.02) and broad["A"]["worst_measured_return"] == pytest.approx(0.02)
     assert (b["imputed"], b["positive_worst_imputed"]) == (2, 3)
@@ -238,7 +238,7 @@ def test_coverage_table_rejects_a_measurement_flag_that_disagrees():
         coverage_table(rows, 0.80, -0.10)
 
 
-# ------------------------------------------------------------------------------------ ADR-0116 frozen E_ref
+# ------------------------------------------------------------------------------------ ADR-A0116 frozen E_ref
 WINDOW_END = START + timedelta(days=30)
 
 
@@ -263,7 +263,7 @@ def test_review_schedule_and_reference_table():
 
 
 def test_first_review_at_the_first_usable_snapshot():
-    """ADR-0119: no usable equity at the window start -> first review at the first usable snapshot in the window,
+    """ADR-0052: no usable equity at the window start -> first review at the first usable snapshot in the window,
     then the 14-day schedule from the window start as before."""
     snaps = _equity([("y", T + 3 * DAY, 8_000.0, False, 7), ("y", T + 20 * DAY, 9_000.0, False, 8),
                      ("z", T - DAY, 5_000.0, True, 9), ("z", T + 2 * DAY, 0.0, False, 10),
@@ -370,7 +370,7 @@ def _audit_ledgers(ctx, root, suffixes, scenarios=("optimistic", "base", "stress
 
 @pytest.mark.data
 def test_published_sizing_ledgers(ctx):
-    """ADR-0116 archived comparison (not rerun after ADR-0119): both variants pass the ledger audit."""
+    """ADR-A0116 archived comparison (not rerun after ADR-0052): both variants pass the ledger audit."""
     root = ctx.root / "research/replay_sizing"
     need(root / "origin=2025-10-08" / "window=test" / "scenario=base_sqrt_cap_part_ns_sweep_frozen"
          / "follower_orders.parquet", "the archived `replay --sizing` output")
@@ -379,13 +379,13 @@ def test_published_sizing_ledgers(ctx):
 
 @pytest.mark.data
 def test_published_frozen_replay(ctx):
-    """ADR-0119/0122 output audit: frozen only (no dynamically sized scenario anywhere), prepared universes, the
+    """ADR-0052/0055 output audit: frozen only (no dynamically sized scenario anywhere), prepared universes, the
     ledger audit, and a stress coverage table that keeps every gate-passing window."""
     root = ctx.root / "research/replay_frozen"
     need(root / "origin=2025-10-08" / "window=test" / "scenario=stress_sqrt_cap_part_ns_sweep_frozen"
          / "follower_orders.parquet", "run `python -m arkstream replay --frozen`")  # the CSVs ship, ledgers do not
     scenarios = {p.name for p in root.glob("origin=*/window=*/scenario=*")}
-    names = ("optimistic", "base", "stress", "severe")  # ADR-0150: severe = the old 60 s / 300 s at stress costs
+    names = ("optimistic", "base", "stress", "severe")  # ADR-0058: severe = the old 60 s / 300 s at stress costs
     assert scenarios == {f"scenario={s}_sqrt_cap_part_ns_sweep_frozen" for s in names}
     assert len(list(root.glob("origin=*/window=*/universe.parquet"))) == 9
     _audit_ledgers(ctx, root, ("_sqrt_cap_part_ns_sweep_frozen",), names)
@@ -398,7 +398,7 @@ def test_published_frozen_replay(ctx):
     assert set(pl.read_csv(root / "cost_surface.csv")["policy"]) == {"frozen"}
 
 
-# ------------------------------------------------------------------------------------ ADR-0117 cost surface
+# ------------------------------------------------------------------------------------ ADR-0050 cost surface
 def test_surface_points_and_corner_rule():
     from arkstream.replay_surface import CENTRE, corners, one_at_a_time
 
@@ -415,7 +415,7 @@ def test_surface_points_and_corner_rule():
     assert worst == ("least_favourable", {"y": 2.0, "participation": 0.01, "cap_x": 1.5})
 
 
-# ------------------------------------------------------------------------------------ ADR-0120 stress fallback
+# ------------------------------------------------------------------------------------ ADR-0053 stress fallback
 def _fallback_cells(stress_vintage=True, own_stress=None, own_dev=2.0, bucket=None, proxy=1.0, dev_proxy=0.5):
     v = START.date()
     rows = [(v, "development", c, "all", 60_000, dev_proxy, 30) for c in ("BTC", "ETH", "HYPE", "SOL")]

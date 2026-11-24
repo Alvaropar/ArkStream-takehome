@@ -1,4 +1,4 @@
-"""Phase 4 selection (ADRs 0130-0139): bootstrap, clusters and the walk, random-k baselines, exact intervals, capture
+"""Phase 4 selection (ADRs A0130-A0139): bootstrap, clusters and the walk, random-k baselines, exact intervals, capture
 aggregation, the freeze guard and the selection seeded leak."""
 
 from __future__ import annotations
@@ -45,7 +45,7 @@ def test_entry_week_blocks_are_monday_weeks():
 
 
 def test_overlap_merged_blocks_chain_weeks():
-    # one long trip spanning three weeks merges them: the disclosed reason for entry-week blocks (ADR-0131)
+    # one long trip spanning three weeks merges them: the disclosed reason for entry-week blocks (ADR-A0131)
     o = np.array([ms("2025-10-06"), ms("2025-10-14"), ms("2025-10-21")])
     c = np.array([ms("2025-10-25"), ms("2025-10-15"), ms("2025-10-22")])
     assert st.week_blocks(o, c).tolist() == [0, 0, 0]
@@ -121,8 +121,11 @@ def walk_inputs():
     cands = pl.DataFrame({"trader": t, "selectable": [True] * 6, "behaviour_cluster": ["b0", "b0", "b1", "b1", "b2",
                                                                                         "b2"],
                           "key": [0.05, 0.04, 0.03, 0.02, 0.01, 0.005]})
-    pairs = pl.DataFrame({"trader_a": [t[0], t[0]], "trader_b": [t[2], t[4]], "corr": [0.9, None],
-                          "overlap": [0.1, 0.7], "common_days": [30, 5]})
+    a, b, c, d, e, f = t
+    low = [(a, b), (a, d), (b, d), (a, f), (b, f), (d, f)]  # measured, below both thresholds
+    pairs = pl.DataFrame({"trader_a": [a, a, *[x for x, _ in low]], "trader_b": [c, e, *[y for _, y in low]],
+                          "corr": [0.9, None, *[0.1] * len(low)], "overlap": [0.1, 0.7, *[0.0] * len(low)],
+                          "common_days": [30, 5, *[30] * len(low)]})
     return t, cands, pairs
 
 
@@ -134,9 +137,23 @@ def test_walk_order_thresholds_and_k():
     dec = dict(zip(w["trader"], w["decision"], strict=True))
     assert dec[t[0]] == "selected"
     assert dec[t[2]] == "rejected"  # correlation 0.9 with a
-    assert dec[t[4]] == "rejected"  # overlap 0.7 with a (correlation unmeasured does not block)
+    assert dec[t[4]] == "rejected"  # ADR-0068: correlation with a unmeasured -> blocks
+    assert "pair unmeasured" in w.filter(pl.col("trader") == t[4])["reason"][0]
     assert dec[t[1]] == "selected" and dec[t[3]] == "selected"
     assert dec[t[5]] == "rejected" and "basket full" in w.filter(pl.col("trader") == t[5])["reason"][0]
+
+
+def test_unmeasured_pair_blocks_and_absent_pair_is_unmeasured():
+    """ADR-0068: no diversification credit for a pair that was not measured, including a pair missing from the table."""
+    t, cands, _ = walk_inputs()
+    two = cands.head(2)  # a and b, same cluster: a first, then b
+    absent = pl.DataFrame(schema={"trader_a": pl.String, "trader_b": pl.String, "corr": pl.Float64,
+                                  "overlap": pl.Float64, "common_days": pl.Int64})
+    w = S.walk(two, absent, rules(max_k=3))
+    assert w["decision"].to_list() == ["selected", "rejected"]
+    measured = pl.DataFrame({"trader_a": [t[0]], "trader_b": [t[1]], "corr": [0.2], "overlap": [0.1],
+                             "common_days": [30]})
+    assert S.walk(two, measured, rules(max_k=3))["decision"].to_list() == ["selected", "selected"]
 
 
 def test_copier_weaker_member():
@@ -360,33 +377,52 @@ def test_selection_seeded_leak():
     clean = S.selected(S.select_origin(data, r))
     rejected = (S.select_origin(data, r)["decisions"].filter(pl.col("decision") != "selected")
                 .sort("trader")["trader"][0])
-    end = S.training_end(o)
-    leak = pl.DataFrame([{**data.trips.row(0, named=True), "trader": rejected, "coin": "BTC", "trip": 10_000 + i,
-                          "open_ms": end + i * 7 * DAY, "close_ms": end + i * 7 * DAY + 3600_000, "net": 5.0,
-                          "pnl": 5e4} for i in range(12)], schema=data.trips.schema)
+    # ADR-A0051: the key reads the daily NAV, so the leak plants 30 test-window days of +5% for a rejected address
+    days = [date.fromordinal(o.toordinal() + i) for i in range(30)]
+    leak = pl.DataFrame({"trader": [rejected] * 30, "day": days, "daily_twr": [0.05] * 30,
+                         "equity": [1e4] * 30, "gross": [1e4] * 30}).cast(data.daily.schema)
     from dataclasses import replace
 
-    leaked = replace(data, trips=pl.concat([data.trips, leak]))
+    leaked = replace(data, daily=pl.concat([data.daily, leak]))
     with pytest.raises(S.LeakError):
         S.select_origin(leaked, r)
     forced = S.selected(S.select_origin(leaked, r, check=False))
     assert forced != clean and rejected in forced
 
 
-@pytest.mark.data
-def test_published_selection_matches_rule():
-    """The published 3 Dec shortlist is the chosen rule at 3 Dec, recomputed."""
-    need(ROOT / freeze.SHORTLIST, "uv run python -m arkstream select --evaluate")
-    from arkstream import selection_coins as SC
-    from arkstream.selection_run import FROZEN, ctx_for
+def _nav(trader: str, returns: list[float | None], start: date = date(2025, 9, 1), flat: int = 0) -> pl.DataFrame:
+    n = flat + len(returns)
+    days = [date.fromordinal(start.toordinal() + i) for i in range(n)]
+    return pl.DataFrame({"trader": [trader] * n, "day": days,
+                         "daily_twr": [0.0] * flat + list(returns),
+                         "gross": [0.0] * flat + [1e4] * len(returns)},
+                        schema_overrides={"daily_twr": pl.Float64})
 
-    ctx = load_context()
-    chosen = ctx.raw["selection"]["rule"]
-    tree = S.Rules.from_config(ctx.raw, chosen).replay_dir
-    need(ROOT / tree, "uv run python -m arkstream replay --coin-filter")
-    o = date(2025, 12, 3)
-    data = origin_data(o, ctx_for(ctx, tree))
-    data.coin_set = SC.coin_set(ctx_for(ctx, FROZEN), o, rules())
-    t = S.select_origin(data, S.Rules.from_config(ctx.raw, chosen))
-    published = pl.read_csv(ROOT / freeze.SHORTLIST)
-    assert sorted(published.filter(pl.col("decision") == "selected")["trader"]) == S.selected(t)
+
+def test_nav_key_bootstrap_minimums_and_exposure_start():
+    """ADR-A0051: the key starts at the first day with exposure, needs 20 valid days and 4 weeks, is seeded."""
+    r, o = rules(), date(2025, 12, 3)
+    a, b, c = "0x" + "a" * 40, "0x" + "b" * 40, "0x" + "c" * 40
+    rng = np.random.default_rng(1)
+    good = [float(x) for x in 0.002 + rng.normal(0, 0.001, 42)]
+    d = pl.concat([_nav(a, good, flat=30), _nav(b, good[:15]), _nav(c, [None, *good[:25]])])
+    k = {row["trader"]: row for row in S.nav_keys(d, r, o).iter_rows(named=True)}
+    assert k[a]["key_days"] == 42 and k[a]["key_status"] == "ok" and k[a]["key"] > 0   # 30 flat days before entry
+    assert k[b]["key_status"] == "too_few_days" and k[b]["key"] is None
+    assert k[c]["key_days_invalid"] == 1 and k[c]["key_days"] == 25
+    again = S.nav_keys(d, r, o).filter(pl.col("trader") == a)["key"][0]
+    assert again == k[a]["key"]                                                           # seeded
+    flat = S.nav_keys(_nav("0x" + "d" * 40, [0.0] * 30).with_columns(gross=pl.lit(0.0)), r, o)
+    assert flat["key_status"][0] == "no_exposure"
+
+
+def test_nav_key_counts_open_losses_and_idle_days():
+    """A copy carrying a loss (marked daily) or idle capital scores lower than the same trades closed and busy."""
+    r, o = rules(), date(2025, 12, 3)
+    busy = [0.003] * 28
+    idle = [0.003, 0.0] * 14                        # same gains, half the days flat after entry
+    losing = [0.003] * 21 + [-0.01] * 7             # an open position losing in the last week
+    d = pl.concat([_nav("0x" + "a" * 40, busy), _nav("0x" + "b" * 40, idle), _nav("0x" + "c" * 40, losing)])
+    k = dict(S.nav_keys(d, r, o).select("trader", "key_mean_daily").rows())
+    assert k["0x" + "a" * 40] > k["0x" + "b" * 40] > 0      # idle days lower the key
+    assert k["0x" + "c" * 40] < 0                            # the open loss counts (a trip key would ignore it)

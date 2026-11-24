@@ -1,4 +1,4 @@
-"""Frozen reference equity versus the dynamic denominator (ADR-0116), side by side on the nine windows.
+"""Frozen reference equity versus the dynamic denominator (ADR-A0116), side by side on the nine windows.
 
 `run` writes, under one folder (default `research/replay_sizing/`): the original-model replay that supplies the
 shared inputs (universe, drift cells, bands, spreads), the dynamic full stack (`*_sqrt_cap_part_ns_sweep`), the
@@ -70,7 +70,7 @@ def leader_equity(traders: pl.DataFrame, start, end) -> pl.DataFrame:
 
 def _orders(path: Path) -> pl.DataFrame:
     """Target exposure at the triggering legs (USDC before the 1.5x projection) and the copy multiplier."""
-    # Eager, totally sorted and order-preserving: float means come out byte-identical run to run (ADR-0008).
+    # Eager, totally sorted and order-preserving: float means come out byte-identical run to run (ADR-0006).
     o = pl.read_parquet(path, columns=["trader", "decision_ms", "coin", "batch", "resize_leg", "uncapped_gross_usdc",
                                        "copy_multiplier", "sizing_equity"])
     o = o.filter(~C("resize_leg")).sort("trader", "decision_ms", "coin", "batch")

@@ -1,6 +1,6 @@
 # Headline counts at asof = CUTOFF (2026-01-04T23:59:42.020Z, the last fill) on the inputs in provenance/CHECKSUMS.txt.
 # `python -m arkstream audit` (make audit) must reproduce every value exactly; any data change fails loudly.
-# Sources: research plan v2 profile and the ADR-0060 grading rework.
+# Sources: research plan v2 profile and the ADR-0023 grading rework.
 counts:
   traders_rows: 129665
   traders_addresses: 1500
@@ -25,9 +25,9 @@ counts:
   outage_exact_addresses: 309
   stale_equity_rows: 38679
   zero_equity_rows: 2539
-  grade_A: 344
-  grade_B: 158
-  grade_C: 998
+  grade_A: 350                            # ADR-0066 (was 344)
+  grade_B: 153                            # ADR-0066 (was 158)
+  grade_C: 997                            # ADR-0066 (was 998)
   frozen_snapshot_rows: 1795
   no_fill_addresses: 300
   # reference prices (data/reference/prices/MANIFEST.yaml; regenerate with `python -m arkstream refprices`)

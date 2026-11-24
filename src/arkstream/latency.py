@@ -1,4 +1,4 @@
-"""Hyperliquid receive delay from recorded stream runs (ADR-0044 item 1, ADR-0100..0104). No network.
+"""Hyperliquid receive delay from recorded stream runs (ADR-0038 item 1, ADRs 0040..0043, 0056). No network.
 
     python -m arkstream latency            # every run under data/reference/latency/hyperliquid/
 
@@ -11,13 +11,13 @@ Delay per event = corrected receive time - event time, where
 * receive time = `recv_ns` (wall clock, `time.time_ns()` taken right after the socket read that completed the
   frame, before any parsing);
 * corrected = `recv_ns` + clock offset to NTP, linearly interpolated in wall time between the NTP readings
-  (before, any periodic readings during the run, after; ADR-0101, ADR-0105);
+  (before, any periodic readings during the run, after; ADR-0041, ADR-0057);
 * event time = the `time` field (ms) of each fill or trade in the message.
 
 Snapshot messages (`isSnapshot: true`, sent on every (re)subscribe) are history, not live, and are excluded, as
 is the first `trades` message per coin on each connection (the backlog of recent trades it sends on subscribe).
 
-A run is usable (ADR-0105, which replaces ADR-0101 item 4) if it has NTP readings before and after, no lasting
+A run is usable (ADR-0057, which replaces ADR-0041 item 4) if it has NTP readings before and after, no lasting
 clock step over 20 ms (jumps of wall minus the high-resolution counter, after removing the linear drift, on a
 5-message rolling median). Steady drift between NTP readings is corrected, not a reason to exclude. The
 correction is cross-checked on the high-resolution counter; a run where the two differ by more than 5 ms at
@@ -51,9 +51,9 @@ import numpy as np
 ROOT = Path(__file__).resolve().parents[2]
 RUNS_DIR = ROOT / "data" / "reference" / "latency" / "hyperliquid"
 OUT_DIR = ROOT / "research" / "latency"
-MAX_CLOCK_STEP_MS = 20.0       # ADR-0105: lasting steps only, after the linear drift correction
-MAX_QPC_DISAGREEMENT_MS = 5.0  # ADR-0105: counter-based vs wall-time correction, at p10/p50/p90/p99
-WIDE_NTP_BOUND_MS = 50.0       # ADR-0105: label, not an exclusion
+MAX_CLOCK_STEP_MS = 20.0       # ADR-0057: lasting steps only, after the linear drift correction
+MAX_QPC_DISAGREEMENT_MS = 5.0  # ADR-0057: counter-based vs wall-time correction, at p10/p50/p90/p99
+WIDE_NTP_BOUND_MS = 50.0       # ADR-0057: label, not an exclusion
 QPC_CHECK_PCTS = (10, 50, 90, 99)
 CHANNELS = ("userFills", "trades")
 SUMMARY_FIELDS = ["run", "usable", "channel", "coin", "n_events", "n_messages", "mean_ms", "p10_ms", "p50_ms",
@@ -62,8 +62,8 @@ SUMMARY_FIELDS = ["run", "usable", "channel", "coin", "n_events", "n_messages", 
                   "ntp_mid_readings", "drift_residual_ms", "clock_step_ms", "qpc_check_ms", "clock_label",
                   "excluded_reason"]
 BINANCE_STUDY = ROOT / "data" / "reference" / "latency" / "binance" / "latency_study.csv"
-DEBOUNCE_MS = 250.0   # ADR-0081 (config replay.debounce_ms)
-COMPUTE_MS = 120.0    # Binance study, single-asset decision compute median 115 (USD-M) - 128 (spot); ADR-0044
+DEBOUNCE_MS = 250.0   # ADR-0030 (config replay.debounce_ms)
+COMPUTE_MS = 120.0    # Binance study, single-asset decision compute median 115 (USD-M) - 128 (spot); ADR-0038
 TOTAL_PCTS = (10, 50, 90, 99)
 ACK_GRID = 1000       # evenly spaced probabilities for the per-draw combination
 TOTAL_FIELDS = ["method", "quantile", "receive_ms", "debounce_ms", "compute_ms", "ack_ms", "total_ms",
@@ -105,7 +105,7 @@ def extract_events(text: str) -> list[Event]:
 
 class InitialTrades:
     """The first `trades` message per coin on each connection is the venue's backlog of recent trades (it carries
-    no isSnapshot flag): mark its events as snapshot so they are not counted as live (ADR-0103)."""
+    no isSnapshot flag): mark its events as snapshot so they are not counted as live (ADR-0043)."""
 
     def __init__(self) -> None:
         self.seen: set[tuple[int, str]] = set()
@@ -165,7 +165,7 @@ class ClockFit:
     @property
     def drift_residual_ms(self) -> float | None:
         """Largest distance of a reading during the run from the before-after line: how far the drift was
-        from linear (ADR-0105). None without readings during the run."""
+        from linear (ADR-0057). None without readings during the run."""
         if not self.mid:
             return None
         line = ClockFit(self.t_before_ns, self.offset_before_ns, self.t_after_ns, self.offset_after_ns)
@@ -197,7 +197,7 @@ def _detrended(wall_ns: Sequence[int], mono_ns: Sequence[int]) -> np.ndarray:
 
 def clock_step_ms(wall_ns: Sequence[int], mono_ns: Sequence[int]) -> float:
     """Largest lasting jump of (wall - high-resolution counter) between consecutive messages, in ms, after the
-    linear drift is removed: a wall-clock step (ADR-0105). Taken on a 5-message rolling median, so a one- or
+    linear drift is removed: a wall-clock step (ADR-0057). Taken on a 5-message rolling median, so a one- or
     two-message spike (the process paused between the two stamps) is not a step."""
     if len(wall_ns) < 2:
         return 0.0
@@ -211,7 +211,7 @@ def clock_step_ms(wall_ns: Sequence[int], mono_ns: Sequence[int]) -> float:
 class CounterFit:
     """The cross-check correction: true time as a piecewise-linear function of the high-resolution counter,
     through the NTP readings (true = wall + offset at each reading). The counter is not adjusted by the
-    operating system's time service, so steps and slews of the wall clock do not enter it (ADR-0105)."""
+    operating system's time service, so steps and slews of the wall clock do not enter it (ADR-0057)."""
     anchors: tuple[tuple[int, int], ...]   # (counter_ns, true_ns), sorted by counter
 
     def true_ns(self, counter_ns: int) -> int:
@@ -246,7 +246,7 @@ def counter_fit(meta: dict[str, Any], wall_ns: Sequence[int], mono_ns: Sequence[
 
 
 def usability(fit: ClockFit | None, step_ms: float) -> str:
-    """'' if usable, else the reason the run is reported and not used (ADR-0105). The counter cross-check and a
+    """'' if usable, else the reason the run is reported and not used (ADR-0057). The counter cross-check and a
     wide NTP bound are labels (`clock_label`), not exclusions."""
     if fit is None:
         return "no NTP offset before and after"
@@ -382,7 +382,7 @@ def qpc_check(run: Run) -> float | None:
 
 
 def clock_label(meta: dict[str, Any], qpc_check_ms: float | None = None) -> str:
-    """Labels a usable run carries (ADR-0105): a wide NTP bound, and a counter cross-check above 5 ms."""
+    """Labels a usable run carries (ADR-0057): a wide NTP bound, and a counter cross-check above 5 ms."""
     u = _uncertainty_ms(meta)
     out = [f"wide NTP bound (+/-{u:.0f} ms)"] if u is not None and u > WIDE_NTP_BOUND_MS else []
     if qpc_check_ms is not None and qpc_check_ms > MAX_QPC_DISAGREEMENT_MS:
@@ -491,7 +491,8 @@ def write_csv(path: Path, fields: list[str], rows: list[dict[str, Any]]) -> None
 
 def summary_markdown(runs: list[Run], rows: list[dict[str, Any]]) -> str:
     lines = ["# Hyperliquid receive delay (stream, read-only)", "",
-             "Delay = NTP-corrected local receive time - event time in the message (ADR-0044 item 1, ADR-0100..0104).",
+             "Delay = NTP-corrected local receive time - event time in the message "
+             "(ADR-0038 item 1, ADRs 0040..0043, 0056).",
              "Snapshots excluded. Generated by `python -m arkstream latency`; do not edit by hand.", "",
              "## Runs", "",
              "| run | start (UTC) | minutes | usable | offset before / after (ms) | NTP +/- (ms) | clock step (ms) |"
@@ -527,7 +528,7 @@ def summary_markdown(runs: list[Run], rows: list[dict[str, Any]]) -> str:
 # ------------------------------------------------------------------------------------------------ total delay
 
 def binance_ack(study: Path = BINANCE_STUDY) -> dict[str, float]:
-    """USD-M order submit -> ack quantiles (ms) from the Binance study (ADR-0044), checked against CHECKSUMS.txt."""
+    """USD-M order submit -> ack quantiles (ms) from the Binance study (ADR-0038), checked against CHECKSUMS.txt."""
     sums = (study.parent / "CHECKSUMS.txt").read_text(encoding="utf-8")
     if sha256_file(study) not in sums:
         raise ValueError(f"{study}: does not match CHECKSUMS.txt")
@@ -546,7 +547,7 @@ def ack_quantile(ack: dict[str, float], p: np.ndarray) -> np.ndarray:
 
 def total_delay(receive: Sequence[float], n_messages: int, uncertainty_ms: float | None,
                 ack: dict[str, float]) -> list[dict[str, Any]]:
-    """ADR-0044 total = receive + debounce + compute + ack. Two ways: the sum of each leg's quantile (headline;
+    """ADR-0038 total = receive + debounce + compute + ack. Two ways: the sum of each leg's quantile (headline;
     for the tail an upper bound, as if the legs' tails coincided), and a per-draw combination of every pooled
     receive sample with the ack quantile function at ACK_GRID probabilities (legs independent)."""
     r = np.asarray(sorted(receive), dtype=np.float64)
@@ -559,7 +560,7 @@ def total_delay(receive: Sequence[float], n_messages: int, uncertainty_ms: float
     dq = np.percentile(draws, TOTAL_PCTS)
     base = {"debounce_ms": DEBOUNCE_MS, "compute_ms": COMPUTE_MS, "receive_n_fills": int(r.size),
             "receive_n_messages": n_messages, "receive_ntp_uncertainty_ms": uncertainty_ms,
-            "receive_source": "measured: Hyperliquid userFills, pooled usable runs (ADR-0104)",
+            "receive_source": "measured: Hyperliquid userFills, pooled usable runs (ADR-0056)",
             "ack_source": f"transferred_from_binance: USD-M Demo order submit -> ack, n = {ack['n']:.0f}",
             "compute_source": "transferred_from_binance: single-asset decision compute median, ~120 ms",
             "label": "partly transferred from Binance"}
@@ -577,7 +578,7 @@ def total_markdown(rows: list[dict[str, Any]]) -> list[str]:
     if not rows:
         return []
     u = rows[0]["receive_ntp_uncertainty_ms"]
-    out = ["", "## Total copy delay (ADR-0044), partly transferred from Binance", "",
+    out = ["", "## Total copy delay (ADR-0038), partly transferred from Binance", "",
            f"receive (measured, {rows[0]['receive_n_fills']} fills, NTP +/- "
            f"{'n/a' if u is None else f'{u:.0f}'} ms) + debounce "
            f"{DEBOUNCE_MS:.0f} + compute {COMPUTE_MS:.0f} (Binance) + acknowledgement (Binance USD-M Demo).", "",

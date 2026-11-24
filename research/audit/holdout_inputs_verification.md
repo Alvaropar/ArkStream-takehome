@@ -1,0 +1,42 @@
+# Holdout input verification (Check 3)
+
+## 1. Current freeze
+- recorded freeze_hash `cbb44708d6569d55c809cff5daed3fc63004a97c2b3a3e409db79b84b00a2e8b`, files 45
+- recomputed combined hash `cbb44708d6569d55c809cff5daed3fc63004a97c2b3a3e409db79b84b00a2e8b` over 45 files
+- matches: **True**
+
+## 2-4. Manifests
+| Manifest | Files | OK | Problems |
+| --- | ---: | ---: | --- |
+| raw inputs and reference prices (provenance/CHECKSUMS.txt) | 14 | 14 | none |
+| reference prices (data/reference/prices/MANIFEST.yaml) | 7 | 7 | none |
+| Binance kline zips (data/reference/binance/CHECKSUMS.txt) | 1326 | 1270 | missing: data/lake/_raw/data/futures/um/daily/aggTrades/BTCUSDT/BTCUSDT-aggTrades-2025-10-08.zip; missing: data/lake/_raw/data/futures/um/daily/aggTrades/BTCUSDT/BTCUSDT-aggTrades-2025-10-09.zip; missing: data/lake/_raw/data/futures/um/daily/aggTrades/BTCUSDT/BTCUSDT-aggTrades-2025-10-10.zip; missing: data/lake/_raw/data/futures/um/daily/aggTrades/BTCUSDT/BTCUSDT-aggTrades-2025-10-11.zip; missing: data/lake/_raw/data/futures/um/daily/aggTrades/BTCUSDT/BTCUSDT-aggTrades-2025-10-12.zip ... |
+| Binance aggTrades (MANIFEST.csv) | 476 | 476 | none |
+| Hyperliquid funding (MANIFEST.csv) | 1491 | 1491 | none |
+| Hyperliquid 4h candles (MANIFEST.csv) | 195 | 195 | none |
+| Hyperliquid user funding (MANIFEST.csv) | 12 | 12 | none |
+| pre-Phase 4 outputs (provenance/PRE_PHASE4_OUTPUT_CHECKSUMS.txt) | 396 | 396 | none |
+
+Manifest file hashes (to record beside the freeze hash):
+```
+fcb2c390ae4cee4632e9a65dbc4f2bc1898a34e1db1c2a4e8591e76430cefe95  provenance/CHECKSUMS.txt
+47e004cf7fff1942a362a80007ee89dd770b3db85f8439b3414b629da3b8f1f1  data/reference/prices/MANIFEST.yaml
+a51c699d80223999ac5faadef7318c45c7e7560da2e17617cc4d83cf354815c9  data/reference/binance/CHECKSUMS.txt
+02636898f924660c980ad417289b6bef35291b4a9cc89dd81d06570d8117db6e  data/reference/binance/aggtrades/MANIFEST.csv
+617ee5a276a66b25a2b210b64cd0ff67c31dbb3a62552d81f910ff4c781bd221  data/reference/hyperliquid/funding/MANIFEST.csv
+932f9aacfcd8d1ef77001e65ff86e95df05b354050aa488f82aec5fda34a6248  data/reference/hyperliquid/candles_4h/MANIFEST.csv
+3f944d018e02c9694253a79f3466bbea42322fea17ebc67bed2af907f29ea9d2  data/reference/hyperliquid/user_funding/MANIFEST.csv
+e2e5b8cbc859c636c70e6a8453f3a067a885b2fe274a0783caac616b292b2023  provenance/PRE_PHASE4_OUTPUT_CHECKSUMS.txt
+```
+
+## 5. Coverage gap
+- files under `research/replay_coinfilter`, `research/selection`, `research/leader/origin=2025-12-03`: 479; in no manifest: **454** ({'research/replay_coinfilter': 266, 'research/selection': 188, 'research/leader/origin=2025-12-03': 0})
+- hashed now into `research/audit/unmanifested_inputs.txt` (sha256 `c6499541114499cf1837d22d5152d7bde21510bf3d56abbb34e280d4340f29ed`)
+- shared inputs copied from the frozen tree, identical byte for byte: `valuation_marks.parquet` yes, `spread_estimates.parquet` yes, `drift_cells.parquet` yes, `drift_hold_bands.parquet` yes
+
+## 6. Environment
+- Python 3.12.15 (Windows-11-10.0.26200-SP0)
+- polars 2.1.0, numpy 2.5.5, pyarrow 26.0.1, pyyaml 6.0.3
+- uv.lock sha256 `ad8e6154aafa3f127950fae4abef88eada02dec073af1bb9338adfe5cc8ec877`
+- POLARS_MAX_THREADS=8 (the replay reruns were byte-identical at 8)
+- config cutoff `2026-01-04T23:59:42.020Z`

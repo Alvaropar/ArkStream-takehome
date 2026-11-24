@@ -1,0 +1,14 @@
+test,group,n,value,note
+ic_m,all,175,-0.037892969099865656,D4 statistic
+ic_alpha,all,214,-0.08459826553321231,reported
+d4,m,,-0.037892969099865656,threshold -0.2
+category_mean_next_alpha,E2,0,,ordering
+category_mean_next_alpha,E1,112,0.00029126068572703716,ordering
+category_mean_next_alpha,E0,49,0.043964653759842535,ordering
+category_mean_next_alpha,E-,63,0.0001603370627729409,ordering
+robust_mean_next_alpha,true,62,-0.000050436387850846196,hypothesis
+robust_mean_next_alpha,false,50,0.0007149650569636128,hypothesis
+break_even_pass_mean_next_alpha,true,133,-0.0005578806105127316,hypothesis
+break_even_pass_mean_next_alpha,false,85,0.026480594044210003,hypothesis
+carry_book_mean_next_alpha,true,8,0.00234019265165501,hypothesis
+carry_book_mean_next_alpha,false,216,0.010084578355440599,hypothesis

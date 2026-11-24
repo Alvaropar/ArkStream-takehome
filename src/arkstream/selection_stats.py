@@ -1,12 +1,12 @@
 """Phase 4 statistics, numpy and the standard library only (plan "Decision gates": no SciPy).
 
-* `entry_week_blocks` / `block_bootstrap`: the ranking key's lower bound (ADR-0131), calendar-week blocks by entry
+* `entry_week_blocks` / `block_bootstrap`: the ranking key's lower bound (ADR-A0131), calendar-week blocks by entry
   week (trades opened in the same week stay together); `week_blocks` is the literal overlap-merged alternative,
-  kept for the disclosure in ADR-0131 (one multi-week trip chains every week into one block);
-* `ward`: Ward hierarchical clustering on standardised features (ADR-0132), Lance-Williams updates;
-* `average_linkage`: hierarchical clustering on a distance matrix (co-movement, ADR-0132);
+  kept for the disclosure in ADR-A0131 (one multi-week trip chains every week into one block);
+* `ward`: Ward hierarchical clustering on standardised features (ADR-A0132), Lance-Williams updates;
+* `average_linkage`: hierarchical clustering on a distance matrix (co-movement, ADR-A0132);
 * `clopper_pearson`, `min_track_record`: the plan's exact interval on wins and Bailey and Lopez de Prado's MinTRL
-  (ADR-0133), the beta quantile by bisection on the binomial CDF, the normal quantile from `statistics.NormalDist`;
+  (ADR-A0133), the beta quantile by bisection on the binomial CDF, the normal quantile from `statistics.NormalDist`;
 * `spearman`, `trimmed_mean`, `percentile_of`: robust summaries used by the walk-forward and the diagnostics.
 
 Every function is deterministic: seeds are explicit and ties break on input order.
@@ -49,7 +49,7 @@ def week_blocks(open_ms: np.ndarray, close_ms: np.ndarray) -> np.ndarray:
 
 
 def entry_week_blocks(open_ms: np.ndarray) -> np.ndarray:
-    """Block id per trip: the calendar week the trip opened in (ADR-0131). Ids are 0..n_blocks-1 in time order. A
+    """Block id per trip: the calendar week the trip opened in (ADR-A0131). Ids are 0..n_blocks-1 in time order. A
     trip is one observation in one block however long it is held, so a long-held position does not chain weeks."""
     w = week_of(open_ms)
     if len(w) == 0:

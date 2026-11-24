@@ -1,4 +1,4 @@
-"""ADR-0160 (point-in-time Hyperliquid split-order floor for base alt drift below 300 s) and ADR-0161 (measured
+"""ADR-0061 (point-in-time Hyperliquid split-order floor for base alt drift below 300 s) and ADR-0062 (measured
 receive delay)."""
 
 from datetime import date, datetime, timedelta
@@ -117,14 +117,14 @@ def test_floor_uses_the_split_estimate_for_the_delays_bin():
     assert q.lookup(V, "development", "ALT", "all", 1200, conservative=True)[0] == 2.0
 
 
-def test_floor_falls_back_to_adr0114_without_an_estimate():
+def test_floor_falls_back_to_adr0048_without_an_estimate():
     p = _params([("all", 5000, 1.0)])
     v, method, _, _ = p.lookup(V, "development", "ALT", "all", 1200, conservative=True)  # (1, 2] has no cell
     assert v == 3.68 and method == "base_max_proxy_coin_300s_zero"
     v, method, _, _ = p.lookup(V, "development", "ALT", "all", 60_000, conservative=True)  # 60 s: no bin
     assert v == 3.68 and method == "base_max_proxy_coin_300s_zero"
     assert p.lookup(V, "development", "ALT", "all", 5000, conservative=True)[:2] == (1.0, "base_max_proxy_hlsplit_zero")
-    # no bins configured (rule own_300s): ADR-0114 everywhere
+    # no bins configured (rule own_300s): ADR-0048 everywhere
     old = _params([("all", 2000, 0.25)], bins=())
     assert old.lookup(V, "development", "ALT", "all", 1200, conservative=True)[:2] == (
         3.68, "base_max_proxy_coin_300s_zero")
@@ -136,7 +136,7 @@ def test_floor_falls_back_to_adr0114_without_an_estimate():
 def test_floor_bucket_cells_and_bins_are_right_closed():
     p = _params([(b, 2000, float(i)) for i, b in enumerate(("<250k", "250k-1M", "1M-5M", ">=5M"))])
     assert p.lookup(V, "development", "ALT", "all", 1200, conservative=True, bucket="1M-5M")[0] == 2.0
-    # an order with no completed bar has no bucket cell -> the ADR-0114 floor
+    # an order with no completed bar has no bucket cell -> the ADR-0048 floor
     assert p.lookup(V, "development", "ALT", "all", 1200, conservative=True, bucket="unknown")[0] == 3.68
     assert [p.short_bin(d) for d in (1, 1000, 1001, 1200, 2000, 5000, 10_000, 10_001, 60_000)] == [
         1000, 1000, 2000, 2000, 2000, 5000, 10_000, None, None]
@@ -150,7 +150,7 @@ def test_optimistic_stress_and_long_horizons_ignore_the_split_estimate():
     assert p.lookup(V, "development", "ALT", "all", 300_000, conservative=True)[:2] == (3.68, "coin_approximate")
 
 
-def test_config_fixes_the_adr0160_rule_and_receive(ctx):
+def test_config_fixes_the_adr0061_rule_and_receive(ctx):
     r = load_yaml("execution.yaml", ctx.root / "config")["replay"]
     assert r["receive_ms"] == 392 and r["debounce_ms"] == 250
     assert r["alt_short_floor"] == {"rule": "hl_split_orders", "bins_ms": [1000, 2000, 5000, 10000],
@@ -160,7 +160,7 @@ def test_config_fixes_the_adr0160_rule_and_receive(ctx):
         r).short_bins == (1000, 2000, 5000, 10000)
 
 
-# ------------------------------------------------------------------------------------ receive (ADR-0161)
+# ------------------------------------------------------------------------------------ receive (ADR-0062)
 def test_receive_shift_keeps_batch_grouping_and_moves_the_decision():
     ev = _events([
         ("w", "A", 1, 7, T + 1000, 1, 11, 100.0, "buy", False, 1.0, 1.0),
@@ -189,7 +189,7 @@ def test_published_split_cells_and_methods(ctx):
     assert split.height > 0 and split["parameter_cells"].str.contains("hlsplit:").all()
 
 
-# ------------------------------------------------------------------------------------ capture (ADR-0162)
+# ------------------------------------------------------------------------------------ capture (ADR-0063)
 def _capture_case():
     from arkstream.replay_capture import capture
 

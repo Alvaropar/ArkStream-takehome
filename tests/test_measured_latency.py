@@ -1,4 +1,4 @@
-"""ADR-0150: the measured copy delay. Delays and drift horizons are whole milliseconds end to end (1.2 s is never
+"""ADR-0058: the measured copy delay. Delays and drift horizons are whole milliseconds end to end (1.2 s is never
 truncated to 1 s), the scenarios come from config/execution.yaml (base 1.2 s, stress 5 s for every coin, optimistic
 1 s, severe 60 s / 300 s at stress costs), and severe prices exactly as stress at its own delays."""
 

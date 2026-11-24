@@ -125,8 +125,8 @@ def value_book(orders, universe, marks, funding, start, end, allocation):
     return daily, fund, f
 
 
-UNSIZED = ("unusable_equity", "reduce_only")  # no usable leader equity (dynamic) or reference (frozen, ADR-0116)
-# ADR-0122 (amends ADR-0115): only intents the replay could not price or cost are unpriced. Every other status is
+UNSIZED = ("unusable_equity", "reduce_only")  # no usable leader equity (dynamic) or reference (frozen, ADR-A0116)
+# ADR-0055 (amends ADR-0049): only intents the replay could not price or cost are unpriced. Every other status is
 # a measured outcome: a fill or the strategy's own policy. A status in neither class stops the run.
 PRICING_FAILURES = (
     "no_drift_cell",
@@ -148,13 +148,13 @@ def check_statuses(orders) -> None:
     known = {"at_target", *PRICING_FAILURES, *MEASURED_OUTCOMES}
     unknown = sorted(set(orders["status"].unique().drop_nulls()) - known)
     if unknown or orders["status"].null_count():
-        raise ValueError(f"unclassified order status (ADR-0122): {unknown or 'null'}")
+        raise ValueError(f"unclassified order status (ADR-0055): {unknown or 'null'}")
 
 
 def summaries(daily, orders, universe, allocation, min_priced_share=None):
-    """Per address. `min_priced_share` (stress, ADR-0115): below it the result is `unmeasured_low_coverage` and
+    """Per address. `min_priced_share` (stress, ADR-0049): below it the result is `unmeasured_low_coverage` and
     every return-like field is null, so it is never counted as positive or negative. The priced share counts only
-    pricing failures as unpriced (ADR-0122); the ADR-0115 share is kept beside it as `priced_share_broad`."""
+    pricing failures as unpriced (ADR-0055); the ADR-0049 share is kept beside it as `priced_share_broad`."""
     check_statuses(orders)
     intents = orders.filter(C("status") != "at_target")
     filled = C("status") == "filled"

@@ -36,7 +36,7 @@ def parameters(include_own=True):
 
 def example(coin="BTC", pos=2.0, maker=False, ideal=False, future=False, scenario="base", outcome="pass", delay=None,
             settings=None, bar_volume=1e7):
-    h = 0 if ideal else 10_000 if delay is None else delay  # ms (ADR-0150); (normal, thin) for the thin-coin rule
+    h = 0 if ideal else 10_000 if delay is None else delay  # ms (ADR-0058); (normal, thin) for the thin-coin rule
     name = "unattainable_passing" if ideal else scenario
     zero = {"fee_bps": 0, "half_spread_bps": {"majors": 0, "other": 0}, "impact": "none"}
     settings = zero if ideal else settings or BASE
@@ -139,7 +139,7 @@ def test_direct_ratio_mid_anchor_cost_sign_and_source_keys():
 
 
 def test_parameterised_paths_and_missing_stress():
-    assert example("ALT")["mean_bps"][0] == 4  # ADR-0114: base = max(four-coin proxy 1, own 300 s 4, 0)
+    assert example("ALT")["mean_bps"][0] == 4  # ADR-0048: base = max(four-coin proxy 1, own 300 s 4, 0)
     assert example("ALT", scenario="optimistic")["mean_bps"][0] == 1  # optimistic keeps the proxy
     assert example("ALT", scenario="stress")["mean_bps"][0] == 4
     assert example("ALT", delay=300_000)["method"][0] == "coin_approximate"

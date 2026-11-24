@@ -1,12 +1,12 @@
-"""The frozen replay with the selection rule's coin filter executed inside it (ADR-0140).
+"""The frozen replay with the selection rule's coin filter executed inside it (ADR-A0140).
 
-`run` replays the frozen full stack (`*_sqrt_cap_part_ns_sweep_frozen`, every scenario and the ADR-0162 benchmark)
+`run` replays the frozen full stack (`*_sqrt_cap_part_ns_sweep_frozen`, every scenario and the ADR-0063 benchmark)
 on the nine windows into `research/replay_coinfilter/`. Each window at an origin copies only that origin's coin set:
 BTC, ETH, HYPE, SOL and the coins the unfiltered training-window copy captured well (`selection_coins.coin_set`,
-ADR-0136 definition, computed from `research/replay_frozen/`, point in time). Every other coin passing the price check
+ADR-A0136 definition, computed from `research/replay_frozen/`, point in time). Every other coin passing the price check
 becomes `coin_filter_excluded`: never traded, and left out of the 1.5x cap book and resize legs. The shared inputs
 that do not depend on the filter (marks, drift cells, spreads, bands, universes, leader series) are copied from the
-unfiltered tree; stress coverage (ADR-0122) and capture (ADR-0162) are then rebuilt on the filtered tree.
+unfiltered tree; stress coverage (ADR-0055) and capture (ADR-0063) are then rebuilt on the filtered tree.
 
 `run_window` replays one test-shaped window through the same code with inputs bounded at its end. `run_holdout` is the
 holdout path (origin 3 Dec, 3 Dec 2025 - 4 Jan 2026 00:00 UTC, the 3 Dec coin set), refused unless the freeze holds.
@@ -36,7 +36,7 @@ def frozen_tree(ctx) -> Path:
 
 
 def coin_sets(ctx) -> dict[date, list[str]]:
-    """Kept coins per origin (ADR-0136 definition on the unfiltered frozen replay's training window)."""
+    """Kept coins per origin (ADR-A0136 definition on the unfiltered frozen replay's training window)."""
     from arkstream import selection as S
     from arkstream import selection_coins as SC
 
@@ -103,7 +103,7 @@ def holdout_window(ctx) -> tuple[date, date, date]:
 
 
 def run_holdout(ctx, out: Path | None = None) -> Path:
-    """The holdout replay (ADR-0140 item 6): refused by `freeze.guard` unless the freeze holds."""
+    """The holdout replay (ADR-A0140 item 6): refused by `freeze.guard` unless the freeze holds."""
     from arkstream.freeze import guard
     from arkstream.replay_market import midnight
 

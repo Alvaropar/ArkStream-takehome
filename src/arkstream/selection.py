@@ -1,15 +1,15 @@
-"""Phase 4: the point-in-time selection rule (ADRs 0130-0132, 0136-0137).
+"""Phase 4: the point-in-time selection rule (ADRs A0130-A0132, A0136-A0137).
 
 At an origin o every input comes from data up to o (Phase 2 evidence at o, and the frozen replay's training window
 ending at o, `research/replay_frozen/origin=o/window=training`); no test window is read here.
 
-1. **Gates** (ADR-0130): grade A/B and the 18 Phase 2 gates (`all_gates_pass`), then the selection gates: history
+1. **Gates** (ADR-A0130): grade A/B and the 18 Phase 2 gates (`all_gates_pass`), then the selection gates: history
    (snapshot days, usable return days), median equity in the band, copyable notional share, the leader's holding
    band inside the copyable bands of the training-window break-even study, break-even delay above the base delay
    (training-window delay grid), and not the weaker member of a confirmed copier cluster (copier screen as of o).
-2. **Key** (ADR-0131): the follower's net return per completed training-window round trip (base, frozen sizing,
+2. **Key** (ADR-A0131): the follower's net return per completed training-window round trip (base, frozen sizing,
    after costs and funding, on peak notional), its lower bound from a calendar-week block bootstrap.
-3. **Clusters and the walk** (ADR-0132): Ward behaviour clusters over all A/B addresses (features without outcome
+3. **Clusters and the walk** (ADR-A0132): Ward behaviour clusters over all A/B addresses (features without outcome
    measures); co-movement between eligible addresses (daily copy-return correlation, position overlap); a walk down
    the within-cluster ranking that adds an address only while both stay below the thresholds, up to K.
 
@@ -28,6 +28,7 @@ import numpy as np
 import polars as pl
 
 from arkstream import selection_stats as st
+from arkstream.leader_risk import GATE_COLS
 from arkstream.replay_book import ledger
 from arkstream.replay_market import DAY, midnight, ms
 
@@ -35,14 +36,9 @@ C = pl.col
 SUFFIX = "_sqrt_cap_part_ns_sweep_frozen"
 KEY = ["trader", "coin"]
 FOUR = ("BTC", "ETH", "HYPE", "SOL")
-PHASE2_GATES = (
-    "gate_evidence", "gate_intraday_dd", "gate_worst_day", "gate_worst_3d", "gate_max_dd", "gate_stress_peak",
-    "gate_leverage_p95", "gate_liq_distance", "gate_liquidations", "gate_top_dependence", "gate_unpriced",
-    "gate_book_account", "gate_hold", "gate_order_rate", "gate_maker", "gate_active", "gate_rebuild_fit",
-    "gate_worstcase_dd",
-)
-SELECTION_GATES = ("sel_history", "sel_equity_band", "sel_copyable_notional", "sel_hold_band", "sel_break_even",
-                   "sel_copier")
+PHASE2_GATES = tuple(GATE_COLS)  # ADR-0067: every Phase 2 gate, binding and style (diagnostic)
+# ADR-0067: history moved to Phase 2 (gate_history)
+SELECTION_GATES = ("sel_equity_band", "sel_copyable_notional", "sel_hold_band", "sel_break_even", "sel_copier")
 FEATURES = ("log_hold", "hold_spread", "log_orders_per_day", "log_order_to_equity", "leverage_median",
             "leverage_p95", "net_long_share", "coin_hhi", "btc_eth_share", "beta_btc", "maker_share",
             "fills_per_order", "log_turnover")
@@ -50,12 +46,10 @@ FEATURES = ("log_hold", "hold_spread", "log_orders_per_day", "log_order_to_equit
 
 @dataclass(frozen=True)
 class Rules:
-    """Every threshold of the rule (config `selection`, all PLACEHOLDER; ADRs 0130-0132, 0136-0137)."""
+    """Every threshold of the rule (config `selection`, all PLACEHOLDER; ADRs A0130-A0132, A0136-A0137)."""
 
     variant: str
     scenario: str
-    min_snapshot_days: int
-    min_usable_days: int
     equity_band: tuple[float, float]
     max_share_not_copyable: float
     band_min_completed: int
@@ -65,6 +59,8 @@ class Rules:
     seed: int
     min_trips: int
     min_blocks: int
+    min_days: int
+    min_weeks: int
     behaviour_k: int
     min_common_days: int
     max_corr: float
@@ -83,12 +79,12 @@ class Rules:
         name = variant or s["rule"]
         base = cls(
             variant=name, scenario=s["scenario"],
-            min_snapshot_days=int(g["min_snapshot_days"]), min_usable_days=int(g["min_usable_days"]),
             equity_band=(float(g["equity_band_usdc"][0]), float(g["equity_band_usdc"][1])),
             max_share_not_copyable=float(g["max_share_not_copyable"]),
             band_min_completed=int(g["band_min_completed"]), base_delay_ms=int(g["base_delay_ms"]),
             key_percentile=float(k["percentile"]), draws=int(k["draws"]), seed=int(k["seed"]),
             min_trips=int(k["min_trips"]), min_blocks=int(k["min_blocks"]),
+            min_days=int(k["min_days"]), min_weeks=int(k["min_weeks"]),
             behaviour_k=int(cl["behaviour_k"]), min_common_days=int(cl["min_common_days"]),
             max_corr=float(cl["max_corr"]), max_overlap=float(cl["max_overlap"]),
             max_k=int(s["basket"]["max_k"]), coin_filter=False,
@@ -226,6 +222,50 @@ def address_keys(trips: pl.DataFrame, rules: Rules, origin: date) -> pl.DataFram
     return pl.DataFrame(rows, schema=schema, orient="row").sort("trader")
 
 
+def nav_keys(daily: pl.DataFrame, rules: Rules, origin: date) -> pl.DataFrame:
+    """ADR-A0051 key: the copy's mark-to-market daily NAV return from its first day with exposure to the day before
+    the origin, calendar-week block bootstrap (ADR-A0131 seeds and percentile), with the best-week flag."""
+    rows = []
+    q = rules.key_percentile
+    for (trader,), g in daily.sort("trader", "day").group_by("trader", maintain_order=True):
+        row: dict[str, Any] = {"trader": trader, "key_days": 0, "key_days_invalid": 0, "key_weeks": 0,
+                               "key_mean_daily": None, "key": None, "key_p50": None, "key_ex_best": None,
+                               "best_block_share": None, "single_event": False, "key_status": "no_exposure"}
+        active = g.filter(C("gross") > 0)
+        if active.is_empty():
+            rows.append(row)
+            continue
+        g = g.filter(C("day") >= active["day"].min())
+        valid = g.drop_nulls("daily_twr")
+        r = valid["daily_twr"].to_numpy()
+        blocks = st.entry_week_blocks(valid["day"].cast(pl.Datetime("ms")).dt.epoch("ms").to_numpy())
+        nb = int(blocks.max()) + 1 if len(blocks) else 0
+        row.update(key_days=len(r), key_days_invalid=g.height - valid.height, key_weeks=nb,
+                   key_mean_daily=float(r.mean()) if len(r) else None, key_status="ok")
+        if len(r) < rules.min_days or nb < rules.min_weeks:
+            row["key_status"] = "too_few_days" if len(r) < rules.min_days else "too_few_weeks"
+            rows.append(row)
+            continue
+        means = st.block_bootstrap(r, blocks, rules.draws, trader_rng(rules.seed, trader, origin))
+        row["key"] = st.quantile(means, q)
+        row["key_p50"] = st.quantile(means, 0.5)
+        sums = np.bincount(blocks, weights=r, minlength=nb)
+        best = int(np.argmax(sums))
+        total = float(r.sum())
+        row["best_block_share"] = float(sums[best] / total) if total > 0 else None
+        keep = blocks != best
+        if keep.sum() >= 1 and nb - 1 >= 1:
+            rest = np.unique(blocks[keep], return_inverse=True)[1]
+            ex = st.block_bootstrap(r[keep], rest, rules.draws, trader_rng(rules.seed, trader, origin, 1))
+            row["key_ex_best"] = st.quantile(ex, q)
+        row["single_event"] = bool(row["key"] > 0 and (row["key_ex_best"] is None or row["key_ex_best"] <= 0))
+        rows.append(row)
+    schema = {"trader": pl.String, "key_days": pl.Int64, "key_days_invalid": pl.Int64, "key_weeks": pl.Int64,
+              "key_mean_daily": pl.Float64, "key": pl.Float64, "key_p50": pl.Float64, "key_ex_best": pl.Float64,
+              "best_block_share": pl.Float64, "single_event": pl.Boolean, "key_status": pl.String}
+    return pl.DataFrame(rows, schema=schema, orient="row").sort("trader")
+
+
 def snapshot_days(traders: pl.DataFrame, origin: date) -> pl.DataFrame:
     """Distinct UTC dates with a snapshot known by the origin (ts <= origin 00:00), per address."""
     t = midnight(origin)
@@ -233,7 +273,7 @@ def snapshot_days(traders: pl.DataFrame, origin: date) -> pl.DataFrame:
 
 
 def copyable_bands(ctx, origin: date, rules: Rules) -> pl.DataFrame:
-    """ADR-0130: holding bands whose training-window completed follower trips (all A/B, base) net a positive return
+    """ADR-A0130: holding bands whose training-window completed follower trips (all A/B, base) net a positive return
     per trip over at least `band_min_completed` trips."""
     b = pl.read_parquet(scenario_dir(ctx, origin, "training", rules.scenario) / "band_break_even.parquet")
     return b.with_columns(copyable=(C("net_bps") > 0) & (C("completed") >= rules.band_min_completed)).sort("hold_band")
@@ -358,10 +398,10 @@ def comovement_clusters(traders: list[str], pairs: pl.DataFrame, max_corr: float
 
 
 def walk(cands: pl.DataFrame, pairs: pl.DataFrame, rules: Rules) -> pl.DataFrame:
-    """ADR-0132 diversification walk over the selectable addresses (eligible with a positive key), in order of
+    """ADR-A0132 diversification walk over the selectable addresses (eligible with a positive key), in order of
     within-behaviour-cluster rank, then key (descending), then address. An address joins while its correlation and
-    its position overlap with every chosen address stay below the thresholds (an unmeasured pair does not block),
-    up to K."""
+    its position overlap with every chosen address stay below the thresholds, up to K. ADR-0068: a pair whose
+    correlation or overlap is unmeasured blocks the candidate (amends ADR-A0132's "does not block")."""
     sel = cands.filter("selectable").with_columns(
         cluster_rank=C("key").rank("ordinal", descending=True).over("behaviour_cluster"))
     sel = sel.sort("cluster_rank", "key", "trader", descending=[False, True, False])
@@ -374,14 +414,19 @@ def walk(cands: pl.DataFrame, pairs: pl.DataFrame, rules: Rules) -> pl.DataFrame
             sel.select("trader", "behaviour_cluster", "cluster_rank", "key").rows(), start=1):
         worst_c = worst_o = None
         with_c = with_o = None
+        unmeasured = []
         for c in chosen:
             corr, ov = lookup.get((trader, c), (None, None))
+            if corr is None or ov is None:
+                unmeasured.append(c)
             if corr is not None and (worst_c is None or corr > worst_c):
                 worst_c, with_c = corr, c
             if ov is not None and (worst_o is None or ov > worst_o):
                 worst_o, with_o = ov, c
         if len(chosen) >= rules.max_k:
             decision, reason = "rejected", f"basket full (K = {rules.max_k})"
+        elif unmeasured:  # ADR-0068: an unmeasured pair is no evidence of diversification
+            decision, reason = "rejected", f"pair unmeasured: diversification not verified with {unmeasured[0]}"
         elif worst_c is not None and worst_c >= rules.max_corr:
             decision = "rejected"
             reason = f"daily copy-return correlation {worst_c:.2f} with {with_c} >= {rules.max_corr}"
@@ -442,7 +487,7 @@ def load_origin(ctx, origin: date, traders: pl.DataFrame, copier_clusters: pl.Da
     f, fund = load_ledger(ctx, origin, "training", rules.scenario, end)
     trips = follower_trips(f, fund)
     daily = pl.read_parquet(scenario_dir(ctx, origin, "training", rules.scenario) / "daily_copy_twr.parquet",
-                            columns=["trader", "day", "daily_twr", "equity"])
+                            columns=["trader", "day", "daily_twr", "equity", "gross"])
     marks = pl.read_parquet(replay_dir(ctx) / "valuation_marks.parquet")
     positions = daily_positions(f, marks)
     ev = ev.join(snapshot_days(traders, origin), on="trader", how="left").with_columns(
@@ -458,13 +503,19 @@ def candidate_table(data: OriginData, rules: Rules) -> pl.DataFrame:
     trips = data.trips
     if rules.coin_filter and data.coin_set is not None:
         trips = trips.join(data.coin_set.filter("kept").select("coin"), on="coin", how="semi")
-    keys = address_keys(trips, rules, data.origin)
+    # ADR-A0051: the key is the mark-to-market NAV key; the former trip key stays as a diagnostic
+    trip_stats = address_keys(trips, rules, data.origin).select(
+        "trader", "trips", "blocks", "mean_net", "median_net", trip_key="key", trip_key_status="key_status")
+    keys = nav_keys(data.daily, rules, data.origin).join(trip_stats, on="trader", how="full", coalesce=True)
     ok_bands = data.bands.filter("copyable")["hold_band"].to_list()
     base = data.summary["base"].select(
         "trader", train_copy_return="copy_return", train_max_drawdown="max_drawdown",
         train_daily_sharpe="daily_sharpe", train_measurement="measurement", break_even_delay_status=C(
             "break_even_delay_status"), break_even_delay_lo_ms="break_even_delay_lo_ms",
-        train_parameterised_share="parameterised_notional_share")
+        train_parameterised_share="parameterised_notional_share",
+        # ADR-0067 (reported): follower fill rate and the copy's maximum gross leverage in the training window
+        train_fill_rate=pl.when(C("orders") > 0).then(C("filled") / C("orders")),
+        train_max_copy_leverage="max_leverage")
     stress = data.summary["stress"].select("trader", train_stress_return="copy_return",
                                            train_stress_measurement="measurement",
                                            train_stress_max_drawdown="max_drawdown")
@@ -481,11 +532,10 @@ def candidate_table(data: OriginData, rules: Rules) -> pl.DataFrame:
          .join(base, on="trader", how="left").join(stress, on="trader", how="left").join(opt, on="trader", how="left")
          .join(keys, on="trader", how="left").join(weak, on="trader", how="left")
          .join(data.features.select("trader", "behaviour_cluster"), on="trader", how="left")
-         .with_columns(C("trips", "blocks").fill_null(0), C("key_status").fill_null("no_completed_trips"),
+         .with_columns(C("trips", "blocks", "key_days", "key_weeks").fill_null(0),
+                       C("key_status").fill_null("no_copy_series"),
                        C("single_event").fill_null(False), C("copier_weaker").fill_null(False))
          .with_columns(
-            sel_history=gate((C("snapshot_days") >= rules.min_snapshot_days)
-                             & (C("usable_days") >= rules.min_usable_days), C("usable_days").is_not_null()),
             sel_equity_band=gate(C("median_equity").is_between(lo, hi), C("median_equity").is_not_null()),
             sel_copyable_notional=gate(C("share_not_copyable") <= rules.max_share_not_copyable,
                                        C("share_not_copyable").is_not_null()),
@@ -514,10 +564,11 @@ def reason(row: dict[str, Any], walk_rows: dict[str, dict[str, Any]], rules: Rul
         return "not_eligible", f"selection gates: {row['selection_gates_failed']}"
     flag = " (flag: single_event, key not positive without the best week)" if row["single_event"] else ""
     if row["key"] is None:
-        return "rejected", f"key unmeasured: {row['key_status']} ({row['trips']} trips, {row['blocks']} blocks)"
+        return "rejected", (f"key unmeasured: {row['key_status']} ({row['key_days']} NAV days, "
+                            f"{row['key_weeks']} weeks)")
     if row["key"] <= 0:
-        return "rejected", (f"key not positive: p{round(rules.key_percentile * 100)} of mean net per trip "
-                            f"{row['key'] * 1e4:.1f} bps ({row['trips']} trips, {row['blocks']} blocks)")
+        return "rejected", (f"key not positive: p{round(rules.key_percentile * 100)} of mean daily NAV return "
+                            f"{row['key'] * 1e4:.2f} bps ({row['key_days']} days, {row['key_weeks']} weeks)")
     w = walk_rows[t]
     return w["decision"], w["reason"] + flag
 

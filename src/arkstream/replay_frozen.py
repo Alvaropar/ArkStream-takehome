@@ -1,4 +1,4 @@
-"""The follower replay under the only sizing policy, frozen reference equity (ADR-0119).
+"""The follower replay under the only sizing policy, frozen reference equity (ADR-0052).
 
 `run` writes under one folder (default `research/replay_frozen/`):
 
@@ -6,12 +6,12 @@
   `spread_estimates`, `drift_cells`, `drift_hold_bands`, `valuation_marks` and each window's `universe.parquet`;
 * the frozen full stack `*_sqrt_cap_part_ns_sweep_frozen` on the nine windows, with `sensitivity_*.csv`;
 * `stress_coverage.csv`: the stress results under both coverage measures, the stress check and the worst-measured
-  sensitivity (ADR-0122), for every stress-regime scenario: `stress` (5 s, measured p99) and `severe` (the old
-  60 s / 300 s, labelled sensitivity; ADR-0150);
-* `cost_surface.csv`: the base cost surface (ADR-0117), frozen only;
-* `leader_size/`: the leader-size drift study (ADR-0088, forced fills excluded); it does not depend on sizing.
+  sensitivity (ADR-0055), for every stress-regime scenario: `stress` (5 s, measured p99) and `severe` (the old
+  60 s / 300 s, labelled sensitivity; ADR-0058);
+* `cost_surface.csv`: the base cost surface (ADR-0050), frozen only;
+* `leader_size/`: the leader-size drift study (ADR-0036, forced fills excluded); it does not depend on sizing.
 
-No dynamic variant is run (ADR-0119); the archived comparison is `research/replay_sizing/`. The holdout test
+No dynamic variant is run (ADR-0052); the archived comparison is `research/replay_sizing/`. The holdout test
 window is never computed.
 """
 
@@ -44,12 +44,12 @@ def run(ctx, out: Path | None = None) -> Path:
     stress_coverage(ctx, out).write_csv(out / "stress_coverage.csv")
     replay_surface.run(ctx, out, policies=("frozen",))
     study(ctx, out / "leader_size")
-    replay_capture.run(ctx, out)  # ADR-0162: capture and market-relative tables
+    replay_capture.run(ctx, out)  # ADR-0063: capture and market-relative tables
     return out
 
 
 def stress_scenarios(ctx) -> list[str]:
-    """The scenarios priced under the stress regime (ADR-0150: stress and severe), in config order."""
+    """The scenarios priced under the stress regime (ADR-0058: stress and severe), in config order."""
     from arkstream.replay_orders import resolve_scenarios
 
     sc = resolve_scenarios(load_yaml("execution.yaml", ctx.root / "config")["scenarios"])
@@ -78,7 +78,7 @@ def stress_rows(ctx, out: Path, scenario: str = "stress") -> pl.DataFrame:
 
 
 def coverage_table(rows: pl.DataFrame, min_share: float, ladder: float) -> pl.DataFrame:
-    """ADR-0122 safeguards, per test origin and pooled, for each coverage measure:
+    """ADR-0055 safeguards, per test origin and pooled, for each coverage measure:
 
     1. windows measured, mean stress return over the measured windows and positives;
     2. the stress check: measured, not exhausted and maximum drawdown no worse than the ladder step; an unmeasured
@@ -90,7 +90,7 @@ def coverage_table(rows: pl.DataFrame, min_share: float, ladder: float) -> pl.Da
     for measure, share in MEASURES.items():
         r = rows.with_columns(measured=C(share) >= min_share)
         if measure == "pricing_failures_adr0122" and not r["measured"].equals(r["measurement"] == "measured"):
-            raise ValueError("measurement flag disagrees with the ADR-0122 priced share")
+            raise ValueError("measurement flag disagrees with the ADR-0055 priced share")
         r = r.with_columns(
             ret=pl.when("measured").then("copy_return"),
             check=pl.when(~C("measured"))
@@ -131,7 +131,7 @@ def coverage_table(rows: pl.DataFrame, min_share: float, ladder: float) -> pl.Da
 
 
 def stress_coverage(ctx, out: Path) -> pl.DataFrame:
-    """ADR-0122 table for each stress-regime scenario (stress, then severe), with a leading `scenario` column."""
+    """ADR-0055 table for each stress-regime scenario (stress, then severe), with a leading `scenario` column."""
     rules = load_yaml("execution.yaml", ctx.root / "config")["replay"]
     ladder = load_yaml("risk.yaml", ctx.root / "config")["drawdown_ladder"]["reduce_only"]
     tables = [

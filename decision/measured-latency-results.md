@@ -1,19 +1,19 @@
 # Measured copy delay: results before and after
 
 Brief: [`briefs/measured-latency-rerun.md`](briefs/measured-latency-rerun.md). Decisions:
-[ADR-0150](adr/0150-measured-copy-delay-scenarios.md) (the scenarios, chosen by the user from the measurement before
-any Phase 4 result), [ADR-0151](adr/0151-millisecond-delays-and-horizons.md) (milliseconds end to end, horizons and
-delay grid), [ADR-0152](adr/0152-severe-scenario.md) (severe). Frozen `E_ref` sizing only (ADR-0119); Phase 2 not
+[ADR-0058](adr/0058-measured-copy-delay-scenarios.md) (the scenarios, chosen by the user from the measurement before
+any Phase 4 result), [ADR-0059](adr/0059-millisecond-delays-and-horizons.md) (milliseconds end to end, horizons and
+delay grid), [ADR-0060](adr/0060-severe-scenario.md) (severe). Frozen `E_ref` sizing only (ADR-0052); Phase 2 not
 rerun (it does not depend on the copy delay); the holdout test window (2025-12-03..2026-01-04) was not computed;
 selection has not started.
 
-"Before" is the published frozen replay under ADR-0122 (`decision/pre-phase-4-results.md` section 11), saved before
+"Before" is the published frozen replay under ADR-0055 (`decision/pre-phase-4-results.md` section 11), saved before
 any rerun in `provenance/measured_latency_before/` (summary CSVs, the gate-passer address summaries and the previous
 checksum list). "After" is `research/replay_frozen/` and `research/drift/` from this rerun. Every figure below is over
 the **56 gate-passing development test address-windows** (16 / 12 / 15 / 13 at 8 Oct, 22 Oct, 5 Nov, 19 Nov),
 funded, on 10,000 USDC per address-window.
 
-| Scenario | Before | After | Basis (ADR-0104 total) |
+| Scenario | Before | After | Basis (ADR-0056 total) |
 | --- | --- | --- | --- |
 | optimistic | 1 s | 1 s | about the measured 10th percentile |
 | base | 10 s (assumed) | **1.2 s** | the measured median |
@@ -31,8 +31,8 @@ still not positive. Severe reproduces the old stress result exactly (−1.40%).
 The reason is that between 1 s and 60 s the result does not depend on the delay in this model:
 
 - **Parameterised coins** (37% of the gate-passers' filled base notional) take a drift that, at any delay under
-  300 s, is bounded below by the coin's own 300 s estimate (base: max(four-coin proxy, own 300 s, 0), ADR-0114;
-  stress: max(stress proxy, own 300 s stress cell or the ADR-0120 fallback)). Their base drift is **+3.68 bps per
+  300 s, is bounded below by the coin's own 300 s estimate (base: max(four-coin proxy, own 300 s, 0), ADR-0048;
+  stress: max(stress proxy, own 300 s stress cell or the ADR-0053 fallback)). Their base drift is **+3.68 bps per
   side at 10 s and at 1.2 s**.
 - **BTC, ETH, HYPE, SOL** are priced from Binance aggTrades at the exact acknowledgement time, and the drift there
   is small and slightly favourable at every horizon from 1 s to 60 s (development cells −1.8 to +1.6 bps; filled
@@ -56,7 +56,7 @@ drift bound (section 6).
 | severe (new) | 60 / 300 s | −1.40% | 21 / 55 | −7,715 | −18.6 bps |
 
 Headroom = profit / filled turnover: the extra cost per filled side that would absorb the profit. Stress means are
-over measured windows (ADR-0122: 55 of 56; the unmeasured one is the same 8 Oct window as before).
+over measured windows (ADR-0055: 55 of 56; the unmeasured one is the same 8 Oct window as before).
 
 Per test origin (mean / positive of measured / headroom in bps):
 
@@ -72,10 +72,10 @@ Per test origin (mean / positive of measured / headroom in bps):
 Base is still negative in one test (5 Nov) and positive in three. Training windows (gate-passers, base) move little:
 −1.06 / +6.32 / +5.47 / +7.00 / +7.22% before, −1.05 / +6.36 / +5.21 / +6.62 / +7.00% after at the five origins.
 
-## 2. Stress check and coverage (ADR-0122 measure)
+## 2. Stress check and coverage (ADR-0055 measure)
 
 The plan's stress check: measured, not exhausted, and stress maximum drawdown within the −10% `reduce_only` step;
-an unmeasured window fails. It is read on `stress` (ADR-0150 item 5); severe is beside it.
+an unmeasured window fails. It is read on `stress` (ADR-0058 item 5); severe is beside it.
 
 | Test origin | Before, stress 60 / 300 s: pass / fail on loss / fail unmeasured | **After, stress 5 s** | After, severe 60 / 300 s |
 | --- | ---: | ---: | ---: |
@@ -93,13 +93,13 @@ the own 300 s cell alone, which can be negative (section 6).
 Coverage: windows measured 55 of 56 both times (the 8 Oct window with 2 of 8 intents unpriced). Pricing failures
 rose from 534 of 16,829 intents to 1,984 of 16,256, almost all at 8 Oct (496 → 1,946 of 12,507): before the crash
 sample, a parameterised coin without its own development 300 s estimate cannot be stress-priced at any delay
-(ADR-0120's known residual), but with a 300 s acknowledgement the follower's pending orders stayed reserved longer,
+(ADR-0053's known residual), but with a 300 s acknowledgement the follower's pending orders stayed reserved longer,
 so most of those intents fell below the 10 USDC minimum (a measured outcome: `below_minimum` 7,589 → 5,695); at
 5 s they are large enough to need a price. No window's measurement changed. The worst-measured sensitivity (each
-unmeasured window at its test's worst measured stress return) is −2.33% (−2.08% before). Under ADR-0115's broad
+unmeasured window at its test's worst measured stress return) is −2.33% (−2.08% before). Under ADR-0049's broad
 measure: 50 measured, 21 positive, −1.81% (49, 20, −1.64% before); check 42 / 8 / 6 (43 / 6 / 7).
 
-## 3. Cost surface (ADR-0117), base at 1.2 s
+## 3. Cost surface (ADR-0050), base at 1.2 s
 
 | Point (Y, participation, cap) | Before (base 10 s): mean / positive / profit / headroom | **After (base 1.2 s)** |
 | --- | ---: | ---: |
@@ -140,7 +140,7 @@ Per test (after): <1m +21.0 / +0.9 / −35.0 / +31.0; 1-6h +118.8 / +32.3 / +31.
 
 ## 5. Delay grid and break-even
 
-The grid is now 1, 1.2, 5, 10, 60, 300 s (ADR-0151). Mean funded return of the gate-passers at each fixed delay:
+The grid is now 1, 1.2, 5, 10, 60, 300 s (ADR-0059). Mean funded return of the gate-passers at each fixed delay:
 
 | Scenario costs | 1 s | 1.2 s | 5 s | 10 s | 60 s | 300 s |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
@@ -181,7 +181,7 @@ delays, reproduces the old stress result byte for byte.
 - **Optimistic**: daily ledgers, funding and band tables byte-identical in all nine windows; orders differ only in the
   delay columns and in the horizon unit inside `parameter_cells` (60 → 60000).
 - **Severe vs the old stress**: the same in all nine windows (ledgers byte-identical, orders as above).
-- **Size study** (ADR-0088): byte-identical; it keeps its 1 / 10 / 60 / 300 s horizons and still finds no size
+- **Size study** (ADR-0036): byte-identical; it keeps its 1 / 10 / 60 / 300 s horizons and still finds no size
   term.
 
 ## 8. Verification
@@ -201,9 +201,9 @@ delays, reproduces the old stress result byte for byte.
 
 ## Open items carried
 
-- The decision time inside the delay stays at event + 250 ms receive + 250 ms debounce (ADR-0081 placeholders); the
-  measured receive median is 392 ms. It decides which fills are batched, not the acknowledgement time (ADR-0150).
-- The delay figures carry ADR-0104's caveats: Binance Demo acknowledgement (Hyperliquid's cannot be measured without
+- The decision time inside the delay stays at event + 250 ms receive + 250 ms debounce (ADR-0030 placeholders); the
+  measured receive median is 392 ms. It decides which fills are batched, not the acknowledgement time (ADR-0058).
+- The delay figures carry ADR-0056's caveats: Binance Demo acknowledgement (Hyperliquid's cannot be measured without
   orders), one home laptop on Wi-Fi, a p99 resting on few messages. Severe covers an outage of a minute.
 - The stress check on the selected basket, and whether severe should enter any gate, are Phase 4 questions; nothing
   was selected here.

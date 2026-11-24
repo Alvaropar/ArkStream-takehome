@@ -1,4 +1,4 @@
-"""Worst-case drawdown inside each 4h bar (ADR-0045).
+"""Worst-case drawdown inside each 4h bar (ADR-0039).
 
 The existing drawdowns value positions at one price per hour (Binance 1m close at the hour) or per day (Hyperliquid
 4h close at midnight), so a coin that falls 70% and recovers inside an hour is never seen. Here every position is
@@ -132,7 +132,7 @@ def _dd(close_r: pl.Expr, worst_r: pl.Expr) -> tuple[pl.Expr, pl.Expr]:
 def worstcase(ledger: pl.DataFrame, candles: pl.DataFrame, extremes: pl.DataFrame, traders: pl.DataFrame,
               start: datetime, asof: datetime) -> tuple[pl.DataFrame, pl.DataFrame]:
     """(per-address worst-case drawdown table, per-coin Hyperliquid vs Binance extreme comparison)."""
-    # Sorted, order-preserving aggregation: float sums then come out byte-identical run to run (ADR-0008).
+    # Sorted, order-preserving aggregation: float sums then come out byte-identical run to run (ADR-0006).
     rows = _bars(ledger, candles, extremes, start, asof).sort("trader", "bar_ms", "symbol")
     per_bar = rows.group_by("trader", "bar_ms", maintain_order=True).agg(
         close_pnl=C("close_pnl").sum(), worst_hl=C("worst_hl").sum(), worst_check=C("worst_check").sum(),

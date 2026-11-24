@@ -210,7 +210,7 @@ def test_published_sensitivity_ledgers(ctx):
                         | (filled & (scale.is_null() | C("decision_mark").is_null()))
                         | (C("reserved_gross_after") > pl.max_horizontal(15000, "reserved_gross_before") + 1e-8)
                     )
-                if "_part" in label:  # ADRs 0086-0087: the filled notional stays inside the order budget
+                if "_part" in label:  # ADR-0035: the filled notional stays inside the order budget
                     bad |= filled & (
                         C("order_budget_usdc").is_null()
                         | (C("quantity").abs() * C("fill_px") > C("order_budget_usdc") + 1e-6)
@@ -218,7 +218,7 @@ def test_published_sensitivity_ledgers(ctx):
                 if "_part_ns" in label:  # never larger than the leader
                     bad |= C("uncapped_target").abs() > C("pos_after").abs() + 1e-9
                     bad |= filled & (C("order_budget_usdc") > C("leader_notional") + 1e-6)
-                if label.endswith("_sweep"):  # ADR-0088 anchor by scenario
+                if label.endswith("_sweep"):  # ADR-0036 anchor by scenario
                     rule = {"optimistic": "leader_first_px", "base": "leader_vwap", "stress": "leader_deepest"}
                     col = rule[label.split("_")[0]]
                     swept = C("anchor_rule") != "first_fill"

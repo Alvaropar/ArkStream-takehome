@@ -44,4 +44,4 @@ between -1.3 and +0.6 at every size.
   conditional on the leader placing another order, so it is not an unconditional drift estimate.
 - Conclusion: no change to the replay's anchors. The base anchor is consistent with the venue's own prices at the
   measured latency on the main coins and close on the rest; the stress anchor (deepest fill) covers the sub-second
-  case on thin coins. The tail on other coins supports keeping the conservative alt drift bound (ADR-0114).
+  case on thin coins. The tail on other coins supports keeping the conservative alt drift bound (ADR-0048).

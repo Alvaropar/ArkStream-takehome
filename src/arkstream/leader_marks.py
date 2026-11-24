@@ -1,4 +1,4 @@
-"""Valuation sources and actual held-position funding accruals (ADRs 0040, 0061)."""
+"""Valuation sources and actual held-position funding accruals (ADRs 0020, 0024)."""
 
 from datetime import datetime
 

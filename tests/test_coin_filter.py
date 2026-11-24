@@ -1,4 +1,4 @@
-"""ADR-0140: the coin filter executed inside the frozen replay, and the single-window (holdout) path."""
+"""ADR-A0140: the coin filter executed inside the frozen replay, and the single-window (holdout) path."""
 
 from __future__ import annotations
 

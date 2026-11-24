@@ -2,7 +2,7 @@
 
 Research and deployment configuration for deciding whether to deploy 100,000 USDC into a basket that
 copies Hyperliquid perp traders. Plan: *ArkStream Hyperliquid Pilot — Revised Research & Deployment
-Plan (v2)*. Phase 3 covers four development tests and the training history through the 3 December 2025 origin. [Follower replay results](decision/phase-3-results.md) · [Cost sensitivities](decision/phase-3-sensitivity-results.md). Pre-Phase 4 fixes: [results](decision/pre-phase-4-results.md) · [sizing comparison](decision/pre-phase-4-sizing-comparison.md) · [verify from a clean copy](VERIFY.md). Measured copy delay: [before/after results](decision/measured-latency-results.md); the delay scenarios come from measurement (ADR-0150: optimistic 1 s, base 1.2 s, stress 5 s, severe 60 s / 300 s as a labelled sensitivity). Alt-drift floor and receive delay: [before/after results and copy capture](decision/alt-floor-receive-results.md) (ADR-0160: split-order floor below 300 s in base; ADR-0161: receive 392 ms; ADR-0162: capture against a same-sizing benchmark, market-relative returns). Copies are sized on a frozen reference equity reviewed every 14 days, the only sizing policy (ADR-0119); Phase 4
+Plan (v2)*. Phase 3 covers four development tests and the training history through the 3 December 2025 origin. [Follower replay results](decision/phase-3-results.md) · [Cost sensitivities](decision/phase-3-sensitivity-results.md). Pre-Phase 4 fixes: [results](decision/pre-phase-4-results.md) · [sizing comparison](decision/pre-phase-4-sizing-comparison.md) · [verify from a clean copy](VERIFY.md). Measured copy delay: [before/after results](decision/measured-latency-results.md); the delay scenarios come from measurement (ADR-0058: optimistic 1 s, base 1.2 s, stress 5 s, severe 60 s / 300 s as a labelled sensitivity). Alt-drift floor and receive delay: [before/after results and copy capture](decision/alt-floor-receive-results.md) (ADR-0061: split-order floor below 300 s in base; ADR-0062: receive 392 ms; ADR-0063: capture against a same-sizing benchmark, market-relative returns). Copies are sized on a frozen reference equity reviewed every 14 days, the only sizing policy (ADR-0052); Phase 4
 ranks on the frozen copy series in `research/replay_frozen/` (`*_sqrt_cap_part_ns_sweep_frozen`). The dynamic
 comparison in `research/replay_sizing/` is the archived record behind that choice.
 Execution stays disabled in `config/execution.yaml` and the safety tests check the offline code path.
@@ -21,7 +21,7 @@ make test                     # unit (synthetic) + data tests: parsing, keys, co
 make audit                    # headline counts must reproduce exactly (provenance/expected_counts.yaml)
 make replay                   # follower orders, daily TWR and break-even tables under research/replay
 make replay-sensitivities     # square-root impact, exposure cap and combined variants next to the originals
-make replay-frozen            # ADR-0119/0150: frozen E_ref only, measured delays, stress coverage (ADR-0122), cost surface -> research/replay_frozen
+make replay-frozen            # ADR-0052/0058: frozen E_ref only, measured delays, stress coverage (ADR-0055), cost surface -> research/replay_frozen
 ```
 
 Without `make`: `uv run python -m arkstream {checksums|ingest|build --asof <ts>|audit}` and `uv run pytest`.
@@ -44,17 +44,17 @@ uv run python -m arkstream_fetch.fetch_aggtrades           # download (resumable
 uv run python -m arkstream_fetch.fetch_hyperliquid --dry-run             # Hyperliquid funding plan (no network)
 uv run python -m arkstream_fetch.fetch_hyperliquid [--kind candles_4h]   # funding / 4h candles, ~1.2 s per request
 uv run python -m arkstream funding                                       # funding table, price check, userFunding check
-uv run python -m arkstream funding --step price-check-origins            # ADR-0110: the price check as of each origin
+uv run python -m arkstream funding --step price-check-origins            # ADR-0044: the price check as of each origin
 uv run python -m arkstream drift                           # drift parameters: development windows only
 uv run python -m arkstream leader                          # Phase 2 leader evidence per origin (~4 min; make leader)
 ```
 
-Every consumer of the Binance-vs-Hyperliquid price check uses its outcome as of its own origin (ADR-0110),
+Every consumer of the Binance-vs-Hyperliquid price check uses its outcome as of its own origin (ADR-0044),
 computed from `research/hyperliquid/price_check_bars.parquet` (bars closing by that time); the per-origin lists
-are in `research/hyperliquid/price_check_by_origin.csv`. `price_check.csv` is the CUTOFF record (ADR-0013).
+are in `research/hyperliquid/price_check_by_origin.csv`. `price_check.csv` is the CUTOFF record (ADR-0011).
 Phase 2 also reads `research/hyperliquid/funding.parquet` and the manifest-verified Hyperliquid 4h candles.
 
-**Phase 2 leader evidence** (ADRs 0060–0065). Each origin directory contains the A/B universe, primary address returns,
+**Phase 2 leader evidence** (ADRs 0023–0028). Each origin directory contains the A/B universe, primary address returns,
 drawdowns through covered gaps, BTC/ETH exposure and confidence intervals, funded books and round trips, exact
 snapshot fit, and suitability gate counts. Daily marks use Hyperliquid and record Binance validation. The
 funding and mark ledgers retain their source keys. An address with a PnL identity breach uses the funded

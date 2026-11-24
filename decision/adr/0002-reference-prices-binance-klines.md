@@ -1,6 +1,6 @@
 # ADR-0002: Reference prices from Binance 1m klines, with validity windows
 
-- Status: Accepted (recorded retrospectively); amended by ADR-0040 (Binance validates daily metrics; still the intraday source for 163 coins); amended by ADR-0118 (lake rebuilt from verified zips)
+- Status: Accepted (recorded retrospectively); amended by ADR-0020 (Binance validates daily metrics; still the intraday source for 163 coins); amended by ADR-0051 (lake rebuilt from verified zips)
 - Date: 2026-11-19
 - Phase: Milestone 1 (A13)
 

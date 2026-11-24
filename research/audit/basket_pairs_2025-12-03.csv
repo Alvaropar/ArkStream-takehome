@@ -1,0 +1,4 @@
+trader_a,trader_b,walk_common_days,walk_corr,walk_overlap,valid_both_days,both_exposed_days,either_exposed_days,exposed_a_days,exposed_b_days,corr_all_valid,corr_both_exposed,corr_from_8sep,corr_ex_10_11oct,spearman_from_8sep,overlap,shared_coin_days,shared_coins,same_direction_share
+0x2cd9f4645b14bf968212c7c108213eaeb193946e,0x971fc0c9becffd708c52a195b8a87c27359e77fa,129,0.3099,0.0000,129,31,79,31,79,0.3099,0.5131,0.3068,0.0953,0.1921,0.0000,0,"",
+0x2cd9f4645b14bf968212c7c108213eaeb193946e,0xd2f03635901956b950737bbf02463dfad9f2e9e1,129,-0.1887,0.3717,129,25,74,31,68,-0.1887,0.5010,-0.1953,0.3909,0.3415,0.3717,17,HYPE,1.0000
+0x971fc0c9becffd708c52a195b8a87c27359e77fa,0xd2f03635901956b950737bbf02463dfad9f2e9e1,129,-0.6237,0.0000,129,62,85,79,68,-0.6237,-0.1684,-0.6299,-0.1373,0.1782,0.0000,0,"",

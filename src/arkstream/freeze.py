@@ -1,4 +1,4 @@
-"""Holdout freeze (plan "Freeze hash before the holdout", ADR-0139).
+"""Holdout freeze (plan "Freeze hash before the holdout", ADR-A0139).
 
 `write_freeze` records SHA-256 hashes of the decision context, the other config files, the selection, replay, drift,
 price and leader source files and the 3 Dec shortlist in `provenance/HOLDOUT_FREEZE.txt`, with a timestamp and one
@@ -69,7 +69,7 @@ def write_freeze(ctx, rule: str, now: datetime | None = None) -> tuple[Path, str
     stamp = (now or datetime.now(UTC)).strftime("%Y-%m-%dT%H:%M:%SZ")
     h = combined(lines)
     text = "\n".join([
-        "# ArkStream holdout freeze (plan: Freeze hash before the holdout; ADR-0139)",
+        "# ArkStream holdout freeze (plan: Freeze hash before the holdout; ADR-A0139)",
         f"frozen_at: {stamp}",
         f"rule: {rule}",
         f"cutoff: {ctx.raw['cutoff']}",

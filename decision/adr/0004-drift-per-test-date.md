@@ -1,6 +1,6 @@
 # ADR-0004: Drift estimated per test date from earlier data only
 
-- Status: Accepted; amended by ADR-0112 (forced fills left out of the drift sample)
+- Status: Accepted; amended by ADR-0046 (forced fills left out of the drift sample)
 - Date: 2026-11-19
 - Phase: follower replay
 

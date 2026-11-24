@@ -2,10 +2,10 @@
 
 Written 2026-11-22. Brief: [`briefs/phase-4-selection.md`](briefs/phase-4-selection.md).
 
-- **Decisions:** ADRs [0130](adr/0130-selection-gates.md)-[0141](adr/0141-holdout-freeze-executable.md).
-- **Inputs:** frozen `E_ref` sizing only (ADR-0119); measured delays (ADR-0150: base 1.2 s, stress 5 s).
+- **Decisions:** ADRs A0130-A0141.
+- **Inputs:** frozen `E_ref` sizing only (ADR-0052); measured delays (ADR-0058: base 1.2 s, stress 5 s).
 - **The rule in force:** `rule_b_coin_filter`, with its coin filter **executed inside the frozen replay**
-  (ADR-0140, `research/replay_coinfilter/`). It replaces ADR-0136's attribution scoring.
+  (ADR-A0140, `research/replay_coinfilter/`). It replaces ADR-A0136's attribution scoring.
 - **The holdout (3 Dec 2025 - 4 Jan 2026) has not been opened.** Items 8-9 wait for the reviewers to receive the
   freeze hash and for "open the holdout".
 
@@ -15,10 +15,10 @@ Written 2026-11-22. Brief: [`briefs/phase-4-selection.md`](briefs/phase-4-select
 freeze_hash: cbb44708d6569d55c809cff5daed3fc63004a97c2b3a3e409db79b84b00a2e8b
 ```
 
-`provenance/HOLDOUT_FREEZE.txt` (ADR-0141) records the SHA-256 of `config/decision_context.yaml` (`frozen: true`,
+`provenance/HOLDOUT_FREEZE.txt` (ADR-A0141) records the SHA-256 of `config/decision_context.yaml` (`frozen: true`,
 rule `rule_b_coin_filter` on `research/replay_coinfilter`), the other three config files, the selection, replay
 (including the coin-filter replay and the holdout path), drift, price and leader sources, and the 3 Dec shortlist. The
-earlier hash in ADR-0139 was never sent and is void.
+earlier hash in ADR-A0139 was never sent and is void.
 
 **The repository has no git**, so the hash proves only that the holdout ran on the frozen rules, not when. Please
 send it to the reviewers before the holdout run; that message is the dated record of the order of events.
@@ -27,35 +27,35 @@ send it to the reviewers before the holdout run; that message is the dated recor
 
 At each origin, from data up to it only:
 
-1. **Gates** (ADR-0130). Grade A/B and all 18 Phase 2 gates, then:
+1. **Gates** (ADR-A0130). Grade A/B and all 18 Phase 2 gates, then:
    - at least 90 snapshot days and 60 usable return days;
    - median equity in **[5k, 2M]** (your choice, from the capital; the plan had 20k);
    - at least 90% copyable notional;
    - a holding band that the training-window break-even study finds copyable;
    - training break-even delay above 1.2 s;
    - not the weaker member of a confirmed copier cluster.
-2. **Key** (ADR-0131). The 20th percentile of 2,000 entry-week block-bootstrap means of the follower's net return per
+2. **Key** (ADR-A0131). The 20th percentile of 2,000 entry-week block-bootstrap means of the follower's net return per
    completed training-window round trip (base, after costs and funding). It needs at least 10 trips and 4 blocks, and
    **key > 0** to be selectable.
-3. **Clusters and walk** (ADR-0132). Ward behaviour clusters (6, no outcome features). The walk takes addresses by
+3. **Clusters and walk** (ADR-A0132). Ward behaviour clusters (6, no outcome features). The walk takes addresses by
    within-cluster rank and adds one only while its daily copy-return correlation and position overlap with every
    chosen address stay below 0.5, up to K = 5. Sleeves are equal.
-4. **Coin filter**, executed (ADR-0136 definition, ADR-0140 execution).
+4. **Coin filter**, executed (ADR-A0136 definition, ADR-A0140 execution).
    - **Kept coins:** BTC, ETH, HYPE, SOL and the coins where the unfiltered training-window copy kept at least half
      of a benchmark win of at least 500 USDC.
    - **Every other coin is never traded:** passing coins get `coin_filter_excluded`; failing ones keep their
      price-check status.
    - **The 1.5x address cap and resize legs** are solved on the kept coins only.
-   - **The ADR-0162 benchmark** trades the kept coins only.
+   - **The ADR-0063 benchmark** trades the kept coins only.
    - **Every copy-series input** of the rule (key, band table, break-even gate, co-movement, outcomes, random-k
      pools, equal weight, capture) comes from the filtered replay.
 
-## Executable filter vs the attribution scoring (ADR-0140 item 7)
+## Executable filter vs the attribution scoring (ADR-A0140 item 7)
 
 Same four development windows, base 1.2 s, funded, 10,000 USDC per sleeve, 1,000 seeded random-k draws.
 **The rule selects the same addresses in every window either way**, and the 3 Dec shortlist is unchanged.
 
-| | Attribution (ADR-0136, the basis of the ADR-0137 choice) | **Executable (ADR-0140, in force)** |
+| | Attribution (ADR-A0136, the basis of the ADR-A0137 choice) | **Executable (ADR-A0140, in force)** |
 | --- | ---: | ---: |
 | Mean basket return, base (median) | +0.72% (-0.02%) | **+0.71% (-0.02%)** |
 | Per window: 8 Oct / 22 Oct / 5 Nov / 19 Nov | -2.27% / +5.18% / +1.31% / -1.35% | **-2.32% / +5.18% / +1.31% / -1.35%** |
@@ -67,7 +67,7 @@ Same four development windows, base 1.2 s, funded, 10,000 USDC per sleeve, 1,000
 | Capture, base, four windows (follower / benchmark PnL) | 0.16 (148 / 916 USDC), gap not decomposed | **0.157 (143 / 916 USDC)**; 0.187 against the leader-fee benchmark |
 | Base gap decomposition | not available | **773 USDC**: half-spread 379 (49%), fees 211 (27%), impact 113 (15%), pricing failures 52, delay drift 20, sweep anchor 16, cap deferrals 6, uncopyable coins 0 |
 
-The executable result is slightly worse on the ranking test: 2 of 4 matched wins instead of 3. Under ADR-0140 that
+The executable result is slightly worse on the ranking test: 2 of 4 matched wins instead of 3. Under ADR-A0140 that
 does not reopen the choice of rule. In the 8 Oct window the filter now also applies to the other two pool members'
 cap: their filtered returns rise (pool median -8.1% to -2.3%), and the basket's single sleeve becomes the median.
 
@@ -125,7 +125,7 @@ the basket did not earn its market exposure. Sleeve, equal-weight and random-k r
 
 ## Copy capture (5b, `capture.csv`, `capture_medians.csv`, `capture_daily.csv`)
 
-Benchmark: the same filtered plan at leader prices with zero delay and cost, on the kept coins (ADR-0140 item 4).
+Benchmark: the same filtered plan at leader prices with zero delay and cost, on the kept coins (ADR-A0140 item 4).
 Summed over the four windows:
 
 | Series | Scenario | Follower PnL | Benchmark PnL | Aggregate capture | Against the leader-fee benchmark |
@@ -144,7 +144,7 @@ Summed over the four windows:
 - **The gap** (773 USDC, base) is half-spread 49%, fees 27% and impact 15%. Delay drift is only 20 USDC at the
   measured 1.2 s; under stress it becomes 953 USDC.
 
-## Diagnostics (5c, `research/selection/diagnostics/`, pre-registered in ADR-0135; filtered tree)
+## Diagnostics (5c, `research/selection/diagnostics/`, pre-registered in ADR-A0135; filtered tree)
 
 - **Persistence: ranking on past copy results does not predict.** Spearman of the key with the next window's
   return, all A/B with a measured key, is -0.16, -0.07, +0.07 and +0.17 (n = 33-138). The top-quintile hit rate is

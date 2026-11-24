@@ -27,7 +27,7 @@ Amounts are millions of USDC. Each row covers every snapshot interval of the rev
 | 2025-11-19 | 72.647 | 56.562 | 6.016 | 62.577 | -2.790 | 2.024 | 7.127 | 3.709 |
 | 2025-12-03 | 76.305 | 60.453 | 6.283 | 66.736 | -2.717 | 1.805 | 6.899 | 3.582 |
 
-A missing leg prevents dollar attribution to a specific coin. Unpriced and non-core amounts are residuals on the affected intervals. Non-core has priority when both apply. The unexplained column covers fully priced intervals including inactive, low-equity and frozen observations. Values in different origin rows overlap in time. [Reconciliation method](adr/0062-snapshot-fit.md)
+A missing leg prevents dollar attribution to a specific coin. Unpriced and non-core amounts are residuals on the affected intervals. Non-core has priority when both apply. The unexplained column covers fully priced intervals including inactive, low-equity and frozen observations. Values in different origin rows overlap in time. [Reconciliation method](adr/0025-snapshot-fit.md)
 
 The earlier hourly comparison used only usable account intervals with a priced hourly return, on the previous A/B universes. Its totals therefore have a different denominator.
 
@@ -46,7 +46,7 @@ move that equity without a reported deposit. An A/B address with any PnL identit
 the origin uses its funded core-perp daily book for the entire asset series. The original cross-margin TWR
 remains available under `snapshot_twr_check`. The stable-offset column counts the subset explicitly flagged by
 the data grade. Coverage is the median share of calendar days with a usable primary return among book-sourced
-addresses. [Return-source method](adr/0065-cross-margin-return-source.md)
+addresses. [Return-source method](adr/0028-cross-margin-return-source.md)
 
 | Origin | Cross-margin snapshot primary | Core-perp book primary | With stable-offset grade reason | Measured book TWRs | Median book coverage |
 | --- | ---: | ---: | ---: | ---: | ---: |

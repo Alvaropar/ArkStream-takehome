@@ -1,0 +1,13 @@
+config,scenario,completed,engine_faults,untraced_state_events,clean
+G2500,base,true,0,0,true
+G2500,optimistic,true,0,0,true
+G2500,severe,true,0,0,true
+G2500,stress,true,0,0,true
+S,base,true,0,0,true
+S,optimistic,true,0,0,true
+S,severe,true,0,0,true
+S,stress,true,0,0,true
+U,base,true,0,0,true
+U,optimistic,true,0,0,true
+U,severe,true,0,0,true
+U,stress,true,0,0,true

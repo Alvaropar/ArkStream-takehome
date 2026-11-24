@@ -1,4 +1,4 @@
-"""Address-wide target projection and exposure reservations for ADR-0085."""
+"""Address-wide target projection and exposure reservations for ADR-0034."""
 
 import heapq
 import math
@@ -83,7 +83,7 @@ def impact_bars(candles, end, n):
 
 
 def review_times(start, end, days):
-    """ADR-0116: reviews at the window start (UTC midnight) and every `days` after it, before the window end."""
+    """ADR-A0116: reviews at the window start (UTC midnight) and every `days` after it, before the window end."""
     out, r = [], start
     while r < end:
         out.append(ms(r))
@@ -92,7 +92,7 @@ def review_times(start, end, days):
 
 
 def reference_equity(snaps, traders, start, end, days):
-    """ADR-0116: the frozen reference equity of each address between reviews, in the shape of `snaps`.
+    """ADR-A0116: the frozen reference equity of each address between reviews, in the shape of `snaps`.
 
     At each review the latest snapshot with timestamp <= the review sets `E_ref` if usable (equity > 0, not frozen).
     An unusable one makes the address reduce-only until the next usable review; its targets keep the window's last
@@ -100,7 +100,7 @@ def reference_equity(snaps, traders, start, end, days):
     equity (sizing equity), frozen (False), equity_row (the snapshot behind the sizing equity), and the review's
     audit fields review_status, review_row, review_reduce_only and review_kind.
 
-    ADR-0119: an address whose window-start review has no usable equity gets an extra first review at its first usable
+    ADR-0052: an address whose window-start review has no usable equity gets an extra first review at its first usable
     snapshot inside the window (at that snapshot's timestamp, when it is known); the 14-day schedule continues."""
     usable = (C("equity") > 0) & ~C("frozen").fill_null(False)
     ordered = snaps.sort("eq_ms", "equity_row")
@@ -135,8 +135,8 @@ def reference_equity(snaps, traders, start, end, days):
 def cap_legs(batch, events, snaps, marks, passing, allocation, limit, receive_ms, start, end, no_scale_up=False):
     """Expand each signal to the common scaled basket using only fills visible by its decision.
 
-    `snaps` is the sizing equity: the latest usable snapshot (dynamic, ADR-0081) or the frozen reference table
-    (`reference_equity`, ADR-0116), whose `review_reduce_only` flag marks every leg of a signal reduce-only."""
+    `snaps` is the sizing equity: the latest usable snapshot (dynamic, ADR-0030) or the frozen reference table
+    (`reference_equity`, ADR-A0116), whose `review_reduce_only` flag marks every leg of a signal reduce-only."""
     b = (
         batch.sort("trader", "decision_ms", "coin", "batch", "oid")
         .with_row_index("signal")

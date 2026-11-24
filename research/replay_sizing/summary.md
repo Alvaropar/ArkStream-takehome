@@ -5,7 +5,7 @@ Counts show gate-passing addresses with positive funded copy return on a 10,000 
 The base scenario produced positive funded copies for 6/16, 5/12, 8/15, 9/13 gate-passers in successive development tests.
 The holding bands clearing mean round-trip costs in every test were 6-24h.
 The first delay break-even screen passes for further research. At least one holding band cleared realised costs and gate-passing addresses earned positive base returns in every development test.
-Individual address stress drawdowns and pricing coverage constrain that finding. The October 8 origin has no prior crash sample for parameterised stress orders; stress results with less than 80% priced intents are unmeasured (ADR-0115). Training includes the period before the September 8 archive start. Returns include the cash left idle after skipped signals.
+Individual address stress drawdowns and pricing coverage constrain that finding. The October 8 origin has no prior crash sample for parameterised stress orders; stress results with less than 80% priced intents are unmeasured (ADR-0049). Training includes the period before the September 8 archive start. Returns include the cash left idle after skipped signals.
 
 ## 2025-10-08
 
@@ -19,10 +19,10 @@ Individual address stress drawdowns and pricing coverage constrain that finding.
 | training | stress | 0 / 1 / 16 | 16 | 3244 / 5319 | 1 |
 
 Base test bands with positive mean funded net PnL per completed trip were 1-15m, 1-6h, 1-7d, 15m-1h, 6-24h, <1m, >7d.
-Across the A/B universe the price-check rule as of the origin (ADR-0110) excluded 1,855 base intents in test. The omitted contribution at leader prices was 43,355.92 USDC across 300/300 measurable comparisons.
+Across the A/B universe the price-check rule as of the origin (ADR-0044) excluded 1,855 base intents in test. The omitted contribution at leader prices was 43,355.92 USDC across 300/300 measurable comparisons.
 
 Base training bands with positive mean funded net PnL per completed trip were 1-6h, 15m-1h, 6-24h, >7d.
-Across the A/B universe the price-check rule as of the origin (ADR-0110) excluded 3,638 base intents in training. The omitted contribution at leader prices was 34,214.63 USDC across 290/300 measurable comparisons.
+Across the A/B universe the price-check rule as of the origin (ADR-0044) excluded 3,638 base intents in training. The omitted contribution at leader prices was 34,214.63 USDC across 290/300 measurable comparisons.
 
 Mean shortfall on parameterised orders understates copy-series volatility and can distort Sharpe.
 
@@ -38,10 +38,10 @@ Mean shortfall on parameterised orders understates copy-series volatility and ca
 | training | stress | 0 / 1 / 12 | 12 | 1834 / 4498 | 1 |
 
 Base test bands with positive mean funded net PnL per completed trip were 1-6h, 6-24h.
-Across the A/B universe the price-check rule as of the origin (ADR-0110) excluded 944 base intents in test. The omitted contribution at leader prices was 41,947.50 USDC across 326/327 measurable comparisons.
+Across the A/B universe the price-check rule as of the origin (ADR-0044) excluded 944 base intents in test. The omitted contribution at leader prices was 41,947.50 USDC across 326/327 measurable comparisons.
 
 Base training bands with positive mean funded net PnL per completed trip were 1-15m, 1-6h, 1-7d, 15m-1h, 6-24h, >7d.
-Across the A/B universe the price-check rule as of the origin (ADR-0110) excluded 4,980 base intents in training. The omitted contribution at leader prices was 79,503.60 USDC across 317/327 measurable comparisons.
+Across the A/B universe the price-check rule as of the origin (ADR-0044) excluded 4,980 base intents in training. The omitted contribution at leader prices was 79,503.60 USDC across 317/327 measurable comparisons.
 
 Mean shortfall on parameterised orders understates copy-series volatility and can distort Sharpe.
 
@@ -57,10 +57,10 @@ Mean shortfall on parameterised orders understates copy-series volatility and ca
 | training | stress | 0 / 1 / 15 | 15 | 1877 / 5588 | 1 |
 
 Base test bands with positive mean funded net PnL per completed trip were 1-6h, 6-24h.
-Across the A/B universe the price-check rule as of the origin (ADR-0110) excluded 784 base intents in test. The omitted contribution at leader prices was 16,553.90 USDC across 330/330 measurable comparisons.
+Across the A/B universe the price-check rule as of the origin (ADR-0044) excluded 784 base intents in test. The omitted contribution at leader prices was 16,553.90 USDC across 330/330 measurable comparisons.
 
 Base training bands with positive mean funded net PnL per completed trip were 1-6h, 1-7d, 15m-1h, 6-24h, >7d.
-Across the A/B universe the price-check rule as of the origin (ADR-0110) excluded 5,236 base intents in training. The omitted contribution at leader prices was 122,040.67 USDC across 319/330 measurable comparisons.
+Across the A/B universe the price-check rule as of the origin (ADR-0044) excluded 5,236 base intents in training. The omitted contribution at leader prices was 122,040.67 USDC across 319/330 measurable comparisons.
 
 Mean shortfall on parameterised orders understates copy-series volatility and can distort Sharpe.
 
@@ -76,10 +76,10 @@ Mean shortfall on parameterised orders understates copy-series volatility and ca
 | training | stress | 1 / 1 / 13 | 13 | 1827 / 6322 | 0 |
 
 Base test bands with positive mean funded net PnL per completed trip were 15m-1h, 6-24h.
-Across the A/B universe the price-check rule as of the origin (ADR-0110) excluded 753 base intents in test. The omitted contribution at leader prices was 18,688.05 USDC across 357/358 measurable comparisons.
+Across the A/B universe the price-check rule as of the origin (ADR-0044) excluded 753 base intents in test. The omitted contribution at leader prices was 18,688.05 USDC across 357/358 measurable comparisons.
 
 Base training bands with positive mean funded net PnL per completed trip were 1-6h, 1-7d, 15m-1h, 6-24h, >7d.
-Across the A/B universe the price-check rule as of the origin (ADR-0110) excluded 5,946 base intents in training. The omitted contribution at leader prices was 139,205.95 USDC across 346/358 measurable comparisons.
+Across the A/B universe the price-check rule as of the origin (ADR-0044) excluded 5,946 base intents in training. The omitted contribution at leader prices was 139,205.95 USDC across 346/358 measurable comparisons.
 
 Mean shortfall on parameterised orders understates copy-series volatility and can distort Sharpe.
 
@@ -92,6 +92,6 @@ Mean shortfall on parameterised orders understates copy-series volatility and ca
 | training | stress | 3 / 3 / 11 | 11 | 1499 / 5355 | 2 |
 
 Base training bands with positive mean funded net PnL per completed trip were 1-6h, 1-7d, 15m-1h, 6-24h, >7d.
-Across the A/B universe the price-check rule as of the origin (ADR-0110) excluded 5,832 base intents in training. The omitted contribution at leader prices was 141,771.49 USDC across 340/354 measurable comparisons.
+Across the A/B universe the price-check rule as of the origin (ADR-0044) excluded 5,832 base intents in training. The omitted contribution at leader prices was 141,771.49 USDC across 340/354 measurable comparisons.
 
 Mean shortfall on parameterised orders understates copy-series volatility and can distort Sharpe.

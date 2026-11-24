@@ -1,6 +1,6 @@
 """Follower decisions, batched visible fills and acknowledgement-time cash entries.
 
-Delays and drift horizons are whole milliseconds end to end (ADR-0150): `delay_ms` on every order, drift cells keyed
+Delays and drift horizons are whole milliseconds end to end (ADR-0058): `delay_ms` on every order, drift cells keyed
 by `horizon_ms`; `delay_s` is a readable float copy.
 """
 
@@ -18,30 +18,31 @@ C = pl.col
 KEY = ["trader", "coin"]
 BPS = 10_000
 VOL_NOTE = "Mean shortfall on parameterised orders understates copy-series volatility and can distort Sharpe."
-# Coins the price check (as of the window's origin, ADR-0110) does not let the follower copy, and coins the selection
-# rule's coin filter leaves out (ADR-0140: outcome `coin_filter` in the window's check table; never traded, also not
-# by the benchmark).
-EXCLUDED = ("failed_price_check", "no_binance_mapping", "insufficient_price_check", "coin_filter_excluded")
+# Coins the price check (as of the window's origin, ADR-0044) does not let the follower copy, and coins the selection
+# rule's coin filter leaves out (ADR-A0140: outcome `coin_filter` in the window's check table; never traded, also not
+# by the benchmark), and legs outside the wallet's Phase 4 v2 tradable set (ADRs 0073, 0076: `not_tradable`).
+EXCLUDED = ("failed_price_check", "no_binance_mapping", "insufficient_price_check", "coin_filter_excluded",
+            "not_tradable")
 # Statuses that never reach a fill and are not submitted (no reservation).
 NOT_SUBMITTED = ("below_minimum", "at_target", *EXCLUDED, "missing_cap_mark", "cap_headroom",
                  "missing_participation_volume", "missing_order_budget", "reduce_only")
 COST_FIELDS = ("fee_bps", "half_spread_bps", "impact")
-REGIMES = ("optimistic", "base", "stress")  # the cost rules the code knows (ADR-0080, 0088, 0114, 0115, 0120, 0122)
+REGIMES = ("optimistic", "base", "stress")  # the cost rules the code knows (ADRs 0029, 0036, 0048, 0049, 0053, 0055)
 
 
 def resolve_scenarios(raw):
-    """execution.yaml `scenarios` -> settings per scenario with integer millisecond delays (ADR-0150).
+    """execution.yaml `scenarios` -> settings per scenario with integer millisecond delays (ADR-0058).
 
     Each scenario has `delay_ms` (and optionally `delay_thin_ms` for coins whose latest completed 4h bar is thin),
     its cost fields, `costs` (the regime whose cost and stress rules it uses: its own name, or `costs_of`) and a
     `label`. A `costs_of` scenario (severe) takes every cost field of the named one and only its own delays; it may
     not restate a cost field, so the two can never drift apart. Second-based keys are refused (they were truncated
-    to whole seconds before ADR-0150)."""
+    to whole seconds before ADR-0058)."""
     out = {}
     for name, s in raw.items():
         old = sorted(k for k in s if k in ("delay_s", "delay_thin_s"))
         if old:
-            raise ValueError(f"scenario {name}: {old} are seconds; delays are configured as delay_ms (ADR-0150)")
+            raise ValueError(f"scenario {name}: {old} are seconds; delays are configured as delay_ms (ADR-0058)")
         regime = s.get("costs_of", name)
         if regime not in REGIMES:
             raise ValueError(f"scenario {name}: unknown cost regime {regime!r}")
@@ -104,7 +105,7 @@ def regime(scenario, settings=None):
 
 
 class Parameters:
-    """Drift cells by (vintage, period, coin, band, horizon_ms). ADR-0120 stress fallback: `multiple` and the
+    """Drift cells by (vintage, period, coin, band, horizon_ms). ADR-0053 stress fallback: `multiple` and the
     liquidity `edges` (completed 4h USDC volume) for parameterised stress orders without their own crash-sample
     cell."""
 
@@ -118,7 +119,7 @@ class Parameters:
         }
         self.stress_dates = set(cells.filter(C("period") == "stress")["origin"])
         self.multiple, self.edges = float(multiple), tuple(float(e) for e in edges)
-        # ADR-0160: elapsed-time bins (upper edges, ms) of the split-order estimate; () = the ADR-0114 floor only
+        # ADR-0061: elapsed-time bins (upper edges, ms) of the split-order estimate; () = the ADR-0048 floor only
         self.short_bins = tuple(int(b) for b in short_bins)
         self.split_buckets = {(v, h) for v, p, c, b, h in self.cells
                               if c.startswith(SPLIT_PREFIX) and c != SPLIT_PREFIX + "all"}
@@ -131,7 +132,7 @@ class Parameters:
         return cls(cells, f.get("multiple", 3.0), f.get("bucket_edges_usdc", (250_000, 1_000_000, 5_000_000)), bins)
 
     def short_bin(self, horizon):
-        """ADR-0160: the right-closed bin (lo, hi] holding a delay, by its upper edge; None above the last bin."""
+        """ADR-0061: the right-closed bin (lo, hi] holding a delay, by its upper edge; None above the last bin."""
         lo = 0
         for hi in self.short_bins:
             if lo < horizon <= hi:
@@ -140,8 +141,8 @@ class Parameters:
         return None
 
     def split_estimate(self, vintage, horizon, bucket, used):
-        """ADR-0160 estimate for a base parameterised order: the order's bucket cell where the vintage has bucket cells
-        for the bin, else the pooled cell; None (-> the ADR-0114 floor) without a bin or a cell."""
+        """ADR-0061 estimate for a base parameterised order: the order's bucket cell where the vintage has bucket cells
+        for the bin, else the pooled cell; None (-> the ADR-0048 floor) without a bin or a cell."""
         hi = self.short_bin(horizon)
         if hi is None:
             return None
@@ -153,11 +154,11 @@ class Parameters:
         return found[0]
 
     def lookup(self, vintage, period, coin, band, horizon, conservative=False, bucket=None):
-        """ADR-0080 parameter for one parameterised order; `horizon` in ms. `conservative` (the base scenario)
-        bounds the sub-300 s four-coin proxy from below: by the ADR-0160 split-order estimate of the delay's bin and
-        by zero where that estimate exists, else (ADR-0114) by the coin's own 300 s estimate and by zero, both
+        """ADR-0029 parameter for one parameterised order; `horizon` in ms. `conservative` (the base scenario)
+        bounds the sub-300 s four-coin proxy from below: by the ADR-0061 split-order estimate of the delay's bin and
+        by zero where that estimate exists, else (ADR-0048) by the coin's own 300 s estimate and by zero, both
         required.
-        Stress (ADR-0120): a missing own 300 s crash-sample cell becomes max(liquidity-bucket estimate,
+        Stress (ADR-0053): a missing own 300 s crash-sample cell becomes max(liquidity-bucket estimate,
         multiple x max(own 300 s development estimate, 0)); before any crash sample exists the four-coin stress proxy
         becomes multiple x max(development proxy, 0)."""
         used = []
@@ -210,10 +211,10 @@ class Parameters:
                 value = max(value, own_value) if value is not None and own_value is not None else None
             elif conservative:
                 split = self.split_estimate(vintage, horizon, bucket, used)
-                if split is not None:  # ADR-0160: the venue's own short-delay price, never favourable
+                if split is not None:  # ADR-0061: the venue's own short-delay price, never favourable
                     method = "base_max_proxy_hlsplit_zero"
                     value = max(value, split, 0.0) if value is not None else None
-                else:  # ADR-0114
+                else:  # ADR-0048
                     own = cell(coin, LONG_MS)
                     method = "base_max_proxy_coin_300s_zero"
                     value = max(value, own[0], 0.0) if value is not None and own else None
@@ -247,7 +248,7 @@ def batches(fills, receive, debounce, start, end, ideal=False):
                 ((C("size").abs()*C("price")).sum()/C("size").abs().sum()).alias("leader_vwap"),
                 pl.when(C("side").first()=="buy").then(C("price").max()).otherwise(C("price").min()).alias("leader_deepest"),
             ] if "size" in f else []),
-            # ADR-0112: forced fills have their own order ids, so a batch is either all forced or not at all.
+            # ADR-0046: forced fills have their own order ids, so a batch is either all forced or not at all.
             *([forced_fill().any().alias("forced")] if "dir" in f else []),
             C("side").first(),
             C("is_maker").first(),
@@ -271,7 +272,7 @@ def batches(fills, receive, debounce, start, end, ideal=False):
 def order_inputs(batch, snaps, bars, checks, mapping, tape, bands, origins, spread, rules, start, end, delay):
     """All joins that drive a decision use decision time or earlier. Prints only drive the later fill.
 
-    `delay` in whole ms (ADR-0150): 0 = the ideal benchmark, an int = every coin, (normal_ms, thin_ms) = the
+    `delay` in whole ms (ADR-0058): 0 = the ideal benchmark, an int = every coin, (normal_ms, thin_ms) = the
     thin-coin rule on the latest completed 4h bar at decision. The acknowledgement is event_ms + delay_ms exactly."""
     if isinstance(delay, tuple):
         normal, thin = delay
@@ -343,12 +344,12 @@ SWEEP_ANCHOR = {"optimistic": None, "base": "leader_vwap", "stress": "leader_dee
 
 
 def sweep_anchor(frame, scenario):
-    """ADR-0088: anchor a native taker batch at the book its own sweep left behind.
+    """ADR-0036: anchor a native taker batch at the book its own sweep left behind.
 
     Optimistic keeps the first fill (book refilled before the copy arrives); base uses the batch VWAP; stress
     uses the deepest fill (book not refilled). Makers and basket-only resize legs keep their anchor. The first
     fill, VWAP, deepest fill and signed first-to-deepest bps are recorded with the batch's source keys. A forced
-    batch (ADL, liquidation, settlement; ADR-0112) is not the leader's sweep and keeps the first fill."""
+    batch (ADL, liquidation, settlement; ADR-0046) is not the leader's sweep and keeps the first fill."""
     native = ~C("is_maker").fill_null(True)
     if "resize_leg" in frame:
         native = native & ~C("resize_leg")
@@ -390,7 +391,7 @@ def quotes(frame, scenario, settings, params, sweep=False):
     x = x.with_columns(mid_adjust_bps=-C("a") * C("m") * C("half_bps")).with_columns(
         mid_L=C("anchor_px") * (1 + C("mid_adjust_bps") / BPS)
     )
-    # ADR-0120: the liquidity bucket of the latest completed 4h bar at the decision (used by the stress fallback).
+    # ADR-0053: the liquidity bucket of the latest completed 4h bar at the decision (used by the stress fallback).
     x = x.with_columns(liq_bucket=liquidity_bucket(C("bar_volume_usdc"), params.edges))
     keys = ["coin", "vintage", "band", "delay_ms", "liq_bucket"]
     values = []
@@ -412,12 +413,17 @@ def quotes(frame, scenario, settings, params, sweep=False):
     valid = ((C("event_ms") // DAY).cast(pl.Date) >= C("valid_from")) & (
         (C("ack_ms") // DAY).cast(pl.Date) <= C("valid_to")
     )
-    # ADR-0140: under the coin filter `outcome` is `coin_filter` for every coin outside the set and the price check's
+    # ADR-A0140: under the coin filter `outcome` is `coin_filter` for every coin outside the set and the price check's
     # own outcome is in `price_check_outcome`; without the filter both are the price check's.
     check = C("price_check_outcome") if "price_check_outcome" in x.columns else C("outcome")
     filtered = C("outcome") == "coin_filter"
+    # ADR-0076: a leg outside the wallet's tradable set (plan column `not_tradable`); a coin failing the price check
+    # keeps its own status for the follower, and the benchmark never trades either
+    outside = C("not_tradable").fill_null(True) if "not_tradable" in x.columns else pl.lit(False)
     reason = (
-        pl.when(filtered & (pl.lit(scenario == "unattainable_all") | (check == "pass")))
+        pl.when(outside & (pl.lit(scenario == "unattainable_all") | (check == "pass")))
+        .then(pl.lit("not_tradable"))
+        .when(filtered & (pl.lit(scenario == "unattainable_all") | (check == "pass")))
         .then(pl.lit("coin_filter_excluded"))
         .when((check.fill_null("unclassified") != "pass") & pl.lit(scenario != "unattainable_all"))
         .then(
@@ -466,7 +472,7 @@ def square_root_bps(q, volume_daily, sigma_daily, y):
 def execute(frame, settings, rules, ideal=False, cap_marks=None):
     """Reserve submitted size until ack. A rejected fill releases its reservation only then.
 
-    On the cap path a leg flagged `reduce_only` (ADR-0116: unusable equity at the latest review) may only move the
+    On the cap path a leg flagged `reduce_only` (ADR-A0116: unusable equity at the latest review) may only move the
     follower's held-plus-pending position toward zero; an order that would add or flip risk is `reduce_only`."""
     cols = [
         "trader",
@@ -521,11 +527,11 @@ def execute(frame, settings, rules, ideal=False, cap_marks=None):
             if resize and not reason and d is not None and qty and mid is not None:
                 ref = mid * (1 + math.copysign(1, qty) * d / BPS)
             if constrained:
-                # ADR-0086 participation budget on the latest completed 4h bar; ADR-0087 caps it at the
+                # ADR-0035 participation budget on the latest completed 4h bar; ADR-A0087 caps it at the
                 # triggering leader batch's own notional. Both are USDC limits checked at decision and fill.
                 requested = qty
                 part = settings["participation"]
-                if part is None:  # ADR-0117 surface point "none": no volume budget, the leader budget still applies
+                if part is None:  # ADR-0050 surface point "none": no volume budget, the leader budget still applies
                     budget = math.inf
                 else:
                     budget = volume * part if volume and volume > 0 else None

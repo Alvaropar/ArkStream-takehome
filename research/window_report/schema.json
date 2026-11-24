@@ -1,0 +1,69 @@
+{
+  "h1_engine": [
+    "config",
+    "scenario",
+    "completed",
+    "engine_faults",
+    "untraced_state_events",
+    "clean"
+  ],
+  "h2_risk": [
+    "config",
+    "scenario",
+    "max_drawdown_hourly",
+    "max_drawdown_usdc",
+    "max_loss_incl_exit_usdc",
+    "worst_day",
+    "firings",
+    "state_hours",
+    "lambda_tw_mean",
+    "lambda_set_by",
+    "p5_binding_updates",
+    "p4_passive_breaches",
+    "flatten_orders",
+    "cap_breaches_at_update",
+    "loss_cap_hit",
+    "limit_usdc",
+    "loss_measure_usdc",
+    "within_limit"
+  ],
+  "h3_costs": [
+    "coin",
+    "orders",
+    "median_cost_bps",
+    "dev_orders",
+    "dev_p90_bps",
+    "dev_median_bps",
+    "measured",
+    "within_p90",
+    "label"
+  ],
+  "h4_returns": [
+    "config",
+    "scenario",
+    "scope",
+    "allocation",
+    "raw_return",
+    "alpha_bps_day_ex_funding",
+    "funding_usdc",
+    "fees_usdc",
+    "utilisation",
+    "traded_usdc",
+    "role"
+  ],
+  "h5_cross_section": [
+    "test",
+    "group",
+    "n",
+    "value",
+    "note"
+  ],
+  "h6_binding": [
+    "scenario",
+    "sleeve",
+    "lambda_tw_mean",
+    "p2_share",
+    "p5_share",
+    "set_by"
+  ]
+}

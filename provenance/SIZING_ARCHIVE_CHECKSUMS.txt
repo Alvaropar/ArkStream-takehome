@@ -1,4 +1,5 @@
-# Archived record behind ADRs 0116 and 0119 (not rerun after ADR-0119): research/replay_sizing as it was when the sizing policy was chosen (original model, dynamic and frozen full stacks, comparison tables, cost surface for both variants, size study). Produced before ADR-0122, so its address summaries carry the ADR-0115 coverage fields only; each matched an independent rerun byte for byte with POLARS_MAX_THREADS=8 at the time
+# Archived record behind ADRs A0116 and 0052 (not rerun after ADR-0052): research/replay_sizing as it was when the sizing policy was chosen (original model, dynamic and frozen full stacks, comparison tables, cost surface for both variants, size study). Produced before ADR-0055, so its address summaries carry the ADR-0049 coverage fields only; each matched an independent rerun byte for byte with POLARS_MAX_THREADS=8 at the time
+# 2026-11-23: 6 hash line(s) updated after the ADR renumbering (ADR-0085) rewrote the ADR numbers in each of these files; nothing else in them changed: research/replay_sizing/origin=2025-10-08/summary.md, research/replay_sizing/origin=2025-10-22/summary.md, research/replay_sizing/origin=2025-11-05/summary.md, research/replay_sizing/origin=2025-11-19/summary.md, research/replay_sizing/origin=2025-12-03/summary.md, research/replay_sizing/summary.md
 # sha256  bytes  path
 c1177b7181fff6475b197d09c68dee48e15da7950b137e5a1d5b61e475f2323a         24646  research/replay_sizing/band_break_even.csv
 39c60326c94556dd0f22c72508599b9f30a9ec23086ea5af6db72db451db3aa1         18351  research/replay_sizing/cost_surface.csv
@@ -9,7 +10,7 @@ c7c5b1318e0daf941147bece2a626e4f39c7f1c71535534b229af869de7f997e         87806  
 0a7621ed9e43ae88208006dff718b43e6f14c357c7759fa5135d61d4015c7c71         42805  research/replay_sizing/leader_size/leader_size_buckets.csv
 aef59ab5c61694d6f9e03d44d16e35d7bdde1353b18f10bd7976fa085c4303a7         11168  research/replay_sizing/leader_size/leader_size_contrasts.csv
 5b93474d84b7906099f8a77b84dcff1baf20f26c7cea478888a13023e9eaed07           465  research/replay_sizing/leader_size/leader_size_terms.csv
-4b9c97c98a52045f17e663ab44e8f090b512e8ae4d0e79646dc3e76cfafb5d2d          1274  research/replay_sizing/origin=2025-10-08/summary.md
+7849567be3ba3e10c43ac3f722c95d096d09603574de2f12abcd980496474cf7          1274  research/replay_sizing/origin=2025-10-08/summary.md
 51ea11f8ac6b6bfe64ebcefa553b4e8c196633e3730a6853bf63793628b55d43        105474  research/replay_sizing/origin=2025-10-08/window=test/scenario=base/address_summary.parquet
 c9845811456a3b219e0abafe6119a16648c0688d8234ba00008da809e4c6e28d          2920  research/replay_sizing/origin=2025-10-08/window=test/scenario=base/band_break_even.parquet
 a739eb63f74cafc7c16dcef3e55c82545ea94cc9773d7d07830ee8e301431f9e        242778  research/replay_sizing/origin=2025-10-08/window=test/scenario=base/daily_copy_twr.parquet
@@ -138,7 +139,7 @@ af334c224b43e10bf322922e776c63b9d9aa2aa33dfad55191d982c7ebd96671          2866  
 7300e934d272dfc03c74dcf5f22da12fc50d14298fb1b46d7e42a5429d7d6abe       1104296  research/replay_sizing/origin=2025-10-08/window=training/scenario=unattainable_passing/daily_copy_twr.parquet
 17c964f628d600799a5439706af672c391354b92ac825b10c3f7562567e33b6d      11602842  research/replay_sizing/origin=2025-10-08/window=training/scenario=unattainable_passing/follower_orders.parquet
 1b2ffe77e8904b8d1c8fc6e0f5e0819ca271f89296dc034e041bcf2937666c23      14445826  research/replay_sizing/origin=2025-10-08/window=training/scenario=unattainable_passing/funding_payments.parquet
-3ae4ee96b8fa938c5b24f9bfbaf93347a39b535df5f4d3fb1e401eb5db5cf44a          1247  research/replay_sizing/origin=2025-10-22/summary.md
+749ae3c4529c0628735fdff7338eb5df82322b7f22d3a08a3920da8b24a53ca9          1247  research/replay_sizing/origin=2025-10-22/summary.md
 4c988cba48bc7cad77152b6e17d481acd6bc0e174112d06b2498ab10f0aeaaf9        106577  research/replay_sizing/origin=2025-10-22/window=test/scenario=base/address_summary.parquet
 66f109f632a632c38db0c65c33d62d9e67d5c0f860220ace3580c84e2bdb809f          2924  research/replay_sizing/origin=2025-10-22/window=test/scenario=base/band_break_even.parquet
 6f914a522dc7448c4aea18631846333dfd75d779554cb9cc0fa0265bd59dcc45        236914  research/replay_sizing/origin=2025-10-22/window=test/scenario=base/daily_copy_twr.parquet
@@ -267,7 +268,7 @@ ee061bb6685afe53292804c9c52ce3420366aa9456f003e08669c8964805ce3c          2866  
 654e9cb65490906eee00a803ea75df6225538903b59add58e747278443353c9a       1374347  research/replay_sizing/origin=2025-10-22/window=training/scenario=unattainable_passing/daily_copy_twr.parquet
 2e673db5bf4c35dd3200a6100e0847e3bdb396a1fa4f1234ec89d07ecaca7604      15328226  research/replay_sizing/origin=2025-10-22/window=training/scenario=unattainable_passing/follower_orders.parquet
 4041a219b56c7e4196e186f3c26438e339c43ee1786baf8ed322fe4b6ca60fc1      17195309  research/replay_sizing/origin=2025-10-22/window=training/scenario=unattainable_passing/funding_payments.parquet
-c9233bc35ed54bf466204c7363a1a6e921bd9298685a48e0ed36bef2517769ca          1245  research/replay_sizing/origin=2025-11-05/summary.md
+50485edd6be3c4b12185efa691b51657192246cb1626cd5e56a91c129670e006          1245  research/replay_sizing/origin=2025-11-05/summary.md
 49191003b637d4fbaed23ab2ecefebb7d840979116cd5426d984ee421fd8fa97        104879  research/replay_sizing/origin=2025-11-05/window=test/scenario=base/address_summary.parquet
 4525b716f95fd56cbb22491d84581a5ba5edf54d873e60e1024e7e5939a03a39          2924  research/replay_sizing/origin=2025-11-05/window=test/scenario=base/band_break_even.parquet
 83d7cb8e42517667f4b9c07d4c2a611f2210ce3ca1fb913061d502e8c0d895de        239720  research/replay_sizing/origin=2025-11-05/window=test/scenario=base/daily_copy_twr.parquet
@@ -396,7 +397,7 @@ aa22bbd0baa1c7465be3817862ce0b9068e87a2767237c41bae7a68d11ee7bf5        110307  
 87741a1e7115cc5926128c5ea1ce0e6d179fad3d68890ce66176a252502ecfa6       1530877  research/replay_sizing/origin=2025-11-05/window=training/scenario=unattainable_passing/daily_copy_twr.parquet
 bd98bbf3a430996e02f6713ae42f29909587e46203281bc7679ed31f4fdd0160      17402627  research/replay_sizing/origin=2025-11-05/window=training/scenario=unattainable_passing/follower_orders.parquet
 1fcb92b9c1550e6d47f5ec8877a1a94db4ef00879f4d4117c32f73d5611687c5      21714786  research/replay_sizing/origin=2025-11-05/window=training/scenario=unattainable_passing/funding_payments.parquet
-34818aaf85f2c33cb5262b5942684010c64d426c89d6ca0ac9e9861c529d41d1          1248  research/replay_sizing/origin=2025-11-19/summary.md
+0c6cc1eaad5042fee91649123706a754639754b530d348cbe9d9f9aac7603fb9          1248  research/replay_sizing/origin=2025-11-19/summary.md
 d9191d1a1e886fe72bd06e18399390b73e8b659a344840e74a3f382daaf7231b        105092  research/replay_sizing/origin=2025-11-19/window=test/scenario=base/address_summary.parquet
 ff2b13f5db296c7d946d560683c3bf9faa340721ee71f1db618336456e753bc4          2920  research/replay_sizing/origin=2025-11-19/window=test/scenario=base/band_break_even.parquet
 693aafc0cabf9c3ff4d85d6d4cf7c5891dbe938e01b2484c6db3a9c173aebd6b        242174  research/replay_sizing/origin=2025-11-19/window=test/scenario=base/daily_copy_twr.parquet
@@ -525,7 +526,7 @@ ac0e4da85d67ea89cb6447e3442b12d8a9934948dd78f8a77fc0338952bf7f29        116051  
 4db367031b37672cfe0cd0b9e4ce5eec93fe53ac39940f7c14a8f380a49847fb       1788089  research/replay_sizing/origin=2025-11-19/window=training/scenario=unattainable_passing/daily_copy_twr.parquet
 9aaf799e3a64026b2e833348f70a1760b5add4b57461dbbf7d973f62b6f591ec      19715313  research/replay_sizing/origin=2025-11-19/window=training/scenario=unattainable_passing/follower_orders.parquet
 d557affd3cec91a86eac40dda9523d00a787bcd981802a85d7dc4437c020778c      25940513  research/replay_sizing/origin=2025-11-19/window=training/scenario=unattainable_passing/funding_payments.parquet
-b3b6dd1a976a87150530e472602da7d05eca433f38c424b358840603ce2ba2e1           782  research/replay_sizing/origin=2025-12-03/summary.md
+a15504acf2c4655bf3ea8dc8933af6614d9a038b26a865b6514fe0b6d62b7782           782  research/replay_sizing/origin=2025-12-03/summary.md
 5e560b01245928b6748749088064b224691b3c0cb75ef6f96749231ac286288f        129100  research/replay_sizing/origin=2025-12-03/window=training/scenario=base/address_summary.parquet
 a39c41e68fd6ba42e03db2b2a57880418c3ff723cae8e8f8c5086db33756691b          2924  research/replay_sizing/origin=2025-12-03/window=training/scenario=base/band_break_even.parquet
 fd84fc02761a1cd8f63beeec5f3856b929462bb46b1c957f521b407d83d63fe1       1544605  research/replay_sizing/origin=2025-12-03/window=training/scenario=base/daily_copy_twr.parquet
@@ -597,5 +598,5 @@ c98417a0d37f93c1486445f8e8a600e0984cd99b3142ec7de9453bbd0e354543         41787  
 c02419badc1ec5f468234e00a757800f0ed89d859db5cb3eacb48ade61061763       8591880  research/replay_sizing/sizing_comparison_addresses.csv
 9a1f123bb4562481346acd0fae085ec444609e5d7cfacd14bdbbc5914d06aab2         39722  research/replay_sizing/sizing_comparison_pooled.csv
 1012ed05544a0232674eba63148989e09ad1fe332d50d8972efd970f2609a410          8188  research/replay_sizing/spread_estimates.parquet
-e57c69cecd7ac25753e1ed5f6c99ea8fc5f9b90a9f8316bd569dd2e816936d3a          6697  research/replay_sizing/summary.md
+042fe9487ed00bc416206b8d622498bb840b2dd96c935ec3559d2cea80ced641          6697  research/replay_sizing/summary.md
 493419f2934d1d69f003eff56ae9687e9480153d14c734e8da7230b5abd9381a        115866  research/replay_sizing/valuation_marks.parquet

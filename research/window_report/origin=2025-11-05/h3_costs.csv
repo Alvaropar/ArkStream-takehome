@@ -1,0 +1,5 @@
+coin,orders,median_cost_bps,dev_orders,dev_p90_bps,dev_median_bps,measured,within_p90,label
+BNB,16,10.63453593771185,137,11.506927038015753,10.519609812411009,false,true,model against model: simulated fills (ADR-0093 item 3)
+BTC,11,4.939255907196401,129,7.394284127932244,5.524083006452291,false,true,model against model: simulated fills (ADR-0093 item 3)
+ETH,4,5.774665035376209,74,8.232604039388132,6.0973842589867004,false,true,model against model: simulated fills (ADR-0093 item 3)
+HYPE,80,11.001923412713383,108,13.974665476516542,11.635828971083225,true,true,model against model: simulated fills (ADR-0093 item 3)

@@ -20,8 +20,8 @@ ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "decision" / "figures"
 LEADER = ROOT / "research" / "leader"
 REPLAY = ROOT / "research" / "replay"
-SIZING = ROOT / "research" / "replay_sizing"  # archived dynamic vs frozen comparison (ADRs 0116, 0119)
-FROZEN = ROOT / "research" / "replay_frozen"  # the current replay: frozen E_ref only (ADRs 0119, 0122)
+SIZING = ROOT / "research" / "replay_sizing"  # archived dynamic vs frozen comparison (ADRs A0116, 0052)
+FROZEN = ROOT / "research" / "replay_frozen"  # the current replay: frozen E_ref only (ADRs 0052, 0055)
 ORIGINS = ["2025-10-08", "2025-10-22", "2025-11-05", "2025-11-19", "2025-12-03"]
 TESTS = ORIGINS[:-1]
 
@@ -214,7 +214,7 @@ def holding_bands():
 
 
 def frozen_vs_dynamic():
-    """Archived record (ADR-0116/0119): the chosen policy against the dynamic denominator, base, gate-passers."""
+    """Archived record (ADR-A0116/0052): the chosen policy against the dynamic denominator, base, gate-passers."""
     p = pl.read_csv(SIZING / "sizing_comparison_pooled.csv", try_parse_dates=True).filter(
         (pl.col("universe") == "gate_passers") & (pl.col("scenario") == "base")
         & pl.col("window").is_in(["test", "all_tests"]))
@@ -240,7 +240,7 @@ def frozen_vs_dynamic():
     ax.legend(frameon=False, fontsize=9, loc="upper right")
     frz = p.filter((pl.col("variant") == "frozen") & (pl.col("window") == "all_tests")).row(0, named=True)
     dyn = p.filter((pl.col("variant") == "dynamic") & (pl.col("window") == "all_tests")).row(0, named=True)
-    style(ax, "Archived (ADR-0119): the chosen frozen sizing against the dynamic denominator",
+    style(ax, "Archived (ADR-0052): the chosen frozen sizing against the dynamic denominator",
           f"Base scenario, gate-passers, $10,000 per address per test window. Headroom per filled side: frozen "
           f"{frz['cost_to_absorb_bps']:.1f} bps,\ndynamic {dyn['cost_to_absorb_bps']:.1f} bps; worst follower "
           f"leverage {frz['max_leverage']:.2f}x vs {dyn['max_leverage']:.2f}x.")
@@ -269,8 +269,8 @@ def cost_surface_frozen():
     ax.set_xlabel("Mean funded base return (1.2 s delay) over 56 gate-passing test windows (%)", color=INK2)
     ax.grid(axis="x", color=GRID, linewidth=0.8)
     ax.grid(axis="y", visible=False)
-    style(ax, "ADR-0150/0160/0161: cost surface under the frozen sizing, base at 1.2 s",
-          "One cost placeholder at a time, plus the best and worst corners (ADR-0117).\n"
+    style(ax, "ADR-0058/0061/0062: cost surface under the frozen sizing, base at 1.2 s",
+          "One cost placeholder at a time, plus the best and worst corners (ADR-0050).\n"
           "Labels: mean return and the extra cost per filled side that would absorb the profit.")
     save(fig, "p4_cost_surface_frozen.png")
 
@@ -293,23 +293,23 @@ def holding_bands_frozen():
     ax.set_xlabel("Leader's median holding time", color=INK2)
     ax.set_ylabel("Net result per completed round trip (bps)", color=INK2)
     ax.legend(frameon=False, fontsize=9, loc="lower left")
-    style(ax, "ADR-0150/0160/0161: holding bands under the frozen sizing",
+    style(ax, "ADR-0058/0061/0062: holding bands under the frozen sizing",
           "Base scenario (1.2 s), all A/B addresses, four test windows, after fees, spread, impact, drift and funding. "
           "Green = positive in all four tests.")
     save(fig, "p4_holding_bands_frozen.png")
 
 
 def stress_coverage():
-    """ADR-0122 safeguard 1 and 3: the frozen stress result under both coverage measures, with the worst-measured
+    """ADR-0055 safeguard 1 and 3: the frozen stress result under both coverage measures, with the worst-measured
     sensitivity, per test and pooled (gate-passers)."""
-    c = pl.read_csv(FROZEN / "stress_coverage.csv").filter(pl.col("scenario") == "stress")  # ADR-0150: 5 s
+    c = pl.read_csv(FROZEN / "stress_coverage.csv").filter(pl.col("scenario") == "stress")  # ADR-0058: 5 s
     labels = [*TESTS, "all_tests"]
     fig, ax = figure(10.0, 5.2)
     w = 0.36
     seen = []
-    measures = (("broad_adr0115", "ADR-0115: every unfilled intent counts as unpriced (except minimum size, unsized)",
+    measures = (("broad_adr0115", "ADR-0049: every unfilled intent counts as unpriced (except minimum size, unsized)",
                  MUTED),
-                ("pricing_failures_adr0122", "ADR-0122: only pricing failures count as unpriced", S1))
+                ("pricing_failures_adr0122", "ADR-0055: only pricing failures count as unpriced", S1))
     for k, (measure, name, color) in enumerate(measures):
         d = {r["origin"]: r for r in c.filter(pl.col("measure") == measure).iter_rows(named=True)}
         xs = [i + (k - 0.5) * w for i in range(len(labels))]
@@ -325,7 +325,7 @@ def stress_coverage():
                    if d[o]["imputed"] > 0]  # only where an unmeasured window was filled in
             seen += [v for _, v in pts]
             ax.scatter([x for x, _ in pts], [v for _, v in pts], marker="D", s=22, color=S2, zorder=3,
-                       label="ADR-0122, unmeasured windows at the worst measured return of their test")
+                       label="ADR-0055, unmeasured windows at the worst measured return of their test")
     ax.set_ylim(min(seen) - 1.1, 0.6)
     ax.axhline(0, color=MUTED, linewidth=1)
     ax.set_xticks(range(len(labels)), [*TESTS, "All four tests"])
@@ -333,10 +333,10 @@ def stress_coverage():
     ax.legend(frameon=False, fontsize=8, loc="lower left")
     n = c.filter((pl.col("measure") == "pricing_failures_adr0122") & (pl.col("origin") == "all_tests")).row(
         0, named=True)
-    style(ax, "ADR-0150/0160/0161: frozen stress result at 5 s under both coverage measures",
+    style(ax, "ADR-0058/0061/0062: frozen stress result at 5 s under both coverage measures",
           f"Gate-passers, labels: mean and measured / gate-passing windows. Stress check (drawdown within -10%, "
           f"unmeasured fails): {n['stress_check_pass']} of\n{n['gate_passers']} pass, {n['stress_check_fail_loss']} "
-          f"fail on loss, {n['stress_check_fail_unmeasured']} fail as unmeasured (ADR-0122 measure).")
+          f"fail on loss, {n['stress_check_fail_unmeasured']} fail as unmeasured (ADR-0055 measure).")
     save(fig, "p4_stress_coverage.png")
 
 

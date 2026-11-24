@@ -1,4 +1,4 @@
-"""ADR-0045: worst-case drawdown inside each 4h bar (synthetic data)."""
+"""ADR-0039: worst-case drawdown inside each 4h bar (synthetic data)."""
 
 from datetime import UTC, datetime, timedelta
 

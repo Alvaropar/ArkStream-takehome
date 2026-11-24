@@ -1,4 +1,4 @@
-"""Coin filter (ADR-0136, variant `rule_b_coin_filter`): copy a leader only in coins where the copy keeps a high share
+"""Coin filter (ADR-A0136, variant `rule_b_coin_filter`): copy a leader only in coins where the copy keeps a high share
 of the same-sizing benchmark's PnL, judged on the training window ending at the origin.
 
 PnL per (address, coin) over a window is attributed from the replay's own ledger: the follower's cash flows in that
@@ -42,7 +42,7 @@ def coin_pnl(f: pl.DataFrame, fund: pl.DataFrame, marks: pl.DataFrame, end_ms: i
 
 
 def window_coin_pnl(ctx, origin: date, window: str, scenario: str | None, end: date) -> pl.DataFrame:
-    """`coin_pnl` for one window of the frozen replay; `scenario=None` reads the ADR-0162 benchmark ledger."""
+    """`coin_pnl` for one window of the frozen replay; `scenario=None` reads the ADR-0063 benchmark ledger."""
     end_ms = ms(midnight(end))
     if scenario is None:
         d = S.window_dir(ctx, origin, window) / BENCH
@@ -57,7 +57,7 @@ def window_coin_pnl(ctx, origin: date, window: str, scenario: str | None, end: d
 
 
 def coin_set(ctx, origin: date, rules: S.Rules) -> pl.DataFrame:
-    """ADR-0136 coin set at an origin, from its training window (all A/B, ranking scenario): a coin is kept when it is
+    """ADR-A0136 coin set at an origin, from its training window (all A/B, ranking scenario): a coin is kept when it is
     one of the always-kept coins, or its summed benchmark PnL is at least `min_benchmark_pnl_usdc` and the summed
     follower PnL is at least `min_capture` of it."""
     fol = window_coin_pnl(ctx, origin, "training", rules.scenario, origin)
@@ -122,7 +122,7 @@ def coin_daily(ctx, origin: date, window: str, scenario: str | None, start: date
 def filtered_outcomes(ctx, origin: date, end: date, kept: list[str], crash: list[date], ladder: float,
                       unfiltered: pl.DataFrame) -> tuple[pl.DataFrame, dict[str, pl.DataFrame]]:
     """`selection_eval.sleeve_outcomes` columns for the coin-filtered sleeves, from `coin_daily`: return, return
-    without the crash dates, max drawdown and the stress check on the filtered equity. Stress measurement (ADR-0122
+    without the crash dates, max drawdown and the stress check on the filtered equity. Stress measurement (ADR-0055
     coverage) is the replay's own, which counts every coin's intents."""
     from arkstream.selection_eval import ctx_allocation, max_drawdown
 

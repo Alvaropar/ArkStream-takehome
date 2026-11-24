@@ -1,13 +1,13 @@
-"""Phase 4 driver: `python -m arkstream select` (ADRs 0130-0139).
+"""Phase 4 driver: `python -m arkstream select` (ADRs A0130-A0139).
 
 Stage 1, `select_all` (no outcome is read): for every variant and every origin (the four development origins and
 3 Dec), the copier screen as of the origin, the coin set (coin-filter variant) and every selection table, written to
 research/selection/origin=<date>/variant=<v>/. Each variant reads its own replay tree (`selection.variants.*.
-replay_dir`): the coin-filter rule the filtered tree (ADR-0140), the others the unfiltered one; the coin-filter rule's
-ADR-0136 attribution scoring is kept beside it as `<variant>_attribution`.
+replay_dir`): the coin-filter rule the filtered tree (ADR-A0140), the others the unfiltered one; the coin-filter rule's
+ADR-A0136 attribution scoring is kept beside it as `<variant>_attribution`.
 
 Stage 2, `evaluate` (development outcomes): the walk-forward of every variant against its baselines, the choice
-between variants by the pre-stated criterion (ADR-0137), and for the chosen rule the market-relative and capture
+between variants by the pre-stated criterion (ADR-A0137), and for the chosen rule the market-relative and capture
 tables, Clopper-Pearson, MinTRL, the pre-registered diagnostics and the 3 Dec shortlist.
 
 Nothing here computes a window after the holdout start without the freeze (`freeze.guard`).
@@ -36,7 +36,7 @@ from arkstream.replay_market import midnight, ms
 C = pl.col
 OUT = "research/selection"
 SHORTLIST_ORIGIN = date(2025, 12, 3)
-# ADR-0137: ties on the criterion go to the simpler rule, in this order.
+# ADR-A0137: ties on the criterion go to the simpler rule, in this order.
 SIMPLICITY = ("rule_a", "rule_c_p10", "rule_b_coin_filter")
 
 
@@ -62,18 +62,18 @@ def variants(ctx) -> list[str]:
 
 
 FROZEN = "research/replay_frozen"
-ATTRIBUTION = "_attribution"  # ADR-0136 record: rule_b scored by removing dropped coins from the unfiltered ledgers
+ATTRIBUTION = "_attribution"  # ADR-A0136 record: rule_b scored by removing dropped coins from the unfiltered ledgers
 
 
 def ctx_for(ctx, replay_dir: str):
-    """The context with the selection reading `replay_dir` (unfiltered frozen tree, or the ADR-0140 filtered one)."""
+    """The context with the selection reading `replay_dir` (unfiltered frozen tree, or the ADR-A0140 filtered one)."""
     raw = {**ctx.raw, "selection": {**ctx.raw["selection"], "replay_dir": replay_dir}}
     return type(ctx)(raw=raw, root=ctx.root)
 
 
 def origin_data(ctx, inp=None) -> dict[date, S.OriginData]:
     """Inputs at every origin from the context's replay tree; the coin set always from the unfiltered tree
-    (ADR-0136 definition, ADR-0140 item 2)."""
+    (ADR-A0136 definition, ADR-A0140 item 2)."""
     inp = inp or load_inputs(ctx)
     rules = S.Rules.from_config(ctx.raw)
     base = ctx_for(ctx, FROZEN)
@@ -88,7 +88,7 @@ def origin_data(ctx, inp=None) -> dict[date, S.OriginData]:
 
 def plan(ctx) -> list[tuple[str, str, str]]:
     """(label, config variant, replay tree) for every rule evaluated: each config variant on its own tree, plus the
-    ADR-0136 attribution record of every coin-filter variant on the unfiltered tree."""
+    ADR-A0136 attribution record of every coin-filter variant on the unfiltered tree."""
     rows = []
     for v in variants(ctx):
         rules = S.Rules.from_config(ctx.raw, v)
@@ -131,7 +131,7 @@ def evaluate(ctx, data: dict[str, dict[date, S.OriginData]], tables: dict[tuple[
     outcomes = {tree: {o: E.sleeve_outcomes(ctx_for(ctx, tree), o, crash, ladder) for o in devs} for tree in trees}
     base = ctx_for(ctx, FROZEN)
     filtered = {}
-    for o in devs:  # ADR-0136 attribution: dropped coins removed from the unfiltered ledgers
+    for o in devs:  # ADR-A0136 attribution: dropped coins removed from the unfiltered ledgers
         cs = data[FROZEN][o].coin_set
         assert cs is not None
         filtered[o] = SC.filtered_outcomes(base, o, E.test_end(all_o, o), cs.filter("kept")["coin"].to_list(), crash,
@@ -150,8 +150,8 @@ def evaluate(ctx, data: dict[str, dict[date, S.OriginData]], tables: dict[tuple[
             dist += d
     walk_forward = pl.DataFrame(wf, infer_schema_length=None).sort("variant", "origin")
     baselines = pl.DataFrame(dist, infer_schema_length=None).sort("variant", "origin", "baseline", "scenario")
-    # ADR-0137 criterion, as it was applied: on the variants scored on the unfiltered tree (rule_b by attribution).
-    # ADR-0140: the rule in force is the config's, whatever the executable rerun shows; no new choice is made.
+    # ADR-A0137 criterion, as it was applied: on the variants scored on the unfiltered tree (rule_b by attribution).
+    # ADR-A0140: the rule in force is the config's, whatever the executable rerun shows; no new choice is made.
     score = walk_forward.group_by("variant").agg(matched_wins=C("matched_win").sum(), ab_wins=C("ab_win").sum(),
                                                  mean_basket_base=C("basket_base").mean())
     basis = {label: (v if tree == FROZEN and label.endswith(ATTRIBUTION) else label)
@@ -162,7 +162,7 @@ def evaluate(ctx, data: dict[str, dict[date, S.OriginData]], tables: dict[tuple[
     by_criterion = basis[ranked[0]["variant"]]
     chosen = cfg["rule"]
     if by_criterion != chosen:
-        raise ValueError(f"ADR-0137 criterion gives {by_criterion}, the config names {chosen}")
+        raise ValueError(f"ADR-A0137 criterion gives {by_criterion}, the config names {chosen}")
     score = score.with_columns(
         adr0137_basis=C("variant").is_in(list(basis)),
         in_force=C("variant") == chosen,
@@ -182,7 +182,7 @@ def report_chosen(ctx, data, tables, outcomes, chosen: str, out: Path, crash: li
     """5a, 5b, intervals, MinTRL, diagnostics and the shortlist for the chosen rule. With the coin filter
     (`filtered` = per origin (outcomes, daily per scenario)) the basket, equal-weight and sleeve series are the
     filtered ones; capture adds filtered ratios (follower vs benchmark PnL in kept coins) beside the unfiltered
-    ADR-0162 gap decomposition, which is not re-decomposed by coin."""
+    ADR-0063 gap decomposition, which is not re-decomposed by coin."""
     allocation = E.ctx_allocation(ctx)
     all_o = origins(ctx)
     devs = dev_origins(ctx)

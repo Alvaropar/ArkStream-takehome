@@ -1,9 +1,9 @@
 # Decision context. Versioned and frozen before any outcome is examined.
 # The CUTOFF is a parameter: the pipeline reads it here (or from --cutoff) and never hard-codes it.
 version: "0.1.0-m1"
-frozen: true             # set 2026-11-22 for the holdout freeze (ADR-0139; provenance/HOLDOUT_FREEZE.txt)
+frozen: true             # set 2026-11-22 for the holdout freeze (mechanism ADR-0065; the recorded hashes are void)
 
-cutoff: "2026-01-04T23:59:42.020Z"   # A01 (ADR-0041): the actual end of the data (last fill), confirmed
+cutoff: "2026-01-04T23:59:42.020Z"   # A01 (ADR-0021): the actual end of the data (last fill), confirmed
 
 inputs:
   traders: data/raw/traders.csv
@@ -52,13 +52,21 @@ copiers:
 grades:
   A:
     min_days_present_share: 0.95
-    min_pnl_match_share: 0.99      # rows with |pnl - (equity - net_deposit)| <= pnl_tolerance_tight
+    min_material_match_share: 0.99 # ADR-0066: snapshots without a material breach |pnl - (equity - net_deposit)| >
+                                   # max(material_abs_usdc, material_rel_equity x equity) (ADR-0045's materiality)
     require_fills: true
     require_continuity: true
     max_zero_equity_days_with_position: 0
   B:
     max_unusable_day_share: 0.20
-    max_offset_cv: 0.25            # "stable offset": std/|mean| of (pnl - (equity - net_deposit))
+    # ADR-0066 (PLACEHOLDER): a stable, bounded scope offset (use the rebuilt book); residual stats relative to
+    # S = max(median equity, offset_scale_floor_usdc); replaces max_offset_cv (0.25)
+    material_abs_usdc: 10
+    material_rel_equity: 0.005
+    offset_scale_floor_usdc: 500
+    min_offset_match_share: 0.99   # share of snapshots with |residual - median residual| within the material bound
+    max_offset_shift: 0.005        # |median residual, later half - earlier half| / S (null under 4 snapshots)
+    max_offset_level: 0.10         # |median residual| / S; above it a stable offset is C (scope_offset_too_large)
   C:
     near_zero_equity_usdc: 10
     max_near_zero_equity_share: 0.5
@@ -76,8 +84,8 @@ drift:
     Binance's published .CHECKSUM; listed in MANIFEST.csv). Never the lake's aggTrades copy, which is missing
     0.4-9% of rows (whole minutes, concentrated in the 10 Oct 2025 crash).
   aggtrades_symbols: {BTC: BTCUSDT, ETH: ETHUSDT, HYPE: HYPEUSDT, SOL: SOLUSDT}
-  # Drift horizons, also the replay's delay grid (ADR-0150): seconds here, whole milliseconds in the code (1.2 s is
-  # 1,200 ms, never truncated). 1 s optimistic, 1.2 s base and 5 s stress are the measured copy delay (ADR-0104:
+  # Drift horizons, also the replay's delay grid (ADR-0058): seconds here, whole milliseconds in the code (1.2 s is
+  # 1,200 ms, never truncated). 1 s optimistic, 1.2 s base and 5 s stress are the measured copy delay (ADR-0056:
   # about the p10, median and p99 total); 10, 60 and 300 s are kept for the grid and the severe scenario (60 s /
   # 300 s for thin coins); 300 s is also the approximate method's horizon.
   horizons_s: [1, 1.2, 5, 10, 60, 300]
@@ -143,7 +151,7 @@ assumptions:
     lies inside the lead-lag band and is read as "at most venue-lag precision", not as a measured 1 s cost.
     Re-estimate if the shortlist trades other coins.
 
-# Phase 2, leader evidence (src/arkstream/leader*.py; ADR-0020..0027). Computed at each drift.origins date (asof =
+# Phase 2, leader evidence (src/arkstream/leader*.py; ADRs 0013..0019). Computed at each drift.origins date (asof =
 # 00:00 UTC of the origin) for grade A/B addresses at that origin. Gates are computed, never applied here.
 # Every threshold below is a PLACEHOLDER until set on development data (8 Oct - 19 Nov origins) only.
 leader:
@@ -153,7 +161,7 @@ leader:
   returns:
     min_open_equity_usdc: 500         # plan: exclude intervals whose opening equity is below 500 USDC
     max_convention_gap: 0.01          # PLACEHOLDER: |r_start - r_end| above this -> conventions_disagree, excluded
-  return_source:                      # ADR-0111 (amends ADR-0065), all PLACEHOLDER, fixed before any outcome
+  return_source:                      # ADR-0045 (amends ADR-0028), all PLACEHOLDER, fixed before any outcome
     breach_abs_usdc: 10               # a snapshot breaches when |pnl - (equity - net_deposit)| > max(10, 0.5% equity)
     breach_rel_equity: 0.005
     book_min_breach_share: 0.05       # rebuilt book primary when >= 5% of snapshots known by the origin breach
@@ -162,36 +170,47 @@ leader:
     min_intervals: 10                 # PLACEHOLDER: fewer usable intervals with a priced book -> too_few_intervals
     min_corr: 0.5                     # PLACEHOLDER: corr(account r_start, book r) below this -> disagree_corr
     max_tracking_gap_std: 0.02        # PLACEHOLDER: std of (account - book) per interval above this -> disagree_tracking
+    # ADR-0069 gate 7 v2 (PLACEHOLDER): 7a Spearman lower bound >= min_corr (Bonett-Wright Fisher z, book_corr_lower_conf);
+    # 7b week-clustered lower bound of |gap rate| <= max_gap_bps_per_day; 7c Theil-Sen slope in slope_band; 7d unchanged
+    agreement: spearman
+    max_gap_bps_per_day: 5
+    gap_lower_conf: 0.80
+    slope_band: [0.667, 1.5]
   trips:
     min_hold_for_per_day_s: 3600      # return per day held divides by max(hold, 1 h)
     top_share: 0.01                   # "largest 1% of trades" (at least one trade)
   risk:
     stress_horizon_h: 24              # largest |24 h move| per coin at hour marks before the origin
     maintenance_margin_rate: 0.025    # ASSUMPTION until Hyperliquid meta: uniform MMR (half the initial margin at 20x)
-  gates:                              # all PLACEHOLDER
-    min_hold_seconds: 60
+  gates:                              # all PLACEHOLDER; categories and binding set: ADR-0067
+    min_hold_seconds: 60              # gates 2-4 (style) are diagnostics since ADR-0067
     max_orders_per_day: 24
     max_maker_share: 0.70
     recent_fill_days: 14
     min_fit_within_1pct: 0.90
+    fit_lower_conf: 0.80              # ADR-0067: gate 6 on the one-sided 80% Clopper-Pearson lower bound
+    book_corr_lower_conf: 0.80        # ADR-0067: gate 7 on the one-sided 80% Fisher-z lower bound of the correlation
+    min_snapshot_days: 90             # ADR-0067 gate_history (moved from selection.gates, ADR-A0130)
+    min_usable_days: 60
+    short_hold_s: [60, 300]           # ADR-0067: reported share of trip profit from trips held under these
     min_round_trips: 20               # plan: 20-30, set on development data
     max_intraday_dd: 0.50
     max_worst_day_loss: 0.25
     max_worst_3d_loss: 0.35
     max_drawdown: 0.50
-    max_worstcase_dd: 0.50          # ADR-0045: worst case inside each 4h bar (Hyperliquid OHLC)
-    max_stress_peak_loss: 1.0         # a peak-exposure shock that would take all equity fails
+    max_worstcase_dd: 0.50          # ADR-0039: worst case inside each 4h bar (Hyperliquid OHLC)
+    min_stress_headroom: 0.0          # ADR-0067: 1 - stressed loss / equity - MMR x gross leverage at every hour
     max_leverage_p95: 10
     min_liq_distance: 0.05            # the worst hour must survive a 5% uniform adverse move
     max_liquidations: 0
-    max_top_pnl_share: 0.5            # top 1% of round trips carry at most half of the PnL
+    max_top_profit_share: 0.5         # ADR-0067: top 1% of trips carry at most half of the positive trip profit
     max_unpriced_exposure_share: 0.05
   profile:
     maker_heavy_share: 0.70
     equity_band_usdc: [20000, 2000000]
     volume_window_days: 30            # Binance median daily quote volume over the 30 days before the origin
 
-# Hyperliquid funding (ADR-0011) and the Binance-vs-Hyperliquid price check (ADR-0012, ADR-0013). Code: funding.py,
+# Hyperliquid funding (ADR-0009) and the Binance-vs-Hyperliquid price check (ADR-0010, ADR-0011). Code: funding.py,
 # hlprices.py. Rates only: ts_hour (accrual hour) and known_at (raw publication time; usable only at asof >= known_at).
 funding:
   source: "Hyperliquid POST https://api.hyperliquid.xyz/info fundingHistory, retrieved 2026-11-19 (docs read same day)"
@@ -201,37 +220,39 @@ funding:
   oracle_proxy: binance_reference
   user_funding_leaders: 5          # check only (never an input): top leaders by eligible fills
   user_funding_rel_tol: 0.01       # PLACEHOLDER: |calc / actual - 1| for an amount match
-  price_check:                     # ADR-0012, pre-registered before any comparison
+  price_check:                     # ADR-0010, pre-registered before any comparison
     min_bars: 30
     max_median_abs_bps: 10
     max_p95_abs_bps: 30
     max_ref_age_s: 60
 
-# Phase 4, selection (src/arkstream/selection*.py; ADRs 0130-0139). Computed at each drift.origins date from data up
+# Phase 4 v1 selection (src/arkstream/selection*.py; archived ADRs A0130-A0141); v2 reads gates, key, clusters,
+# crash_dates and baselines from this block (ADRs 0072, 0073, 0075 and 0078). Computed at each drift.origins date from data up
 # to it: Phase 2 evidence at the origin and the frozen replay's training window ending at it (never a test window).
 # Every threshold is a PLACEHOLDER fixed in its ADR before the outcome it affects was computed.
 selection:
-  rule: rule_b_coin_filter           # the variant in force (ADR-0138, chosen by the ADR-0137 criterion)
-  scenario: base                     # ranking scenario (ADR-0150: 1.2 s); the frozen sizing policy only (ADR-0119)
-  replay_dir: research/replay_frozen    # default tree; a variant may name its own (ADR-0140)
-  gates:                             # ADR-0130, on top of grade A/B and the 18 Phase 2 gates
-    min_snapshot_days: 90            # distinct UTC dates with a snapshot known by the origin
-    min_usable_days: 60              # usable daily return days (Phase 2 account coverage)
+  rule: rule_b_coin_filter           # the variant in force (ADR-A0138, chosen by the ADR-A0137 criterion)
+  scenario: base                     # ranking scenario (ADR-0058: 1.2 s); the frozen sizing policy only (ADR-0052)
+  replay_dir: research/replay_frozen    # default tree; a variant may name its own (ADR-A0140)
+  gates:                             # ADR-0073 (set in ADR-A0130), on top of grade A/B and the binding Phase 2 gates (ADR-0067)
+                                     # history (90 snapshot / 60 usable days) moved to Phase 2 gate_history
     equity_band_usdc: [5000, 2000000]    # median equity (Phase 2 profiles). The user's choice, 2026-11-22, from the
-                                     # capital before any test outcome (ADR-0130): under no scale-up a leader absorbs
+                                     # capital before any test outcome (ADR-A0130): under no scale-up a leader absorbs
                                      # at most its own equity; a stage-1 sleeve is about 30k / 5 = 6k (plan: 20k)
-    max_share_not_copyable: 0.10     # notional in coins not passing the price check at the origin, or HIP-3 (ADR-0113)
+    max_share_not_copyable: 0.10     # notional in coins not passing the price check at the origin, or HIP-3 (ADR-0047)
     band_min_completed: 100          # a holding band is copyable when its training-window completed follower trips
                                      # (all A/B, base) net > 0 per trip over at least this many trips
     base_delay_ms: 1200              # break-even delay must exceed the base delay (training-window delay grid)
-  key:                               # ADR-0131
-    statistic: mean_net_per_completed_follower_trip
+  key:                               # the former keys, reported beside the IC (ADR-0078; set in ADRs A0131, A0051)
+    statistic: mean_daily_nav_return # the copy's mark-to-market daily NAV return from its first exposure
     percentile: 0.20                 # the key: 20th percentile of the bootstrap means (one-sided 80% lower bound)
     draws: 2000
     seed: 20251008
-    min_trips: 10                    # fewer completed follower trips -> key unmeasured (not selectable)
-    min_blocks: 4                    # fewer week blocks -> key unmeasured
-  clusters:                          # ADR-0132
+    min_days: 20                     # ADR-A0051: fewer valid NAV days -> key unmeasured (not selectable)
+    min_weeks: 4                     # ADR-A0051: fewer calendar weeks -> key unmeasured
+    min_trips: 10                    # trip diagnostics only since ADR-A0051 (the former key's minimums)
+    min_blocks: 4
+  clusters:                          # ADR-0072 prior groups (set in ADR-A0132; the walk keys are v1 only)
     behaviour_k: 6                   # Ward clusters over all A/B addresses at the origin
     min_common_days: 20              # fewer common days -> correlation unmeasured (does not block the walk)
     max_corr: 0.5                    # walk: daily copy-return correlation with every chosen address below this
@@ -239,18 +260,73 @@ selection:
   basket:
     max_k: 5                         # K; k = 0 is a valid outcome
     weights: equal                   # one separate copy sleeve per address (shared account: Phase 5)
-  baselines:                         # ADR-0133
+  baselines:                         # ADR-0075 (set in ADR-A0133)
     draws: 1000
     seed: 20251203
     trimmed_share: 0.20              # trimmed mean drops this share from each end
   crash_dates: ["2025-10-10", "2025-10-11"]
-  coin_filter:                       # ADR-0136 (variant rule_b): copy only coins with high training-window capture
+  coin_filter:                       # ADR-A0136 (variant rule_b): copy only coins with high training-window capture
     always: [BTC, ETH, HYPE, SOL]
     min_capture: 0.5                 # aggregate training capture over all A/B (follower / same-sizing benchmark PnL)
     min_benchmark_pnl_usdc: 500      # and a winning benchmark of at least this much on the coin
-  variants:                          # ADR-0137: at most three, all in provenance/trial_log.md
+  variants:                          # ADR-A0137: at most three, all in provenance/trial_log.md
     rule_a: {}
-    # ADR-0140: the coin filter executed inside the frozen replay (excluded coins never traded, cap on kept coins);
-    # its ADR-0136 attribution scoring stays beside it as rule_b_coin_filter_attribution
+    # ADR-A0140: the coin filter executed inside the frozen replay (excluded coins never traded, cap on kept coins);
+    # its ADR-A0136 attribution scoring stays beside it as rule_b_coin_filter_attribution
     rule_b_coin_filter: {coin_filter: true, replay_dir: research/replay_coinfilter}
     rule_c_p10: {key_percentile: 0.10}
+
+# Phase 4 v2 (ADRs 0070-0075; decision/phase-4-v2-methodology.md). Every value PLACEHOLDER, fixed before any rerun
+# under it. Not read by the v1 selection code above; implemented step by step (P4-2 .. P4-8).
+selection_v2:
+  # ADR-0076: trees on the current (ADR-0066) A/B universes; the v1 trees stay as the record
+  allpriced_dir: research/replay_allpriced   # the frozen stack on every priced coin (T2-T5 inputs; ADR-0073 item 5)
+  tradable_dir: research/replay_tradable     # the frozen stack on each wallet's tradable set (ADR-0073)
+  out_dir: research/selection_v2
+  sleeve_usdc: 10000                 # ADR-0070: provisional sleeve; one recompute if Phase 5 chooses other sizes (P4-9)
+  window_weeks: 12                   # ADR-0070: common window max(first_priced_day, origin - 12 weeks) .. origin - 1 day
+  first_priced_day: "2025-09-08"
+  min_exposed_days: 20               # ADR-0070: measurability on days with gross > 0
+  min_exposed_weeks: 4
+  min_exposure_usdc: 10              # ADR-0080: an exposed day needs G >= this (= replay.min_notional_usdc)
+  tradable:                          # ADR-0073
+    min_valued_share: 0.95           # T2
+    min_unclipped_share: 0.95        # T3 at sleeve_usdc and replay.max_participation
+    max_cost_bps_per_side: 25        # T4 median base implementation shortfall, leave-one-wallet-out
+    min_effective_wallets: 5         # T5 (1 / HHI of training notional)
+    max_leader_non_tradable_share: 0.10   # sel_tradable_share
+    max_abs_delta_beta: 0.25         # sel_direction
+  market:                            # ADR-0071
+    factors: [BTC, ETH, ALT]
+    beta_lookback_days: 90           # fit once per origin on the days before it
+    beta_shrink_days: 30             # shrink toward the cross-coin median with weight n / (n + 30)
+    min_fit_days: 10                 # ADR-0077: fewer valid days (or a singular design) -> weight 0 (the prior)
+    funding_in_alpha: false          # ADR-0084: the residual excludes the copy's funding PnL (carry is not skill)
+  evidence:                          # ADR-0072
+    bootstrap_block_days: 7          # 5 and 10 only if tau2 > 0
+    bootstrap_draws: 2000
+    seed: 20251203
+    homogeneity_p: 0.20              # tau2 robustly 0: tau2 = 0 and Cochran's Q p >= this
+    category_conf: 0.80              # E2: posterior P(alpha > 0) >= this
+    min_cluster_prior_size: 30
+  duplicates:                        # ADR-0074
+    min_overlap: 0.7
+    min_corr_lower95: 0.5
+    min_common_exposed_days: 20
+    exclude_dates: ["2025-10-10", "2025-10-11"]
+    # ADR-0079 (PLACEHOLDER): co-movement handed to Phase 5
+    downside_share: 0.20             # downside days: ALT return at or below its 20th percentile in the window
+    min_downside_days: 10
+    large_loss_quantile: 0.10        # joint large loss: both copies below their own 10th percentile
+    cov_lookback_days: 90            # coin covariance fitted once at the origin on the days before it
+    cov_min_days: 60                 # a coin enters the covariance with returns on at least this many days
+    cov_min_complete_days: 30
+  ranking:                           # ADR-0075
+    min_mean_ic: 0.05
+    min_positive_origins: 3
+    max_enumerated_subsets: 10000
+    placebo_shifts: 20
+    placebo_shift_days: [1, 7]
+    hit_quantile: 0.20               # ADR-0078: top-quintile hit rate beside the IC
+    eval_draws: 1000                 # ADR-0079: random subsets when exact enumeration exceeds max_enumerated_subsets
+    eval_seed: 20251203

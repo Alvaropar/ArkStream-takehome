@@ -1,4 +1,4 @@
-"""Frozen one-minute print spread calibration and matched print-count simulation (ADR-0082)."""
+"""Frozen one-minute print spread calibration and matched print-count simulation (ADR-0031)."""
 
 import numpy as np
 import polars as pl

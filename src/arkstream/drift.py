@@ -2,7 +2,7 @@
 
 drift(h) for a leader order = side x (P(t + h) / P(t) - 1) in bps, where t is the leader's first fill of the
 order (event time), h the follower's delay and side +1 for a buy. Positive drift is a cost to a follower
-that copies late. Horizons are whole milliseconds end to end (`horizon_ms`, ADR-0150): the config lists them in
+that copies late. Horizons are whole milliseconds end to end (`horizon_ms`, ADR-0058): the config lists them in
 seconds (`horizons_s`, 1.2 allowed) and `seconds_to_ms` converts them exactly or refuses; outputs also carry a
 readable `horizon_s` float.
 
@@ -61,7 +61,7 @@ class HoldoutLeak(ValueError):
 
 
 def seconds_to_ms(x: Any) -> int:
-    """A configured duration in seconds as a positive whole number of milliseconds (ADR-0150). Exact: 1.2 s is
+    """A configured duration in seconds as a positive whole number of milliseconds (ADR-0058). Exact: 1.2 s is
     1,200 ms, never truncated to 1 s; a value finer than 1 ms or not positive is refused."""
     if isinstance(x, bool):
         raise ValueError(f"{x!r} is not a duration")
@@ -78,7 +78,7 @@ class DriftRules:
     exclude: frozenset[date]
     stress: frozenset[date]
     holdout_start: date
-    horizons_ms: tuple[int, ...]           # aggTrades horizons and the replay's delay grid (ADR-0150)
+    horizons_ms: tuple[int, ...]           # aggTrades horizons and the replay's delay grid (ADR-0058)
     approx_horizons_ms: tuple[int, ...]
     approx_min_horizon_ms: int
     max_staleness_s: float
@@ -146,7 +146,7 @@ def _date(x: Any) -> date:
 
 def leader_orders(fills: pl.DataFrame, start: datetime, end: datetime) -> pl.DataFrame:
     """Core-perp trade orders: (trader, oid) timed at the first fill, with its side and price. Forced fills
-    (ADL, liquidation, settlement; ADR-0112) are not the leader's choice and are left out."""
+    (ADL, liquidation, settlement; ADR-0046) are not the leader's choice and are left out."""
     f = (fills.filter(pl.col("eligible") & (pl.col("event_kind") == "trade") & (pl.col("ts") >= start)
                       & (pl.col("ts") <= end) & ~forced_fill()).sort("ts", "src_row"))
     return (f.group_by("trader", "oid").agg(

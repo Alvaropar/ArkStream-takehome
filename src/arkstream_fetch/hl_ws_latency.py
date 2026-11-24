@@ -1,4 +1,5 @@
-"""Record Hyperliquid's public WebSocket, read-only, to measure the receive delay (ADR-0044 item 1, ADR-0100..0104).
+"""Record Hyperliquid's public WebSocket, read-only, to measure the receive delay (ADR-0038 item 1,
+ADRs 0040..0043, 0056).
 
     python -m arkstream_fetch.hl_ws_latency --dry-run                     # leaders, coins, plan; no network
     python -m arkstream_fetch.hl_ws_latency --clock-only                  # NTP offset only
@@ -26,13 +27,13 @@ Rules:
   server ping, required by RFC 6455) and close. No application ping, no `exchange` endpoint, no signing, no keys.
 * **One host.** `wss://api.hyperliquid.xyz/ws` only (`_check_ws_url`); NTP only to `NTP_SERVERS`.
 * NTP offset before and after the run, and every 5 minutes during it on a background thread (`--ntp-every-min`),
-  so drift is measured rather than interpolated (ADR-0105).
+  so drift is measured rather than interpolated (ADR-0057).
 * Reconnects with bounded exponential backoff (1 s doubling to 60 s), logs every gap, stops after the set
   duration or Ctrl-C, and always measures the clock afterwards and writes the manifest.
 * Leaders: `--probe-leaders` subscribes (only) to the userFills of the top 30 package addresses, keeps those
   with a fill in the last 7 days, selects the 10 with the most fills in the last 24 h, and writes `leaders.csv`;
-  runs use its selected rows (ADR-0102).
-* Standard library only (no new dependency, ADR-0100); the analysis is `python -m arkstream latency`.
+  runs use its selected rows (ADR-0042).
+* Standard library only (no new dependency, ADR-0040); the analysis is `python -m arkstream latency`.
 """
 
 from __future__ import annotations
@@ -72,15 +73,15 @@ FILLS = ROOT / "data" / "raw" / "fills.csv"
 DEFAULT_OUT = ROOT / "data" / "reference" / "latency" / "hyperliquid"
 LEADERS_FILE = DEFAULT_OUT / "leaders.csv"
 MAJORS = ("BTC", "ETH", "HYPE", "SOL")
-THIN = ("ZEC", "PENDLE", "AIXBT", "TRX")  # ADR-0102: traded by the leaders, $0.3-2.8M notional in the last 14 days
+THIN = ("ZEC", "PENDLE", "AIXBT", "TRX")  # ADR-0042: traded by the leaders, $0.3-2.8M notional in the last 14 days
 MAX_USERS = 10
 LOOKBACK_DAYS = 14
-PROBE_CANDIDATES = 30   # ADR-0102: top package addresses probed for current activity
+PROBE_CANDIDATES = 30   # ADR-0042: top package addresses probed for current activity
 ACTIVE_DAYS = 7
 BACKOFF_START_S, BACKOFF_MAX_S = 1.0, 60.0
 STALE_S = 90.0     # no byte for this long: treat the connection as dead and reconnect
 READ_TIMEOUT_S = 1.0
-NTP_EVERY_S = 300.0  # ADR-0105: NTP reading during the run every 5 minutes, so drift is measured
+NTP_EVERY_S = 300.0  # ADR-0057: NTP reading during the run every 5 minutes, so drift is measured
 MID_NTP_SAMPLES = 4  # per server during the run (8 before and after)
 GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
 _USER_RE = re.compile(r"^0x[0-9a-f]{40}$")
@@ -375,8 +376,8 @@ def w32tm_check(samples: int = 5) -> dict[str, Any]:
 
 def measure_clock(query: Callable[[str], dict[str, Any]] = query_ntp, w32tm: bool = True) -> dict[str, Any]:
     """Offset = the best (lowest round trip) sample over all servers; its error is at most half that round trip
-    (ADR-0101). The median over servers and their spread are kept as a check against a bad server. `perf_ns`
-    (the high-resolution counter at the same moment as `local_ns`) anchors the counter cross-check (ADR-0105)."""
+    (ADR-0041). The median over servers and their spread are kept as a check against a bad server. `perf_ns`
+    (the high-resolution counter at the same moment as `local_ns`) anchors the counter cross-check (ADR-0057)."""
     per = [query(s) for s in NTP_SERVERS]
     ok = [p for p in per if p.get("offset_ns") is not None]
     best = min(ok, key=lambda p: (p["delay_ns"], p["server"])) if ok else None
@@ -396,7 +397,7 @@ def mid_run_clock() -> dict[str, Any]:
 
 
 class ClockSampler:
-    """Takes an NTP reading every `interval_s` on a background thread while a run records (ADR-0105). The thread
+    """Takes an NTP reading every `interval_s` on a background thread while a run records (ADR-0057). The thread
     only waits on UDP sockets; the recording thread keeps stamping arrivals."""
 
     def __init__(self, interval_s: float, measure: Callable[[], dict[str, Any]] = mid_run_clock,
@@ -481,7 +482,7 @@ def choose_active(ranked: list[tuple[str, int]], probe: dict[str, dict[str, Any]
                   n: int = MAX_USERS, active_days: int = ACTIVE_DAYS) -> list[dict[str, Any]]:
     """Candidates in package order (fills in the last 14 days of the data). Active = latest fill within
     `active_days` of the probe. Selected = the n active ones with the most snapshot fills in the last 24 h
-    (ties: package order), to get as many live fills as the 10-address limit allows (ADR-0102)."""
+    (ties: package order), to get as many live fills as the 10-address limit allows (ADR-0042)."""
     rows: list[dict[str, Any]] = []
     for u, nf in ranked:
         p = probe.get(u, {})

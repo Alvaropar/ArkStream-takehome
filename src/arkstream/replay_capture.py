@@ -1,8 +1,8 @@
-"""ADR-0162: copy capture against a zero-delay, zero-cost benchmark with the follower's own sizing, and the copy's
+"""ADR-0063: copy capture against a zero-delay, zero-cost benchmark with the follower's own sizing, and the copy's
 market-relative return (BTC / ETH buy-and-hold, alpha and betas as in Phase 2's market exposure).
 
 Inputs are the frozen replay's own outputs (`research/replay_frozen/`): each window's scenario ledgers, the benchmark
-ledgers written beside them (`benchmark=unattainable_frozen/`, ADR-0162 item 1), the leader's daily series
+ledgers written beside them (`benchmark=unattainable_frozen/`, ADR-0063 item 1), the leader's daily series
 (`leader_series.parquet`) and the Hyperliquid daily marks (`valuation_marks.parquet`). Nothing here reads a price
 the replay did not already use; the holdout window is never present."""
 
@@ -19,7 +19,7 @@ from arkstream.replay_market import DAY
 C = pl.col
 BENCH = "benchmark=unattainable_frozen"
 SUFFIX = "_sqrt_cap_part_ns_sweep_frozen"
-# ADR-0162: |benchmark PnL| below this share of the allocation makes the ratio not meaningful.
+# ADR-0063: |benchmark PnL| below this share of the allocation makes the ratio not meaningful.
 MIN_BENCHMARK_SHARE = 0.01
 PARTS = ("delay_drift", "sweep_anchor", "half_spread", "impact", "fees", "funding_difference",
          "not_executed_below_minimum", "not_executed_cap_deferral", "not_executed_uncopyable_coin",
@@ -29,6 +29,7 @@ CATEGORY = {
     "cap_headroom": "cap_deferral", "missing_cap_mark": "cap_deferral",
     "failed_price_check": "uncopyable_coin", "no_binance_mapping": "uncopyable_coin",
     "insufficient_price_check": "uncopyable_coin", "coin_filter_excluded": "uncopyable_coin",
+    "not_tradable": "uncopyable_coin",
     "no_drift_cell": "pricing_failure", "stress_sample_unavailable": "pricing_failure",
     "no_eligible_aggtrade": "pricing_failure", "outside_mapping_window": "pricing_failure",
     "missing_sqrt_inputs": "pricing_failure", "missing_impact_volume": "pricing_failure",
@@ -51,7 +52,7 @@ def book_pnl(daily: pl.DataFrame, allocation: float) -> pl.DataFrame:
 
 def price_parts(orders: pl.DataFrame) -> pl.DataFrame:
     """Per filled follower order, its price relative to the leader's own first fill L split exactly into the parts
-    of the replay's price chain (ADR-0080, ADR-0088): q(anchor - L) + q(mid_L - anchor) + q(ref - mid_L)
+    of the replay's price chain (ADR-0029, ADR-0036): q(anchor - L) + q(mid_L - anchor) + q(ref - mid_L)
     + q(fill - ref)."""
     f = orders.filter(C("status") == "filled")
     lead = C("leader_first_px").fill_null(C("anchor_px"))
@@ -69,7 +70,7 @@ def price_parts(orders: pl.DataFrame) -> pl.DataFrame:
 
 def weights(orders: pl.DataFrame) -> pl.DataFrame:
     """Missed notional per trader, coin and category: intents not executed at their visible anchor, and the clipped
-    part of a filled order (ADR-0086/0087 budget)."""
+    part of a filled order (ADR-0035/A0087 budget)."""
     miss = orders.filter(C("status").is_in(list(CATEGORY))).select(
         "trader", "coin", category=C("status").replace_strict(CATEGORY, default=None),
         w=C("intended_notional").fill_null(0.0))
@@ -82,7 +83,7 @@ def weights(orders: pl.DataFrame) -> pl.DataFrame:
 
 def capture(orders: pl.DataFrame, daily: pl.DataFrame, bench_daily: pl.DataFrame, bench_orders: pl.DataFrame,
             marks_end: pl.DataFrame, universe: pl.DataFrame, allocation: float) -> pl.DataFrame:
-    """ADR-0162 item 2: one row per address. gap = benchmark PnL - follower PnL = the sum of PARTS, exactly."""
+    """ADR-0063 item 2: one row per address. gap = benchmark PnL - follower PnL = the sum of PARTS, exactly."""
     f = book_pnl(daily, allocation)
     b = book_pnl(bench_daily, allocation).rename({"pnl": "benchmark_pnl", "funding": "benchmark_funding",
                                                    "days": "benchmark_days"})
@@ -141,7 +142,7 @@ def capture(orders: pl.DataFrame, daily: pl.DataFrame, bench_daily: pl.DataFrame
 
 
 def daily_series(daily: pl.DataFrame, bench_daily: pl.DataFrame, leader: pl.DataFrame, allocation: float):
-    """Daily cumulative follower PnL, benchmark PnL and the leader's own cumulative TWR (ADR-0162 item 3)."""
+    """Daily cumulative follower PnL, benchmark PnL and the leader's own cumulative TWR (ADR-0063 item 3)."""
     f = daily.select("trader", "day", follower_pnl=C("equity") - allocation)
     b = bench_daily.select("trader", "day", benchmark_pnl=C("equity") - allocation)
     lead = (leader.with_columns(day=(C("ts") - pl.duration(milliseconds=1)).dt.date())
@@ -162,7 +163,7 @@ def factor_returns(marks: pl.DataFrame, start_ms: int, end_ms: int) -> pl.DataFr
 
 
 def market_relative(daily: pl.DataFrame, marks: pl.DataFrame, start_ms: int, end_ms: int) -> pl.DataFrame:
-    """ADR-0162 item 4: buy-and-hold BTC / ETH over the window and the copy's daily alpha and betas to BTC and ETH
+    """ADR-0063 item 4: buy-and-hold BTC / ETH over the window and the copy's daily alpha and betas to BTC and ETH
     (one regression on both, Bartlett HAC standard errors, 95% intervals: `leader_assets.exposure`)."""
     fac = factor_returns(marks, start_ms, end_ms)
     hold, since = {}, {}

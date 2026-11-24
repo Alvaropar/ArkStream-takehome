@@ -1,4 +1,4 @@
-"""Development-only measurement of signed aggTrade moves following visible taker sweeps (ADR-0088).
+"""Development-only measurement of signed aggTrade moves following visible taker sweeps (ADR-0036).
 
 For BTC, ETH, HYPE and SOL, each leader taker order (trader, oid, timestamp) is followed on Binance aggTrades from
 the order time to order time + h, signed by the leader's side. Orders are bucketed by notional and by notional over
@@ -15,7 +15,7 @@ from arkstream.replay_market import DAY, DIRECT, bounded_inputs, midnight, ms, t
 
 C = pl.col
 KEY = ["origin", "coin", "delay_s"]
-# ADR-0088's horizons (s), fixed for this study: ADR-0150 added 1.2 s and 5 s to the drift grid for the replay's
+# ADR-0036's horizons (s), fixed for this study: ADR-0058 added 1.2 s and 5 s to the drift grid for the replay's
 # measured delays, not to the size study, whose result (no qualifying size term) is unchanged and not rerun.
 HORIZONS_MS = (1_000, 10_000, 60_000, 300_000)
 USD = ([1000, 10000, 100000, 1e6], ["<1k", "1k-10k", "10k-100k", "100k-1M", ">=1M"])
@@ -106,7 +106,7 @@ def study(ctx, dest):
     end = midnight(rules.holdout_start)
     fills = bounded_inputs(ctx, end).fills.filter(
         C("eligible") & (C("event_kind") == "trade") & C("symbol").is_in(DIRECT) & ~C("is_maker")
-        & ~forced_fill()  # ADR-0112: forced fills are not signals
+        & ~forced_fill()  # ADR-0046: forced fills are not signals
     )
     tape = trade_queries(ctx, fills, rules, end)
     candles, _ = hlprices.load_candles(ctx.path("hyperliquid_dir"), end)

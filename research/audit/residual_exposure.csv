@@ -1,0 +1,10 @@
+origin,window,addresses,leader_flat_events,residual_events,residual_share,residual_notional_hours,all_exposure_notional_hours,residual_pnl_usdc_priced,residual_unpriced_events,median_residual_usdc,median_residual_hours,why,residual_exposure_share
+2025-10-08,test,all A/B,2874,284,0.0988,6250284.9563,343720300.8486,-1318.7889,39,1.0940,1.8282,filled_but_clipped 216; no_eligible_aggtrade 38; below_minimum 21; filled 5; at_target 4,0.0182
+2025-10-08,test,basket,41,1,0.0244,1235.2933,2012911.7509,-36.5208,0,1312.3525,0.9413,no_eligible_aggtrade 1,0.0006
+2025-10-22,test,all A/B,2522,352,0.1396,5553854.9242,334333396.9913,-379.3948,59,1.2463,3.0577,filled_but_clipped 229; no_eligible_aggtrade 65; below_minimum 42; filled 10; at_target 6,0.0166
+2025-10-22,test,basket,12,1,0.0833,3149.2603,369444.5812,-7.6496,0,980.4559,3.2120,no_eligible_aggtrade 1,0.0085
+2025-11-05,test,all A/B,2445,390,0.1595,4422460.8364,310116766.1522,60.0624,64,0.2740,2.8495,filled_but_clipped 286; below_minimum 58; no_eligible_aggtrade 40; filled 5; at_target 1,0.0143
+2025-11-05,test,basket,27,2,0.0741,0.0001,454114.3995,0.0000,0,0.0134,0.0024,filled_but_clipped 2,0.0000
+2025-11-19,test,all A/B,2066,410,0.1985,5002127.1234,339845729.8180,914.4078,61,0.5249,2.4166,filled_but_clipped 322; no_eligible_aggtrade 41; below_minimum 34; at_target 7; filled 6,0.0147
+2025-11-19,test,basket,34,12,0.3529,4207.2591,1129703.0329,-1.6704,1,0.2493,0.0024,filled_but_clipped 12,0.0037
+2025-12-03,training,all A/B,17601,2214,0.1258,70155446.7776,2963859516.6073,1469.9965,179,0.6420,2.8747,filled_but_clipped 1621; below_minimum 268; no_eligible_aggtrade 266; at_target 33; filled 26,0.0237

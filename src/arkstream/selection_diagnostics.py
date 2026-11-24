@@ -1,4 +1,4 @@
-"""Phase 4 pre-registered diagnostics (brief item 5c, ADR-0135). They inform the rule; only the gates, the key, the
+"""Phase 4 pre-registered diagnostics (brief item 5c, ADR-A0135). They inform the rule; only the gates, the key, the
 clusters and the walk select. Predictors come from data up to each development origin, outcomes from the following
 test window (frozen replay, base), across all A/B addresses unless stated. One table each in
 research/selection/diagnostics/.

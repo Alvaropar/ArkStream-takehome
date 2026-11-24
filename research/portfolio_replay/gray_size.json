@@ -1,0 +1,20 @@
+{
+  "rule": "ADR-0090 items 4 and 6: count share of G* trigger-leg intents under 10 USDC after lambda, four development test windows pooled, base; > 0.10 -> 5,000",
+  "shares": {
+    "2500": {
+      "size": 2500,
+      "intents": 193,
+      "sub_minimum": 0,
+      "share": 0.0,
+      "filled_per_week": 24.25
+    },
+    "5000": {
+      "size": 5000,
+      "intents": 192,
+      "sub_minimum": 0,
+      "share": 0.0,
+      "filled_per_week": 24.625
+    }
+  },
+  "chosen": 2500
+}

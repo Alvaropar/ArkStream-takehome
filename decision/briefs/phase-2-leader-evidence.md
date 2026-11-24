@@ -1,5 +1,8 @@
 # Brief: Phase 2, leader evidence
 
+> ADR numbers below follow the renumbering of 2026-11-23 (ADR-0085; old numbers in
+> `decision/adr/RENUMBERING.md`), except the reserved number blocks, which are quoted as they were reserved.
+
 Written 2026-11-19. Project: `C:\Projects\quant-task-arkstream` (ArkStream Hyperliquid copy pilot, take-home).
 ADR numbers reserved for this session: **0020-0039**.
 
@@ -20,7 +23,7 @@ fixed by the plan's section **Leader evidence**; this brief only says what to bu
 - **No Hyperliquid data yet.** A separate session is fetching Hyperliquid funding and checking prices
   (`decision/briefs/hyperliquid-data.md`). Until it lands: book returns and round-trip returns are **ex-funding**
   and labelled so; account returns from snapshots include funding implicitly (equity is total account value,
-  ADR-0007), so the account-vs-book cross-check gap is reported with that caveat, not "fixed". The 10 coins
+  ADR-A0007), so the account-vs-book cross-check gap is reported with that caveat, not "fixed". The 10 coins
   without a Binance reference (APEX, BLAST, LAUNCHCOIN, MNT, PURR, REQ, YZY, FTT, FOGO, MEGA) are valued at
   package prints where `price_asof` finds one, else unpriced and flagged per address (share of exposure
   unpriced). Design the interfaces so a funding table (`ts, coin, funding_rate`) and a second price source can
@@ -56,7 +59,7 @@ computed, not applied to select anyone: Phase 4 does selection.
 
 Follower replay, delays, drift, spread, impact, funding costs (Phase 3); selection, ranking, baselines, the
 freeze hash and the holdout (Phase 4). Do not open holdout-period results beyond computing the 3 Dec origin's
-inputs. HIP-3 and spot (ADR-0007). Any order or network code.
+inputs. HIP-3 and spot (ADR-A0007). Any order or network code.
 
 ## Rules (project spec, verbatim where quoted)
 
@@ -64,7 +67,7 @@ inputs. HIP-3 and spot (ADR-0007). Any order or network code.
 - "Point in time: every function that produces values takes an `asof` timestamp and uses only rows with
   timestamp <= asof". CUTOFF from `config/decision_context.yaml` (the last fill, 2026-01-04T23:59:42.020Z).
 - "Never invent missing inputs: no imputed prices, funding or quotes. Missing -> flag and exclude, with a reason".
-- "Determinism: same inputs give byte-identical outputs" (every table with a total sort order; ADR-0008).
+- "Determinism: same inputs give byte-identical outputs" (every table with a total sort order; ADR-0006).
 - "Traceability: every derived row keeps the source keys (trader, tid, oid, timestamp)".
 - "No code path that sends real orders, now or later, unless explicitly enabled."
 - Extend the leak tests: add the new tables to `tests/pit_check.py`'s invariance check and add at least one
@@ -104,7 +107,7 @@ counts; if you add locked counts, add new keys.
 > ex-funding and leave a clean place to add it. Before writing code, read the plan's sections "Leader evidence"
 > and "Selection and point-in-time validation" in
 > `ArkStream Hyperliquid Pilot — Revised Research & Deployment Plan (v2).md`, plus `README.md`,
-> `config/decision_context.yaml`, `decision/adr/README.md` with ADRs 0002, 0004 and 0007, and
+> `config/decision_context.yaml`, `decision/adr/README.md` with ADRs 0002, 0004 and A0007, and
 > `src/arkstream/pipeline.py`, `positions.py` and `quality.py`, which you should reuse. Record decisions as ADRs
 > numbered 0020-0039. Another session works in the same folder with no git, so keep to the file ownership in
 > the brief. Do not start the follower replay or selection.

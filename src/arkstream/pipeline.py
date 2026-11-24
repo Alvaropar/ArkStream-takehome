@@ -93,7 +93,8 @@ def build(ctx: Context, inputs: Inputs, asof: datetime | None = None) -> Result:
 
     ledger, trips, open_pos = positions_asof(fills, t)
     rc = cfg["reconcile"]
-    recon_snap = reconcile.snapshot_summary(traders, t, rc["pnl_tolerance_tight"], rc["pnl_tolerance_loose"])
+    recon_snap = reconcile.snapshot_summary(traders, t, rc["pnl_tolerance_tight"], rc["pnl_tolerance_loose"],
+                                            cfg["grades"]["B"])  # ADR-0066
     recon_fill = reconcile.fill_summary(ledger, t)
 
     rp = cfg["reference_prices"]
@@ -108,7 +109,7 @@ def build(ctx: Context, inputs: Inputs, asof: datetime | None = None) -> Result:
     cop = copiers.screen(fills, t, cfg["copiers"])
 
     snaps, ev_snap = quality.snapshot_flags(traders, t, cfg)
-    passing = hlprices.PointInTimeCheck.load(ctx).passing(t)  # ADR-0110: the price check as of t
+    passing = hlprices.PointInTimeCheck.load(ctx).passing(t)  # ADR-0044: the price check as of t
     snaps = quality.frozen_flags(snaps, ledger, fills, t, ref, passing)
     table, ev_addr = quality.address_table(traders, snaps, ledger, fills, recon_snap, recon_fill, cop["clusters"],
                                            t, cfg)

@@ -1,4 +1,4 @@
-# Phase 3 sizing-limit and leader-impact variants (ADRs 0086-0088) and the size study. Each SHA-256 matched an independent full rerun (491 files) on 2026-11-20.
+# Phase 3 sizing-limit and leader-impact variants (ADRs 0035, 0036) and the size study. Each SHA-256 matched an independent full rerun (491 files) on 2026-11-20.
 # sha256  bytes  path
 860c9d8148836532fe96ac70c08251e73accf81924cf79a34276a6c740c7184a       3055867  research/replay/impact_inputs.parquet
 acfe87bd1b99379c56b91fbc436a6f43625f11bf3e9ef4b8ae4d77ef3bd51f9c         65124  research/replay/origin=2025-10-08/window=test/scenario=base_sqrt_cap_part/address_summary.parquet

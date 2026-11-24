@@ -1,4 +1,4 @@
-"""ADRs 0086-0088: participation cap, no scale-up, leader-sweep anchor and the size-term rule (synthetic data)."""
+"""ADRs 0035, 0036: participation cap, no scale-up, leader-sweep anchor and the size-term rule (synthetic data)."""
 
 from datetime import date
 

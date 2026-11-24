@@ -1,24 +1,24 @@
-# Alt-drift floor and receive delay: before and after (ADR-0160, ADR-0161), and copy capture (ADR-0162)
+# Alt-drift floor and receive delay: before and after (ADR-0061, ADR-0062), and copy capture (ADR-0063)
 
 Written 2026-11-21. Brief: `decision/briefs/alt-floor-and-receive.md`, plus the user's addition (capture and
-market-relative outputs). Frozen sizing only (ADR-0119); Phase 2 not rerun; the holdout test window
+market-relative outputs). Frozen sizing only (ADR-0052); Phase 2 not rerun; the holdout test window
 (2025-12-03..2026-01-04) never computed; no selection. Both rules were **decided after seeing results** (the
-measured-latency rerun showed the ADR-0114 floor setting the base alt cost) and were fixed in their ADRs before any
+measured-latency rerun showed the ADR-0048 floor setting the base alt cost) and were fixed in their ADRs before any
 replay result under them was computed. One variant each; no choice between variants was made (none was run).
 
 Four replay runs of `replay --frozen` (POLARS_MAX_THREADS=8), all nine windows, every scenario:
 
 | Run | Alt floor below 300 s (base) | `receive_ms` | Where |
 | --- | --- | --- | --- |
-| before | ADR-0114: max(proxy, own 300 s, 0) | 250 | the published state after ADR-0150-0152 (saved before this rerun) |
-| floor only | ADR-0160 | 250 | scratch |
-| receive only | ADR-0114 | 392 | scratch |
-| **both (published)** | ADR-0160 | 392 | `research/replay_frozen/` |
+| before | ADR-0048: max(proxy, own 300 s, 0) | 250 | the published state after ADRs 0058-0060 (saved before this rerun) |
+| floor only | ADR-0061 | 250 | scratch |
+| receive only | ADR-0048 | 392 | scratch |
+| **both (published)** | ADR-0061 | 392 | `research/replay_frozen/` |
 
 The published run and an independent second run are byte-identical: 266 of 266 replay files, and the three capture
 tables (269 files in all).
 
-## 1. The evidence: point-in-time split-order estimates (ADR-0160)
+## 1. The evidence: point-in-time split-order estimates (ADR-0061)
 
 Later child orders of leaders' split trades on parameterised coins (taker, forced fills excluded, coins passing
 the price check at the vintage, both orders before the vintage, 10-11 Oct left out). Mean move of the child's best
@@ -36,9 +36,9 @@ fill vs the first order's VWAP, bps, positive = worse for the copier. Cells exis
 - The (0, 1] bin never reaches 30. Most sub-second children are at the same millisecond as the first order (elapsed
   0, excluded: a copy is never at 0 ms).
 - At the base delay of 1.2 s an estimate exists only from 19 Nov. At the 8 Oct, 22 Oct and 5 Nov test windows, base at
-  1.2 s keeps the ADR-0114 floor.
+  1.2 s keeps the ADR-0048 floor.
 - The 5 s and 10 s bins have estimates at every origin (from 17 and 15 Sep).
-- 60 s has no bin and falls back to ADR-0114.
+- 60 s has no bin and falls back to ADR-0048.
 
 ## 2. Before and after, 56 gate-passing test address-windows
 
@@ -63,12 +63,12 @@ Base mean per test window (both): 8 Oct +1.31%, 22 Oct +0.85%, 5 Nov -0.45%, 19 
 **Parameterised-coin drift per side**, base, filled orders of gate-passers, notional-weighted. This is the old floor
 beside the new one:
 
-| | before (ADR-0114) | floor only | receive only | **both** |
+| | before (ADR-0048) | floor only | receive only | **both** |
 | --- | --- | --- | --- | --- |
 | all tests | 3.72 bps (1.54 M USDC) | 3.73 (1.55 M) | 3.72 (1.55 M) | **3.73 (1.55 M)** |
 | 8 Oct / 22 Oct / 5 Nov | 3.99 / 4.28 / 5.34 | 3.99 / 4.28 / 5.34 | 3.99 / 4.28 / 5.32 | **3.99 / 4.28 / 5.32** |
 | 19 Nov | 0.13 | 0.25 | 0.13 | **0.25** |
-| methods (both) | | | | ADR-0114 floor: 2,440 orders, 1.29 M, 4.42 bps; split-order estimate: 331 orders, 0.26 M, 0.25 bps |
+| methods (both) | | | | ADR-0048 floor: 2,440 orders, 1.29 M, 4.42 bps; split-order estimate: 331 orders, 0.26 M, 0.25 bps |
 
 Optimistic (-0.29 bps), stress (+55.0 bps) and severe (+50.8 bps) parameterised drift is unchanged by either rule.
 
@@ -100,24 +100,24 @@ receive 392.
 
 ### How much each change moved the result
 
-- **Floor (ADR-0160): almost nothing at the base delay, and in the costly direction.** At 1.2 s the split-order
-  evidence is too thin before 19 Nov, so three of four test windows keep the ADR-0114 floor. At 19 Nov the estimate
-  (+0.25 bps) is **above** what ADR-0114 gave there (+0.13 bps on average: most coins' own 300 s cells are at or
+- **Floor (ADR-0061): almost nothing at the base delay, and in the costly direction.** At 1.2 s the split-order
+  evidence is too thin before 19 Nov, so three of four test windows keep the ADR-0048 floor. At 19 Nov the estimate
+  (+0.25 bps) is **above** what ADR-0048 gave there (+0.13 bps on average: most coins' own 300 s cells are at or
   below zero at that origin and floor at zero), so base falls slightly (-0.002 pp; cost-surface lower bound -0.010%
   to -0.029%). The rule changes base materially only at 5 s and 10 s on the delay grid (+0.32 and +0.36 pp), where
   the venue's own short-delay prices are well below the coins' five-minute drift.
-- **Receive 392 ms (ADR-0161): +0.027 pp on base, +0.008 pp on optimistic, stress and severe flat.** It lifts the
+- **Receive 392 ms (ADR-0062): +0.027 pp on base, +0.008 pp on optimistic, stress and severe flat.** It lifts the
   cost-surface lower bound above zero on its own (+0.019%), but with the floor change the bound is -0.007%, still
   not positive.
 - **Together**: base +0.544% -> +0.569% (28 positive both), headroom 7.20 -> 7.53 bps per side; the stress check,
   stress and severe are unchanged.
 
-## 3. Receive delay: what changed in the copy decisions (ADR-0161)
+## 3. Receive delay: what changed in the copy decisions (ADR-0062)
 
 Base scenario, all nine windows, before vs receive only, keyed on the leader fills (trader, order id, source rows),
 not on the plan's row ids:
 
-- **Copy decisions:** 612,744. **None changes grouping**: the same leader fills form each batch, as ADR-0161 item 2
+- **Copy decisions:** 612,744. **None changes grouping**: the same leader fills form each batch, as ADR-0062 item 2
   predicts.
 - **Decision time:** every decision moves by exactly +142 ms.
 - **Changed inputs.** Of 2,249,586 decision legs, 2,247,415 match one to one.
@@ -132,7 +132,7 @@ Over all four scenarios: 2,450,976 decisions, none regrouped; 12,626 / 256,481 /
 requested quantity / status. Equity snapshots and frozen-review rows are unchanged (frozen sizing reads the review,
 not the decision time).
 
-## 4. Copy capture and market-relative returns (ADR-0162)
+## 4. Copy capture and market-relative returns (ADR-0063)
 
 For each address, window and scenario, the follower PnL is compared with a benchmark. The benchmark uses the same
 frozen sizing, cap and leader budget, at the leader's own prices, with zero delay and zero cost, on every coin. The
@@ -188,7 +188,7 @@ Reading:
 - Under stress, drift becomes the largest part (8,103 USDC).
 - "Uncopyable coin" is negative: the benchmark lost money on the coins the follower cannot trade.
 - The category split of the not-executed parts is an allocation by missed notional, not a counterfactual run (see
-  ADR-0162 item 2). The total is exact.
+  ADR-0063 item 2). The total is exact.
 - Copy betas to BTC and ETH are near zero (median 0.04 / 0.00). The copy returns are not a leveraged market position,
   while BTC and ETH fell 2-15% in every test window.
 

@@ -1,0 +1,7 @@
+origin,config,scenario,crash_max_drawdown,crash_max_drawdown_usdc,crash_max_loss_incl_exit_usdc,crash_state_events,crash_events,flatten_fills,flatten_cost_usdc,ladder_consistent,cap_breaches_at_update,label
+2025-10-08,S,base,-0.02032603913971731,406.52078279434625,312.71396037179903,2,"[""state_firing:REDUCE_ONLY:C1"", ""state_firing:REDUCE_ONLY:L1""]",0,0.0,true,,"selection in-sample on these windows; machinery test, not skill"
+2025-10-08,S,severe,-0.016900042746178512,338.0008549235702,253.06421949130737,1,"[""state_firing:REDUCE_ONLY:C1""]",0,0.0,true,,"selection in-sample on these windows; machinery test, not skill"
+2025-10-08,U,base,-0.09197303941812418,1839.4607883624835,1612.5047410402492,0,[],0,0.0,,,"selection in-sample on these windows; machinery test, not skill"
+2025-10-08,U,severe,-0.102052531342671,2041.05062685342,1826.9313327840807,0,[],0,0.0,,,"selection in-sample on these windows; machinery test, not skill"
+2025-10-08,G2500,base,-0.0970679810709576,242.669952677394,184.83708171398803,2,"[""scheme_firing:HALVED:P6"", ""state_firing:REDUCE_ONLY:L1""]",0,0.0,true,0,"selection in-sample on these windows; machinery test, not skill"
+2025-10-08,G2500,severe,-0.09732957433707967,243.32393584269917,186.6200550968465,2,"[""scheme_firing:HALVED:P6"", ""state_firing:REDUCE_ONLY:L1""]",0,0.0,true,0,"selection in-sample on these windows; machinery test, not skill"

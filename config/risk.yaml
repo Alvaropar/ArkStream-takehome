@@ -1,8 +1,119 @@
-# PROPOSALS ONLY (A10): no approved risk policy. Signed off before any trading.
-capital_usdc: 100000
-reserve_min_usdc: 20000
-stages: {shadow: 0, pilot: 30000, scale: 60000, cap: 80000}
-per_leader_max_share: 0.25
-gross_exposure_max_x: 1.5
-net_per_symbol: {BTC: 0.25, ETH: 0.25, other_per_leader: 0.10, other_total: 0.20}
-drawdown_ladder: {halve_new_risk: -0.05, reduce_only: -0.10, flatten: -0.15}
+# risk.yaml v3: Phase 5 revision 4 (ADRs 0086-0095; decision/phase-5-methodology-1.md), written at P5-0 on 2026-11-23
+# before any Phase 5 result. PROPOSALS ONLY (A10): no approved risk policy; signed off before any trading.
+# Every number is a PLACEHOLDER until the joint freeze (ADR-0091). The user approved ADRs 0086-0095 on 2026-11-24 with
+# the recommended option on every open item; no `OPEN` choice remains (the freeze refuses one, ADR-0091 item 4).
+# `OPEN_UNTIL_P5_4` / `OPEN_UNTIL_P5_5` are settled by development runs under rules written before them. Execution stays disabled (execution.yaml `live_trading_enabled: false`).
+# v2 keys superseded by the two-sleeve scheme (ADR-0086): reserve_min_usdc, stages (shadow/pilot/scale/cap),
+# per_leader_max_share, net_per_symbol (now limits.P2_net_per_coin).
+version: 3
+capital_usdc: 100000                  # the 100k; in reserve as off-exchange USDC under the paper protocol (ADR-0094)
+# Read by existing code, kept at the top level:
+gross_exposure_max_x: 1.5             # S1 and P1 multiple (ADR-0034 cap; ADR-0088); replay_sensitivity cap_usdc
+drawdown_ladder: {halve_new_risk: -0.05, reduce_only: -0.10, flatten: -0.15}  # P6 on the scheme HWM (ADR-0088/0089); reduce_only is also the ADR-0055 stress check
+
+scheme:                               # S* and U* (ADR-0086)
+  handoff_source: research/selection_v2/origin=2025-12-03/eligible.parquet   # frozen Phase 4 rule; at 3 Dec: 0x2cd9 only
+  observation_sleeves:                # declared, outside the hand-off; zero capital in every protocol
+    - "0x971fc0c9becffd708c52a195b8a87c27359e77fa"
+  observation_capital_path: requalify_under_frozen_rules   # section 15 item 4 (the user, 2026-11-24)
+  sleeve_notional_usdc: 10000         # provisional Phase 4 size (ADR-0070 item 6); P4-9 not triggered (ADR-0086 item 6)
+  notional_D_usdc: 20000              # two 10k sleeves; base of every limit percentage
+  weights: equal
+
+engine:                               # Phase 5 execution rules (ADR-0087); delays and costs stay in execution.yaml
+  deadband: {min_usdc: 10, share_of_target: 0.02}
+  debounce_ms: 250
+  sweep_minutes: 15
+  participation_per_coin_bar: 0.005   # O1: physical orders per coin per 4h bar, summed over sleeves (amends ADR-0035 here only)
+  stale_signal_s: 30                  # event age at decision; older -> not executed, resync
+  netting: internal_cross_at_decision_mark   # offsetting sleeve deltas crossed at no cost; net part allocated pro rata
+
+limits:                               # ADR-0088; fractions of notional_D_usdc unless stated
+  O2_limit_price: stress_p99_shortfall_by_bucket   # ADR-0053 liquidity buckets
+  O3_min_notional_usdc: 10
+  S1_sleeve_gross_x: 1.5              # x cap denominator (variants.cap_denominator)
+  S2_sleeve_stress_of_nav: 0.25
+  S3_sleeve_drawdown: {reduce_only: -0.10, flatten_pause: -0.15}
+  P1_portfolio_gross_x: 1.5
+  P2_net_per_coin: {BTC: 0.25, ETH: 0.25, other_per_sleeve: 0.10, other_total: 0.20}
+  P3_net_btc_beta_x: 0.5
+  P4_portfolio_stress: 0.15           # stress loss plus exit cost at stress costs
+  P4_passive_release: 0.90            # passive breach -> reduce-only until usage below 90% of the limit
+  P5_coin_share: 0.40
+  P5_basis: budget                    # ADR-0088 item 6 (the user, 2026-11-24): a coin's stress loss summed over sleeves <= P5_coin_share x P4 x D; no waiver
+  P5_coin_stress_max_usdc: 1200       # 0.40 x 0.15 x 20,000
+
+solver:                               # ADR-0088 item 3: whole-sleeve scaling, never a single leg
+  order: [S1, S2, P2_sleeve, P1, P2_total, P3, P4, P5]
+  repeat_until_rel_change: 1.0e-12
+  max_passes: 50                      # not converged -> contributing sleeves to lambda 0, logged as an engine fault
+  tie_break: address
+
+stress:                               # ADR-0088 item 2; fitted once per origin (P5-2)
+  shock: {history_start: "2025-07-01", horizon_h: 24, direction_aware: true}  # expanding to the origin (ADR-0017)
+  shock_fallback: liquidity_bucket_max  # tradable coin with < 24 h history
+  exit_cost_scenario: stress
+  covariance_lookback_days: 90        # Ledoit-Wolf as ADR-0079; reporting only
+  beta: {factor: BTC, lookback_days: 90, min_days: 10, shrink_k: 30}   # P3 BTC-equivalent beta (ADR-0077 fit rules)
+
+states:                               # ADR-0089
+  halved_scale: 0.5
+  flatten: {twap_max_minutes: 60, twap_below_4h_volume_usdc: 1000000, costs: stress}
+  review_days: 14                     # = execution.yaml replay.review_days
+  replay_resume: modelled_yes_when_cleared   # labelled; the protocol needs a human decision
+
+triggers:                             # ADR-0089 item 3; calibrated for noise only (ADR-0095 item 1)
+  L1_leader_drawdown_x_hist_max: 1.5
+  L2_leader_leverage_x_p95: 2.0
+  L3_leader_equity_of_eref: 0.7
+  L4_withdrawal_share_24h: 0.5
+  L5_forced_fill: any
+  L6_nontradable_share_7d: 0.10
+  L7_inactive_days: 14
+  C1_shortfall_window_days: 14        # rolling median shortfall per side vs the stress scenario's
+  C3_feed_stale_s: 60
+  C3_reconcile_freeze_cycles: 3
+  max_firings_per_sleeve_month: 1     # F4
+
+variants:                             # ADR-0095 item 2; decided on all A/B single-sleeve copies, never on the pair
+  cap_denominator: {current: fixed_allocation, variant: min_allocation_nav, chosen: fixed_allocation}  # P5-4: ES -1.3%, rejected
+  eref_at_review: {current: reset, variant: high_water, chosen: reset}  # P5-4: ES -1.6%, rejected
+  criterion: {es_level: 0.95, min_es_reduction: 0.20, max_mean_cost_pp: 0.25}
+
+pass_criteria:                        # ADR-0095 item 7
+  F2a_max_loss_of_D: 0.165
+  F2b_max_loss_usdc: 750
+  F6_rel_tolerance: 1.0e-9
+  random_pairs: {count: 200, seed: [20251203, origin_ordinal]}
+
+gray:                                 # ADR-0090 (accepted by the user, 2026-11-23): an execution measurement, not an allocation
+  loss_cap_usdc: 750                  # L_gray, 0.75% of capital_usdc, booked as a research expense
+  max_live_usdc: 5000
+  sleeve_usdc: 2500                   # P5-5: sub-minimum share on G* after lambda 0/193 = 0% <= 0.10 (ADR-0090 items 4, 6)
+  sleeve_usdc_default: 2500
+  sleeve_usdc_if_subminimum: 5000
+  subminimum_share_max: 0.10          # count share of sized intents under 10 USDC, four development test windows, base
+  subminimum_base: gstar_after_lambda # ADR-0090 item 6 (the user, 2026-11-24): P5-3 engine on G*, not the unscaled P5-1 replay
+  min_weeks: 4
+  min_live_orders: 200                # ends when both are reached, at the loss cap, or at max_weeks
+  max_weeks: 12
+  revert_shortfall_reviews: 2         # live shortfall above the stress scenario for two consecutive reviews
+  stress_cap_basis: remaining         # ADR-0090 item 6 (the user, 2026-11-24): stress loss <= L_gray minus cumulative loss to date
+  limits: C                           # ADR-0088 item 7 (the user, 2026-11-24): the stress cap replaces S2 and P2-P5
+  limits_kept: [O1, O2, O3, O4, S1, S3, P6]   # S1 = P1 for one sleeve; S3 and P6 on the live book's own HWM
+
+decision:                             # ADR-0093
+  D2a_max_drawdown_of_D: 0.165
+  D2b_max_loss_usdc: 750
+  D3: {bound: development_p90, scenario: base, min_orders: 30}   # model against model
+  D4_statistic: m_else_own_alpha      # ADR-0093 item 4 (the user, 2026-11-24): m; own-data alpha when m is constant at the origin
+  D4_min_ic: -0.20                    # on m: two window-sds of the m IC (0.101); the user, 2026-11-24 (section 15 item 2)
+  D4_min_ic_alpha: -0.14              # on own alpha: two window-sds of the alpha IC (0.0706)
+
+paper:                                # ADR-0094
+  review_days: 14
+  summary_weeks: 8
+  revisit: {min_windows: 6, one_sided_level: 0.95, window_sd: 0.101, min_mean_ic: 0.068,
+            alpha_window_sd: 0.0706, alpha_min_mean_ic: 0.047}   # own alpha at every window if m is constant at any (ADR-0094)
+  stop_months: 6                      # the user, 2026-11-24 (section 15 item 2)
+escalation_capital_usdc: 15000        # only through the paper revisit conditions; P4-9 first if the sleeve size differs from 10k

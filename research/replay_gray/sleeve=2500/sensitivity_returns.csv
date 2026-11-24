@@ -1,0 +1,17 @@
+gate_passers,measured,unmeasured_low_coverage,positive,mean_return,unpriced,intents,scenario,variant,artifact,origin
+1,1,0,0,-0.03516655590552819,2,142,base,part_ns_sweep_frozen,base_sqrt_cap_part_ns_sweep_frozen,2025-10-08
+1,1,0,0,-0.029404060260689768,2,142,optimistic,part_ns_sweep_frozen,optimistic_sqrt_cap_part_ns_sweep_frozen,2025-10-08
+1,1,0,0,-0.03964252232399449,1,142,severe,part_ns_sweep_frozen,severe_sqrt_cap_part_ns_sweep_frozen,2025-10-08
+1,1,0,0,-0.051359347451453506,1,142,stress,part_ns_sweep_frozen,stress_sqrt_cap_part_ns_sweep_frozen,2025-10-08
+1,1,0,1,0.022159725877964047,0,71,base,part_ns_sweep_frozen,base_sqrt_cap_part_ns_sweep_frozen,2025-10-22
+1,1,0,1,0.0237453105251725,0,71,optimistic,part_ns_sweep_frozen,optimistic_sqrt_cap_part_ns_sweep_frozen,2025-10-22
+1,1,0,0,-0.012520678375569697,0,71,severe,part_ns_sweep_frozen,severe_sqrt_cap_part_ns_sweep_frozen,2025-10-22
+1,1,0,0,-0.013143925109854172,0,71,stress,part_ns_sweep_frozen,stress_sqrt_cap_part_ns_sweep_frozen,2025-10-22
+0,0,0,0,,0,0,base,part_ns_sweep_frozen,base_sqrt_cap_part_ns_sweep_frozen,2025-11-05
+0,0,0,0,,0,0,optimistic,part_ns_sweep_frozen,optimistic_sqrt_cap_part_ns_sweep_frozen,2025-11-05
+0,0,0,0,,0,0,severe,part_ns_sweep_frozen,severe_sqrt_cap_part_ns_sweep_frozen,2025-11-05
+0,0,0,0,,0,0,stress,part_ns_sweep_frozen,stress_sqrt_cap_part_ns_sweep_frozen,2025-11-05
+1,1,0,1,0.014883581566221802,0,78,base,part_ns_sweep_frozen,base_sqrt_cap_part_ns_sweep_frozen,2025-11-19
+1,1,0,1,0.0057849989374593866,1,78,optimistic,part_ns_sweep_frozen,optimistic_sqrt_cap_part_ns_sweep_frozen,2025-11-19
+1,1,0,1,0.01439741302335242,0,78,severe,part_ns_sweep_frozen,severe_sqrt_cap_part_ns_sweep_frozen,2025-11-19
+1,1,0,1,0.013880161603158378,0,78,stress,part_ns_sweep_frozen,stress_sqrt_cap_part_ns_sweep_frozen,2025-11-19

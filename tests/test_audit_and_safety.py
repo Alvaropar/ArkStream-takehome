@@ -23,13 +23,13 @@ def test_no_order_sending_code_path():
         assert not pat.search(p.read_text(encoding="utf-8")), p
 
 
-WS_RECORDER = "hl_ws_latency.py"  # the one file allowed to use a WebSocket (ADR-0044, ADR-0100)
+WS_RECORDER = "hl_ws_latency.py"  # the one file allowed to use a WebSocket (ADR-0038, ADR-0040)
 SIGNING = re.compile(r"(eth_account|sign_l1_action|sign_typed_data|signTypedData|private_key|secret_key)")
 
 
 def test_fetcher_has_no_order_path_and_one_host():
     """src/arkstream_fetch may download market data, only from data.binance.vision and the Hyperliquid info
-    endpoint (ADR-0011) and stream (ADR-0100), and never trade or sign."""
+    endpoint (ADR-0009) and stream (ADR-0040), and never trade or sign."""
     order = re.compile(r"(\.order\(|place_order|Exchange\(|/exchange|fapi\.binance)")
     ws = re.compile(r"websocket", re.I)
     url = re.compile(r"(?:https?|wss?)://([A-Za-z0-9.-]+)")  # f"https://{ALLOWED_HOST}/" is checked in _check_url

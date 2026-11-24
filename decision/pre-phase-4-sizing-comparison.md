@@ -1,15 +1,15 @@
-# Frozen reference equity versus the dynamic denominator (item 7, ADR-0116)
+# Frozen reference equity versus the dynamic denominator (item 7, ADR-A0116)
 
-> **Archived record (2026-11-21).** Frozen `E_ref` is the only sizing policy from here (ADR-0119, section 5): the
+> **Archived record (2026-11-21).** Frozen `E_ref` is the only sizing policy from here (ADR-0052, section 5): the
 > dynamic denominator adds an implicit mean-reversion overlay (it enlarges the copy as the leader's equity falls and
 > shrinks it as it rises), which is why it was rejected. No further dynamic runs or comparisons are made; this page
 > and `research/replay_sizing/` stay as they were when the choice was made. Current results:
 > [`pre-phase-4-results.md`](pre-phase-4-results.md#11-stress-coverage-counting-only-pricing-failures-adr-0122).
 
-**Decision (2026-11-21): the user chose frozen `E_ref`** ([ADR-0119](adr/0119-frozen-reference-equity-sizing.md)),
+**Decision (2026-11-21): the user chose frozen `E_ref`** ([ADR-0052](adr/0052-frozen-reference-equity-sizing.md)),
 with the first review moved to the first usable snapshot when the window-start review has none. The tables below are
 the comparison the choice was made on (round 1). Base and optimistic results and the cost surface are unchanged in
-the final runs; stress figures here predate the ADR-0120 fallback; the training-window gap fell from -0.84 to
+the final runs; stress figures here predate the ADR-0053 fallback; the training-window gap fell from -0.84 to
 -0.16 pp. Final numbers: [`pre-phase-4-results.md`](pre-phase-4-results.md#10-final-state-with-the-frozen-policy).
 
 **Recommendation: adopt the frozen `E_ref` (the plan's policy).** On the 56 gate-passing development test
@@ -66,7 +66,7 @@ cut the copy of a winner); a gate-passer whose equity fell 27% with no flows (dy
 larger copy into the drawdown happened to recover). In training windows frozen is 0.84 pp lower on average, mostly
 because 304 addresses have no snapshot at the 27 Jul review and stay flat until 10 Aug.
 
-## Cost surface for both variants (item 8, ADR-0117)
+## Cost surface for both variants (item 8, ADR-0050)
 
 Frozen trails dynamic at every point of the surface, by 0.06-0.24 pp of mean return (0.8-3.2 bps of headroom per
 filled side; the widest gap is at the 2.0x cap). Its lower bound

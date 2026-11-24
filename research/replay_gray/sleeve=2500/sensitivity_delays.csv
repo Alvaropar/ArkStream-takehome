@@ -1,0 +1,17 @@
+nonpositive_at_shortest,crossing_bracket,positive_through_grid,unmeasured,scenario,variant,artifact,origin
+1,0,0,0,base,part_ns_sweep_frozen,base_sqrt_cap_part_ns_sweep_frozen,2025-10-08
+1,0,0,0,optimistic,part_ns_sweep_frozen,optimistic_sqrt_cap_part_ns_sweep_frozen,2025-10-08
+1,0,0,0,severe,part_ns_sweep_frozen,severe_sqrt_cap_part_ns_sweep_frozen,2025-10-08
+1,0,0,0,stress,part_ns_sweep_frozen,stress_sqrt_cap_part_ns_sweep_frozen,2025-10-08
+0,0,1,0,base,part_ns_sweep_frozen,base_sqrt_cap_part_ns_sweep_frozen,2025-10-22
+0,0,1,0,optimistic,part_ns_sweep_frozen,optimistic_sqrt_cap_part_ns_sweep_frozen,2025-10-22
+1,0,0,0,severe,part_ns_sweep_frozen,severe_sqrt_cap_part_ns_sweep_frozen,2025-10-22
+1,0,0,0,stress,part_ns_sweep_frozen,stress_sqrt_cap_part_ns_sweep_frozen,2025-10-22
+0,0,0,0,base,part_ns_sweep_frozen,base_sqrt_cap_part_ns_sweep_frozen,2025-11-05
+0,0,0,0,optimistic,part_ns_sweep_frozen,optimistic_sqrt_cap_part_ns_sweep_frozen,2025-11-05
+0,0,0,0,severe,part_ns_sweep_frozen,severe_sqrt_cap_part_ns_sweep_frozen,2025-11-05
+0,0,0,0,stress,part_ns_sweep_frozen,stress_sqrt_cap_part_ns_sweep_frozen,2025-11-05
+0,0,1,0,base,part_ns_sweep_frozen,base_sqrt_cap_part_ns_sweep_frozen,2025-11-19
+0,0,1,0,optimistic,part_ns_sweep_frozen,optimistic_sqrt_cap_part_ns_sweep_frozen,2025-11-19
+0,0,1,0,severe,part_ns_sweep_frozen,severe_sqrt_cap_part_ns_sweep_frozen,2025-11-19
+0,0,1,0,stress,part_ns_sweep_frozen,stress_sqrt_cap_part_ns_sweep_frozen,2025-11-19

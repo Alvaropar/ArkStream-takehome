@@ -12,12 +12,12 @@ from typing import Any
 import polars as pl
 
 FILL_KEY = ["trader", "tid", "oid", "ts", "symbol", "dir"]
-FORCED_DIRS = ("Auto-Deleveraging", "Settlement")  # ADR-0112: forced fills, plus every dir starting "Liquidated"
+FORCED_DIRS = ("Auto-Deleveraging", "Settlement")  # ADR-0046: forced fills, plus every dir starting "Liquidated"
 FORCED_PREFIX = "Liquidated"
 
 
 def forced_fill(col: str = "dir") -> pl.Expr:
-    """ADR-0112: auto-deleveraging, settlement and liquidation fills. They change the position (and are mirrored)
+    """ADR-0046: auto-deleveraging, settlement and liquidation fills. They change the position (and are mirrored)
     but the leader did not choose them, so they are not signals for drift, the sweep anchor or the size study."""
     c = pl.col(col)
     return c.is_in(FORCED_DIRS) | c.str.starts_with(FORCED_PREFIX)

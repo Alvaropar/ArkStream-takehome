@@ -1,4 +1,4 @@
-"""Phase 4 development walk-forward and baselines (ADR-0133), market-relative (ADR-0134) and copy capture (ADR-0134)
+"""Phase 4 development walk-forward and baselines (ADR-A0133), market-relative (ADR-A0134) and copy capture (ADR-A0134)
 for the selected basket, its sleeves and the baselines.
 
 The rule is applied at an origin with `selection.select_origin` (data up to the origin only); this module then reads
@@ -33,7 +33,7 @@ def test_end(origins: list[date], origin: date) -> date:
 
 def sleeve_outcomes(ctx, origin: date, crash: list[date], ladder: float) -> pl.DataFrame:
     """Per A/B address, the test window's copy return in each scenario, the return without the crash dates (chained
-    daily TWR over the other days; null if any other day is missing), stress measurement and the ADR-0122 stress
+    daily TWR over the other days; null if any other day is missing), stress measurement and the ADR-0055 stress
     check (measured, not exhausted, stress max drawdown no worse than the ladder step)."""
     out = None
     for sc in SCENARIOS:
@@ -64,7 +64,7 @@ def sleeve_outcomes(ctx, origin: date, crash: list[date], ladder: float) -> pl.D
 def basket_daily(ctx, origin: date, scenario: str, traders: list[str], daily: pl.DataFrame | None = None
                  ) -> pl.DataFrame:
     """Summed sleeve equity per day and the basket's daily return (null on a day any sleeve is unvalued). `daily`
-    (trader, day, equity) replaces the replay's ledger, e.g. the coin-filtered sleeves (ADR-0136)."""
+    (trader, day, equity) replaces the replay's ledger, e.g. the coin-filtered sleeves (ADR-A0136)."""
     if daily is None:
         d = S.scenario_dir(ctx, origin, "test", scenario)
         daily = pl.read_parquet(d / "daily_copy_twr.parquet", columns=["trader", "day", "equity"])
@@ -212,7 +212,7 @@ def mintrl(daily: np.ndarray) -> dict[str, Any]:
             "min_trl_days_half_sharpe": st.min_track_record(sr / 2, skew, kurt)}
 
 
-# ---------------------------------------------------------------- market-relative (5a) and capture (5b), ADR-0134
+# ---------------------------------------------------------------- market-relative (5a) and capture (5b), ADR-A0134
 
 
 def series_market(ctx, origin: date, end: date, scenario: str, name: str, traders: list[str],
@@ -249,7 +249,7 @@ def capture_rows(cap: pl.DataFrame, groups: dict[str, list[str]], fee_bps: pl.Da
                  allocation: float) -> pl.DataFrame:
     """Capture per sleeve and per group (basket, equal weight) from `capture_summary` rows of one window and scenario.
     A group's ratio is total follower PnL / total benchmark PnL, and its gap parts are sums (they still close to the
-    gap). Not meaningful when |benchmark PnL| < 1% of the group's allocation (ADR-0162). The leader-fee benchmark
+    gap). Not meaningful when |benchmark PnL| < 1% of the group's allocation (ADR-0063). The leader-fee benchmark
     subtracts each leader's own fee rate (Phase 2 `fee_rate_bps`) on the benchmark's filled turnover."""
     c = (cap.join(fee_bps, on="trader", how="left").join(turnover, on="trader", how="left")
          .with_columns(C("benchmark_turnover").fill_null(0.0))

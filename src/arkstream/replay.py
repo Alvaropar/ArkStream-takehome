@@ -43,7 +43,7 @@ def windows(origins, start, holdout):
 
 
 def delay_results(grid):
-    """ADR-0083 break-even delay bracket per address from its delay grid (delays in ms, ADR-0150)."""
+    """ADR-0032 break-even delay bracket per address from its delay grid (delays in ms, ADR-0058)."""
     by = {}
     for tr, h, ret, fills in grid.sort("trader", "delay_ms").select("trader", "delay_ms", "copy_return",
                                                                      "filled").rows():
@@ -87,12 +87,12 @@ def grid_rows(summary, delay_ms):
 
 
 def replay_settings(ex):
-    """execution.yaml -> (scenarios with ms delays, replay rules). ADR-0150."""
+    """execution.yaml -> (scenarios with ms delays, replay rules). ADR-0058."""
     return resolve_scenarios(ex["scenarios"]), dict(ex["replay"])
 
 
 def stress_floor(name, rules, settings=None):
-    """ADR-0115/0122: the minimum priced share for a stress-regime result (stress, severe) to count as measured (None
+    """ADR-0049/0055: the minimum priced share for a stress-regime result (stress, severe) to count as measured (None
     elsewhere)."""
     return rules["stress_min_priced_share"] if regime(name, settings) == "stress" else None
 
@@ -102,7 +102,7 @@ def write(df, directory, name):
 
 
 def decision_frozen_flags(snaps, ledger, fills, asof, ref, passing):
-    """ADR-0060 exact-interval freeze diagnosis using only series seen by the closing snapshot."""
+    """ADR-0023 exact-interval freeze diagnosis using only series seen by the closing snapshot."""
     stale = snaps.filter("stale")
     endpoints = pl.concat(
         [stale.select("trader", "ts", "src_row"), stale.select("trader", ts="prev_ts", src_row="prev_src_row")]
@@ -141,7 +141,7 @@ def model_inputs(ctx, inputs, stop, candidate, checks):
 
 def model_inputs_by_origin(ctx, inputs, stop, candidate, checks_by):
     """Population-independent leader comparators, including addresses that later lose a grade, for each origin's
-    price-check list (ADR-0110). The ledger, snapshots and price grid are shared; the frozen-snapshot diagnosis,
+    price-check list (ADR-0044). The ledger, snapshots and price grid are shared; the frozen-snapshot diagnosis,
     the funding-price source and the leader's snapshot series depend on the origin's list."""
     fills = inputs.fills.join(candidate, on="trader", how="semi")
     traders = inputs.traders.join(candidate, on="trader", how="semi")
@@ -155,7 +155,7 @@ def model_inputs_by_origin(ctx, inputs, stop, candidate, checks_by):
     grid = leader.price_grid(ctx, Inputs(traders, fills), coins, stop, union)
     rates = leader.load_funding(ctx, stop).with_columns(C("ts_hour").dt.cast_time_unit("ms"))
     acc_all = leader_returns.account_returns(traders, stop, ctx.raw["leader"])
-    # ADR-0111: a breach flag belongs to its own snapshot, so it is known at that snapshot's time.
+    # ADR-0045: a breach flag belongs to its own snapshot, so it is known at that snapshot's time.
     snap_flags, _ = leader_assets.identity_breaches(traders, stop, ctx.raw["leader"]["return_source"])
     breach_rows = snap_flags.filter("breach")["src_row"]
     events = ledger.select(
@@ -213,7 +213,7 @@ def _origin_series(daily_marks, proxy, rates, acc_all, frozen, breach_rows, stop
         )
     )
     marks = daily_marks.select("coin", "src_file", boundary=C("t").dt.epoch("ms") // DAY, mark="price")
-    # The snapshot series is used only for snapshot-primary addresses, so ADR-0111's interval exclusion applies to
+    # The snapshot series is used only for snapshot-primary addresses, so ADR-0045's interval exclusion applies to
     # every address here: an interval touching a breaching snapshot is not part of the leader's return.
     rows = breach_rows.implode()
     acc = acc_all.filter(
@@ -262,7 +262,7 @@ def leader_reference(ctx, origin, window, start, end, universe, snapshot, source
     out = universe.join(ref, on=["trader", "return_source"], how="left").sort("trader")
     if not with_series:
         return out
-    # ADR-0162: the same series, per period, for the capture's daily leader TWR
+    # ADR-0063: the same series, per period, for the capture's daily leader TWR
     inside = (
         series.filter((C("prev_ts") >= start) & (C("ts") <= end))
         .join(universe.select("trader", "return_source"), on=["trader", "return_source"], how="semi")
@@ -274,7 +274,7 @@ def leader_reference(ctx, origin, window, start, end, universe, snapshot, source
 
 def simulate_window(directory, universe, start, end, market, scenarios, rules, horizons):
     """The original model on one window. `horizons`: the delay grid in ms; each scenario's main run is its own delay
-    (a grid point, or its thin-coin rule); a scenario borrowing its costs shares its regime's grid (ADR-0150)."""
+    (a grid point, or its thin-coin rule); a scenario borrowing its costs shares its regime's grid (ADR-0058)."""
     events, snaps, bars, checks, mapping, tape, bands, origins, spread, params, marks, funding = market
     wk = events.join(universe.select("trader"), on="trader", how="semi")
     regular = batches(wk, rules["receive_ms"], rules["debounce_ms"], start, end)
@@ -358,7 +358,7 @@ UNIVERSE = "universe.parquet"  # per window: the copy universe and leader refere
 def run(ctx, output=None, simulate=True):
     """The original-model replay into `output` (default research/replay). With `simulate=False` only the shared
     inputs are written (spreads, drift cells and bands, valuation marks and each window's `universe.parquet`); no
-    scenario is simulated, so nothing is sized on the dynamic denominator (ADR-0119: frozen only)."""
+    scenario is simulated, so nothing is sized on the dynamic denominator (ADR-0052: frozen only)."""
     assert_no_live_trading(ctx.root / "config")
     scenarios, rules = replay_settings(load_yaml("execution.yaml", ctx.root / "config"))
     dr = drift.DriftRules.from_config(ctx.raw)
@@ -369,7 +369,7 @@ def run(ctx, output=None, simulate=True):
         raise ValueError("invalid replay boundary")
     from arkstream.freeze import guard
 
-    guard(ctx, stop)  # ADR-0139: a window ending after the holdout start needs the freeze
+    guard(ctx, stop)  # ADR-A0139: a window ending after the holdout start needs the freeze
     inputs = bounded_inputs(ctx, stop)
     origin_path = ctx.root / "research/leader"
     origin_tables = {}
@@ -379,7 +379,7 @@ def run(ctx, output=None, simulate=True):
             C("hold_band").fill_null("no_closed_trip")
         )
     candidates = pl.concat(list(origin_tables.values())).select("trader").unique()
-    # ADR-0110: the training window at origin o and the test window [o, next origin) use the origin-o list.
+    # ADR-0044: the training window at origin o and the test window [o, next origin) use the origin-o list.
     checker = hlprices.PointInTimeCheck.load(ctx)
     checks_by = {origin: checker.checks(origin) for origin in origins}
     mapping = load_map(ctx.path("binance_map")).select(
@@ -518,7 +518,7 @@ def reporting(dest, counts, bands):
             )
             row = g.filter((C("window") == win) & (C("scenario") == "base")).row(0, named=True)
             lines.append(
-                "Across the A/B universe the price-check rule as of the origin (ADR-0110) excluded "
+                "Across the A/B universe the price-check rule as of the origin (ADR-0044) excluded "
                 f"{row['excluded_intents']:,} base "
                 f"intents in {win}. The omitted contribution at leader prices was "
                 f"{row['excluded_benchmark_pnl_usdc']:,.2f} USDC across "
@@ -550,7 +550,7 @@ def reporting(dest, counts, bands):
         else "The development tests do not establish a persistent positive band and base-copy result.",
         "Individual address stress drawdowns and pricing coverage constrain that finding. The October 8 "
         "origin has no prior crash sample for parameterised stress orders; stress results with less than 80% "
-        "priced intents are unmeasured (ADR-0115). Training includes the period before "
+        "priced intents are unmeasured (ADR-0049). Training includes the period before "
         "the September 8 archive start. Returns include the cash left idle after skipped signals.",
         "",
     ]

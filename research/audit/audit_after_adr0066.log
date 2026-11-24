@@ -1,0 +1,34 @@
+check                                  expected             got  ok
+traders_rows                             129665          129665  OK
+traders_addresses                          1500            1500  OK
+fills_rows                               899330          899330  OK
+fills_addresses                            1200            1200  OK
+fills_symbols                               325             325  OK
+tid_zero_rows                               785             785  OK
+repeated_trader_tid_pairs                   127             127  OK
+repeated_trader_tid_excess_rows             551             551  OK
+repeated_rows_not_dust                        0               0  OK
+composite_key_duplicates                      0               0  OK
+spot_rows                                 34707           34707  OK
+hip3_rows                                 10308           10308  OK
+perp_fills                               864623          864623  OK
+continuity_breaks                             0               0  OK
+unresolved_chains                             0               0  OK
+pnl_rows_gt_tight                         10696           10696  OK
+pnl_addresses_gt_tight                      410             410  OK
+pnl_addresses_gt_loose                      408             408  OK
+pnl_rows_gt_loose_pnl_smaller                 0               0  OK
+snapshot_gaps_gt_1_5d                      1815            1815  OK
+outage_exact_addresses                      309             309  OK
+stale_equity_rows                         38679           38679  OK
+zero_equity_rows                           2539            2539  OK
+grade_A                                     350             350  OK
+grade_B                                     153             153  OK
+grade_C                                     997             997  OK
+frozen_snapshot_rows                       1795            1795  OK
+no_fill_addresses                           300             300  OK
+reference_price_rows                   47400103        47400103  OK
+coins_without_reference                      14              14  OK
+copier_cluster[0x890e]           ['0x890e', '0x8f30', '0xa112', '0xd9ea']  ['0x890e', '0x8f30', '0xa112', '0xd9ea']  OK
+
+31/31 checks passed

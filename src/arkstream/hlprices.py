@@ -1,4 +1,4 @@
-"""Hyperliquid 4h candle closes: a second reference source, kept apart from Binance (ADR-0012, ADR-0013).
+"""Hyperliquid 4h candle closes: a second reference source, kept apart from Binance (ADR-0010, ADR-0011).
 
 Read only through `data/reference/hyperliquid/candles_4h/MANIFEST.csv` (same checks as funding). A candle's `t`
 is its open; its close `c` is known at `t + 4h` (`ts` below). Candles with no trades (`n == 0`) are dropped:
@@ -56,7 +56,7 @@ OHLC_SCHEMA = pl.Schema([("ts", pl.Datetime("ms", "UTC")), ("open_ts", pl.Dateti
 
 
 def load_candles_ohlc(hl_dir: Path, cutoff: datetime) -> pl.DataFrame:
-    """Full Hyperliquid 4h OHLC for the worst-case drawdown (ADR-0045). Same rules as `load_candles`: a bar is
+    """Full Hyperliquid 4h OHLC for the worst-case drawdown (ADR-0039). Same rules as `load_candles`: a bar is
     known at its close (`ts` = open + 4h), bars after the cutoff and bars with no trades are dropped."""
     recs = []
     for p, r in manifest_files(hl_dir / "candles_4h"):
@@ -94,7 +94,7 @@ def _stats(df: pl.DataFrame, prefix: str) -> list[pl.Expr]:
 
 def price_check(bars: pl.DataFrame, coins: list[str], no_binance: set[str], min_n: int = 30,
                 max_median: float = 10.0, max_p95: float = 30.0) -> pl.DataFrame:
-    """Outcome per coin under the pre-registered rule (ADR-0012)."""
+    """Outcome per coin under the pre-registered rule (ADR-0010)."""
     ok = bars.filter(pl.col("gap_bps").is_not_null())
     main = ok.filter(~pl.col("stress")).group_by("coin").agg(_stats(ok, ""))
     st = ok.filter(pl.col("stress")).group_by("coin").agg(_stats(ok, "stress_"))
@@ -108,15 +108,15 @@ def price_check(bars: pl.DataFrame, coins: list[str], no_binance: set[str], min_
                             .then(pl.lit("pass")).otherwise(pl.lit("fail"))).sort("coin")
 
 
-# ------------------------------------------------------------------------------- point in time (ADR-0110)
+# ------------------------------------------------------------------------------- point in time (ADR-0044)
 BARS_FILE = "research/hyperliquid/price_check_bars.parquet"
-COINS_FILE = "research/hyperliquid/price_check.csv"   # ADR-0013 record: only its coin list is read
+COINS_FILE = "research/hyperliquid/price_check.csv"   # ADR-0011 record: only its coin list is read
 BY_ORIGIN_FILE = "research/hyperliquid/price_check_by_origin.csv"
 
 
 def price_check_asof(bars: pl.DataFrame, coins: list[str], no_binance: set[str], asof: datetime,
                      rule: dict) -> pl.DataFrame:
-    """The unchanged ADR-0012 rule on the compared bars whose close is at or before `asof` (ADR-0110).
+    """The unchanged ADR-0010 rule on the compared bars whose close is at or before `asof` (ADR-0044).
 
     Each bar row compares a Hyperliquid close with the Binance price known at that same close, so the filtered
     sample holds only what was known at `asof`."""
@@ -126,13 +126,13 @@ def price_check_asof(bars: pl.DataFrame, coins: list[str], no_binance: set[str],
 
 
 def no_binance_coins(map_path: Path) -> set[str]:
-    """Coins whose Binance mapping is never valid (ADR-0012 `no_binance`)."""
+    """Coins whose Binance mapping is never valid (ADR-0010 `no_binance`)."""
     m = pl.read_csv(map_path, infer_schema=False)
     return set(m.filter(~pl.col("status").is_in(["full", "partial"]))["hl"].to_list())
 
 
 class PointInTimeCheck:
-    """ADR-0110: the price-check outcome of every coin as of any time, computed from the compared bars."""
+    """ADR-0044: the price-check outcome of every coin as of any time, computed from the compared bars."""
 
     def __init__(self, bars: pl.DataFrame, coins: list[str], no_binance: set[str], rule: dict):
         self.bars = bars.select("ts", "coin", "gap_bps", "stress").sort("coin", "ts")
@@ -166,7 +166,7 @@ class PointInTimeCheck:
 
 def origin_changes(pit: PointInTimeCheck, origins: list[datetime], cutoff: datetime, fills: pl.DataFrame,
                    holdout_start: datetime) -> pl.DataFrame:
-    """Coins whose outcome as of each origin differs from the CUTOFF outcome (ADR-0013), with the eligible leader
+    """Coins whose outcome as of each origin differs from the CUTOFF outcome (ADR-0011), with the eligible leader
     orders (trader, oid) and notional on them before the origin and in the following window [origin, next origin).
     The window after the last development origin is the holdout and is never counted."""
     cut = pit.checks(cutoff).rename({"outcome": "cutoff_outcome"})

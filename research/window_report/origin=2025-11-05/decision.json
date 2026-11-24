@@ -1,0 +1,14 @@
+{
+  "D1": true,
+  "D2a": true,
+  "D2b": true,
+  "D3": true,
+  "D3_coins_measured": 1,
+  "D4": true,
+  "D4_ic": -0.037892969099865656,
+  "D4_statistic": "m",
+  "D4_threshold": -0.2,
+  "D5": null,
+  "decision": "NO-GO",
+  "label": "development: not a decision"
+}

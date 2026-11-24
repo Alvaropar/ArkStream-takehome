@@ -6,7 +6,7 @@ The combined base book earned 265.56 USDC on 6,210,182 USDC of filled turnover a
 
 Each test starts flat with 10,000 USDC per address. All nine windows use the original calendar, population, gates, funding and delay conventions. The 3 December 2025 origin contains training only. An address appearing at two origins contributes two observations. Means use funded returns with a complete daily chain. The gate-passer count includes inactive addresses.
 
-Square-root impact uses six completed Hyperliquid four-hour bars of volume and 42 four-hour log returns (seven days) for daily volatility. Y = 1 is a PLACEHOLDER. Stress triples estimated impact. Both optimistic impact variants have zero impact, so their results share the corresponding optimistic ledgers. The cap uses a single factor across the address’s target basket, measured at each decision against 15,000 USDC. A pending reduction frees headroom when acknowledged. [Impact decision](adr/0084-square-root-impact.md) · [Exposure decision and order fields](adr/0085-address-gross-exposure-cap.md)
+Square-root impact uses six completed Hyperliquid four-hour bars of volume and 42 four-hour log returns (seven days) for daily volatility. Y = 1 is a PLACEHOLDER. Stress triples estimated impact. Both optimistic impact variants have zero impact, so their results share the corresponding optimistic ledgers. The cap uses a single factor across the address’s target basket, measured at each decision against 15,000 USDC. A pending reduction frees headroom when acknowledged. [Impact decision](adr/0033-square-root-impact.md) · [Exposure decision and order fields](adr/0034-address-gross-exposure-cap.md)
 
 ## Positive funded copy returns
 
@@ -134,16 +134,16 @@ The 8 October stress test had no earlier crash sample for parameterised drift. M
 
 Run the sensitivity replay with `uv run python -m arkstream replay --sensitivities`. The two verification runs used `POLARS_MAX_THREADS=8`. All 383 published sensitivity files matched the independent nine-window rerun byte for byte. A fresh control replay also reproduced all 264 archived original files. [Sensitivity hashes](../provenance/PHASE3_SENSITIVITY_OUTPUT_CHECKSUMS.txt) · [Original replay hashes](../provenance/PHASE3_OUTPUT_CHECKSUMS.txt)
 
-## Sizing limits and leader impact (ADRs 0086-0088)
+## Sizing limits and leader impact (ADRs 0035, 0036)
 
 Added 2026-11-20. Three cumulative variants on top of the combined one (square-root impact + 1.5x cap):
 **+ participation** caps each order at 0.5% of the latest completed Hyperliquid 4h volume (PLACEHOLDER);
 **+ no scale-up** never copies a leader above their own size (multiplier ≤ 1, order ≤ the triggering leader batch's
 notional); **+ leader sweep** anchors native taker copies at the leader batch's VWAP in base and its deepest fill in
 stress (first fill in optimistic). Same nine windows, holdout never computed. The size-dependent drift term
-(ADR-0088 item 2) did not qualify at any origin or horizon, so none is applied.
-[Participation](adr/0086-participation.md) · [No scale-up](adr/0087-no-scale-up.md) ·
-[Leader sweep and size study](adr/0088-leader-sweeps.md)
+(ADR-0036 item 2) did not qualify at any origin or horizon, so none is applied.
+[Participation](adr/0035-participation.md) · No scale-up ·
+[Leader sweep and size study](adr/0036-leader-sweeps.md)
 
 **With all limits and leader impact included, the mean funded base return across gate-passers is +0.558%,
 positive in all four tests.** It earned 3,797 USDC on 5.01M USDC of filled turnover; an additional 7.58 bps per

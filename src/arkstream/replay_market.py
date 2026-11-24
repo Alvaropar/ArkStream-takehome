@@ -1,4 +1,4 @@
-"""Bounded replay inputs and backwards aggTrade lookups at both endpoints (ADR-0080)."""
+"""Bounded replay inputs and backwards aggTrade lookups at both endpoints (ADR-0029)."""
 
 import csv
 import io
@@ -65,8 +65,8 @@ def tape_day(directory, row):
 
 def trade_queries(ctx, fills, rules, stop, basket=False, holdout=False):
     """Materialize only requested timestamps, retaining source IDs. Never open a holdout zip unless `holdout` and the
-    freeze holds (ADR-0139/0141: `freeze.guard`). Queries are each leader event and event + every drift horizon, in
-    whole ms (ADR-0150: 1.2 s is +1,200 ms)."""
+    freeze holds (ADR-A0139/A0141: `freeze.guard`). Queries are each leader event and event + every drift horizon, in
+    whole ms (ADR-0058: 1.2 s is +1,200 ms)."""
     if stop > midnight(rules.holdout_start):
         if not holdout:
             raise drift.HoldoutLeak("replay ends at the holdout boundary")
@@ -133,7 +133,7 @@ def trade_queries(ctx, fills, rules, stop, basket=False, holdout=False):
 
 
 def vintages(ctx, inputs, rules, tape, asof):
-    """Daily, strictly earlier calibration during warm-up, then published origin tables. ADR-0110: a coin's cells
+    """Daily, strictly earlier calibration during warm-up, then published origin tables. ADR-0044: a coin's cells
     exist at a vintage only if the coin passes the price check as of that vintage (its 00:00 UTC)."""
     from arkstream.hlprices import PointInTimeCheck
 
@@ -223,7 +223,7 @@ def bucket_labels(edges) -> list[str]:
 
 
 def liquidity_bucket(volume: pl.Expr, edges) -> pl.Expr:
-    """ADR-0120: the USDC volume bucket of the latest completed Hyperliquid 4h bar; `unknown` when there is none."""
+    """ADR-0053: the USDC volume bucket of the latest completed Hyperliquid 4h bar; `unknown` when there is none."""
     labels = bucket_labels(edges)
     e: pl.Expr = pl.lit(labels[-1])
     for edge, label in reversed(list(zip(edges, labels[:-1], strict=True))):
@@ -259,7 +259,7 @@ SPLIT_PREFIX = "hlsplit:"
 
 
 def split_order_observations(fills: pl.DataFrame, gap_ms: int, start: datetime, exclude) -> pl.DataFrame:
-    """ADR-0160 evidence: one row per later child of a split leader trade on Hyperliquid (taker orders of the same
+    """ADR-0061 evidence: one row per later child of a split leader trade on Hyperliquid (taker orders of the same
     trader, coin and side, each at most `gap_ms` after the previous one; forced fills excluded). `move_bps`: the
     child's best (first) fill vs the first order's VWAP, signed (positive = worse for a copier on the leader's side).
     An observation whose first order or own order falls on an `exclude` day (the stress days) is left out; orders
@@ -297,7 +297,7 @@ def split_order_observations(fills: pl.DataFrame, gap_ms: int, start: datetime, 
 
 
 def split_order_cells(obs: pl.DataFrame, passing_by_vintage: dict, bins_ms, edges, min_orders: int) -> pl.DataFrame:
-    """ADR-0160: per vintage and elapsed-time bin (right-closed, keyed by its upper edge in ms), the mean move of
+    """ADR-0061: per vintage and elapsed-time bin (right-closed, keyed by its upper edge in ms), the mean move of
     later child orders on parameterised coins passing at that vintage, both orders strictly before it. By liquidity
     bucket (of the first order) only if every bucket has `min_orders` observations in the bin; else pooled
     (`hlsplit:all`); a cell below `min_orders` gets no row."""
@@ -332,7 +332,7 @@ def split_order_cells(obs: pl.DataFrame, passing_by_vintage: dict, bins_ms, edge
 
 
 def hl_bars(ctx, asof) -> pl.DataFrame:
-    """Completed Hyperliquid 4h bars with USDC volume, as ADR-0120 reads them."""
+    """Completed Hyperliquid 4h bars with USDC volume, as ADR-0053 reads them."""
     from arkstream import hlprices
 
     candles, _ = hlprices.load_candles(ctx.path("hyperliquid_dir"), min(asof, ctx.cutoff))
@@ -346,7 +346,7 @@ def with_bar(obs: pl.DataFrame, bars: pl.DataFrame, at: str) -> pl.DataFrame:
 
 
 def short_floor_cells(ctx, inputs, rules, checker, vintage_days, asof, cfg, edges) -> pl.DataFrame:
-    """ADR-0160 cells for every vintage (`replay.alt_short_floor`); none when the rule is the ADR-0114 one."""
+    """ADR-0061 cells for every vintage (`replay.alt_short_floor`); none when the rule is the ADR-0048 one."""
     if cfg.get("rule", "own_300s") != "hl_split_orders":
         return pl.DataFrame(schema=CELL_SCHEMA)
     obs = split_order_observations(inputs.fills.filter(C("ts") < asof), int(cfg["sequence_gap_ms"]),
@@ -357,7 +357,7 @@ def short_floor_cells(ctx, inputs, rules, checker, vintage_days, asof, cfg, edge
 
 
 def stress_bucket_cells(ctx, inputs, rules, checker, ref, asof, fallback) -> pl.DataFrame:
-    """ADR-0120: liquidity-bucket stress cells from the 10-11 Oct sample (forced fills excluded, approximate 300 s
+    """ADR-0053: liquidity-bucket stress cells from the 10-11 Oct sample (forced fills excluded, approximate 300 s
     drift on parameterised coins, bucket by the coin's latest completed Hyperliquid 4h bar at the order)."""
     from arkstream import hlprices
 

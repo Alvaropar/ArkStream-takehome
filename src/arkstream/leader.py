@@ -56,7 +56,7 @@ def load_funding(ctx: Context, asof: datetime) -> pl.DataFrame:
 def price_grid(ctx: Context, inputs: Inputs, coins: list[str], asof: datetime,
                query: list[str] | None = None) -> pl.DataFrame:
     """Binance reference at every hour for the `query` coins (default: those passing the price check as of asof,
-    ADR-0110); other coins get null prices. Consumers mask by their own origin's list (`leader_marks.price_panels`),
+    ADR-0044); other coins get null prices. Consumers mask by their own origin's list (`leader_marks.price_panels`),
     so a grid built for the union of several origins' lists serves each of them."""
     from arkstream.prices import price_asof
 
@@ -82,7 +82,7 @@ def price_grid(ctx: Context, inputs: Inputs, coins: list[str], asof: datetime,
 
 
 def not_copyable_exposure(fills: pl.DataFrame, passing: list[str]) -> pl.DataFrame:
-    """ADR-0113: each address's perp notional to the origin and the shares the replay cannot copy: core perps not
+    """ADR-0047: each address's perp notional to the origin and the shares the replay cannot copy: core perps not
     passing the price check at this origin, and HIP-3. Spot is in neither numerator nor denominator."""
     perp = fills.filter(pl.col("is_perp") & (pl.col("event_kind") == "trade"))
     n = pl.col("notional")
@@ -121,7 +121,7 @@ def compute(
     frozen = quality["quality_evidence"].filter(pl.col("flag") == "frozen_snapshot")["src_row"]
     del quality
     graded = report.filter(pl.col("grade").is_in(rules["grades"]))
-    # ADR-0111: material and persistent identity breaches known by the origin choose the rebuilt book.
+    # ADR-0045: material and persistent identity breaches known by the origin choose the rebuilt book.
     snap_flags, breaches = leader_assets.identity_breaches(
         pit(inputs.traders, t).join(graded.select("trader"), on="trader", how="semi"), t, rules["return_source"])
     uni = graded.select(
@@ -137,7 +137,7 @@ def compute(
     ledger = ledger.filter("eligible")
     trips = trips.join(elig, on="symbol", how="semi")
     open_pos = open_pos.join(elig, on="symbol", how="semi")
-    # ADR-0110: the price-check outcome as of this origin, never the CUTOFF list.
+    # ADR-0044: the price-check outcome as of this origin, never the CUTOFF list.
     checker = hlprices.PointInTimeCheck.load(ctx) if price_check is None else price_check
     outcomes = checker.checks(t)
     passing = checker.passing(t)
@@ -170,7 +170,7 @@ def compute(
     state, snapshot_marks = book_state(traders, ledger, t, ref, passing, fills)
     state = leader_book.funded_state(state, pay, t)
     xc_rows, xc = leader_book.intervals(acc, state, fills, t, feed_start, rules)
-    # ADR-0111: where the snapshot series is primary, intervals touching a breaching snapshot leave it (reason kept);
+    # ADR-0045: where the snapshot series is primary, intervals touching a breaching snapshot leave it (reason kept);
     # coverage, fit and the account risk view above keep every interval.
     snap_primary = uni.filter(pl.col("return_source") == leader_assets.SNAPSHOT)["trader"]
     acc_series = leader_assets.exclude_breaches(acc, snap_flags.filter("breach")["src_row"], snap_primary)
@@ -248,7 +248,7 @@ def compute(
 
     sh = lk.shocks(px, t, int(rules["risk"]["stress_horizon_h"]))
     metrics = lk.risk_metrics(hourly, daily, acc, marks, sh, fills, t, rules)
-    # ADR-0045: worst case inside each 4h bar (Hyperliquid OHLC; Binance 1m highs/lows as a recorded check).
+    # ADR-0039: worst case inside each 4h bar (Hyperliquid OHLC; Binance 1m highs/lows as a recorded check).
     if ohlc is None:
         ohlc = hlprices.load_candles_ohlc(ctx.path("hyperliquid_dir"), t)
     if extremes is None:
@@ -295,6 +295,10 @@ def compute(
                 "trader",
                 "days_since_fill",
                 "median_hold_s",
+                "hold_p10_s",
+                "hold_p25_s",
+                *[c for c in prof.columns if c.startswith("short_")],
+                "turnover_equity_per_day",
                 "hold_band",
                 "orders_per_day",
                 "maker_share",
@@ -310,12 +314,15 @@ def compute(
     )
     ev = ev.with_columns(pl.col("rt_closed", "rt_open_valued", "rt_censored").fill_null(0)).join(
         not_copyable_exposure(fills, passing), on="trader", how="left")
+    # ADR-0067 gate_history (moved from Phase 4): distinct UTC snapshot dates known by the origin
+    snap_days = traders.group_by("trader").agg(snapshot_days=pl.col("ts").dt.date().n_unique())
+    ev = ev.join(snap_days, on="trader", how="left")
     gates = lk.apply_gates(ev, rules)
     stamp = {"asof": pl.lit(t).dt.cast_time_unit("ms"), "funding_status": pl.lit("included")}
     gate_view = gates.select(
         "trader", "grade", "snapshot_src_row", "snapshot_ts", "last_fill_src_row", "tid", "oid", "last_fill_ts",
-        "return_source", "return_coverage", "account_coverage", "fit_coverage", *lk.GATE_COLS,
-        "gates_failed", "gates_unmeasured", "all_gates_pass", **stamp
+        "return_source", "return_coverage", "account_coverage", "fit_coverage", *lk.GATE_COLS, *lk.CATEGORY_COLS,
+        "gates_failed", "gates_unmeasured", "style_flags", "all_gates_pass", **stamp
     )
     tables = {
         "book_attribution": leader_book.attribution(xc_rows, t),
@@ -347,7 +354,7 @@ def compute(
 
 def gate_counts(gates: pl.DataFrame, origin: date) -> pl.DataFrame:
     rows = []
-    for c in [*lk.GATE_COLS, "all_gates_pass"]:
+    for c in [*lk.GATE_COLS, *lk.CATEGORY_COLS, "all_gates_pass"]:
         v = gates[c].cast(pl.String).replace({"true": "pass", "false": "fail"})
         vc = dict(zip(*v.value_counts().sort(c).to_dict(as_series=False).values(), strict=True))
         rows.append(
@@ -395,8 +402,8 @@ def summary_md(tables: dict[str, pl.DataFrame], counts: pl.DataFrame, origin: da
         f"- Book vs account: {q['xc_ok']} addresses agree (`xc_flag = ok`); median correlation "
         f"{(q['corr'] or float('nan')):.2f}. Fit uses active, checkable snapshot intervals.",
         f"- Median unpriced exposure share: {(q['unp'] or 0):.4f} (coins not passing the price check at this "
-        "origin have no eligible intraday source, ADR-0110); median notional share in coins that cannot be copied "
-        f"(not passing or HIP-3, ADR-0113): {(q['nc'] or 0):.4f}.",
+        "origin have no eligible intraday source, ADR-0044); median notional share in coins that cannot be copied "
+        f"(not passing or HIP-3, ADR-0047): {(q['nc'] or 0):.4f}.",
         "- Stress shock: largest 24 h move per coin at hour marks before this origin. "
         + (
             f"{crash.height} of {sh.height} coins take their largest fall from 10-11 Oct 2025."
@@ -432,7 +439,7 @@ def run(ctx: Context, inputs: Inputs, out: Path, only: list[date] | None = None)
     from arkstream import refprices as rf
 
     os_ = [o for o in origins(ctx) if only is None or o.date() in only]
-    # ADR-0110: each origin uses its own price-check list. The shared panels cover the union of those lists and
+    # ADR-0044: each origin uses its own price-check list. The shared panels cover the union of those lists and
     # every consumer masks them by its origin's list.
     checker = hlprices.PointInTimeCheck.load(ctx)
     coins = checker.coins
