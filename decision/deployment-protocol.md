@@ -58,10 +58,21 @@ first two go live at 2,500 USDC each.
   | 0x971f | 22.1 | 15.0 | 0 |
   | 0xe65c | 33.3 | 31.2 | 0 |
 
-### 2.1 Open decision: which address is the second live sleeve
+### 2.1 Decided: the second live sleeve is 0x971f (ADR-0101)
 
-The frozen texts disagree on the order when more than two addresses qualify. The frozen code follows one reading. The
-deliverable above is its output and is not changed (the holdout is opened once).
+The user decided on 2026-11-25 ("Go with 0x971f"; [ADR-0101](adr/0101-second-live-sleeve-at-cutoff.md)). The live
+sleeves are 0x2cd9 and 0x971f at 2,500 each; 0x3a12 and 0xe65c run in paper at 10,000; the reserve is 95,000. This is
+the frozen deliverable above, unchanged.
+- **The reason is the measurement:** more orders, less exposure, a smaller worst loss, and BNB, the coin whose D3
+  median came closest to its limit (10.3 against 11.5 bp). See the table at the end of this section.
+- **Not the reason:** own α, which has no predictive support and at 4 Jan rests on the artifact below, or returns
+  (0x3a12's was higher).
+- **ADR-0090 item 4's address order is departed from at this cutoff only.** ADRs 0090 and 0100 are frozen, so the
+  amendment is in ADR-0101 and its index row.
+- **The ordering at later origins stays open.** The conflict remains in the frozen texts and the code. It needs its own
+  ADR and a new freeze before any re-qualification (A12).
+
+The frozen texts disagree on the order when more than two addresses qualify, and the frozen code follows one reading:
 
 | Text | Order after the category | Live at 4 Jan |
 | --- | --- | --- |
@@ -73,7 +84,8 @@ deliverable above is its output and is not changed (the holdout is opened once).
 - With inverse-variance weights it takes 100% of the weight in the frozen DerSimonian-Laird step
   (`selection_v2_evidence.dersimonian_laird`). The denominator `c` cancels to 0, so τ² is set to 0, although Cochran's
   Q rejects homogeneity (Q = 3,617 on 255 df). Every posterior then equals the prior.
-- Without that address, τ² is 5.4e-7: a between-address sd of 7.3 bp/day, the size measured at 8 and 22 Oct.
+- Without that address, τ² is 5.4e-7: a between-address sd of 7.3 bp/day, similar to 8 and 22 Oct (8.5 and 8.8
+  bp/day).
 - With τ² above 0, `m` would not be constant. The first reading would then order by `m`, and E2 labels could appear.
 - The second reading (address order) does not depend on τ².
 - Neither the decision nor the hand-off's membership depends on it. D4 uses the 3 Dec evidence, where τ² = 0 holds
@@ -81,9 +93,10 @@ deliverable above is its output and is not changed (the holdout is opened once).
   not change.
 
 The code is frozen, so this is labelled, not changed (trial log, P5-9). What the categories and the order would be
-without the degenerate address has not been computed.
+without the degenerate address has not been computed. A floor on the standard error, or the exclusion of degenerate
+measurements, needs its own ADR and a new freeze before any re-qualification.
 
-What differs between the two candidates for the second sleeve (cutoff selection and holdout G\* rerun, base):
+What differs between the two candidates (cutoff selection and holdout G\* rerun, base):
 
 | | 0x971f | 0x3a12 |
 | --- | --- | --- |
@@ -92,12 +105,10 @@ What differs between the two candidates for the second sleeve (cutoff selection 
 | Coins (mean exposure of the 10k copy) | BNB 415, BTC 406 USDC | BTC 6,090, ETH 90, PUMP 30 USDC |
 | Leader's median equity | 7,719 USDC | 1,683,030 USDC |
 | Holdout G\* orders per week | 16.0 | 3.3 |
+| Holdout G\* mean gross | 200 USDC | 498 USDC |
+| Holdout G\* worst loss incl. exit, base / stress | 22 / 15 USDC | 42 / 43 USDC |
 | Holdout G\* intents under 10 USDC (reported, not used to resize; ADR-0090 item 4) | 12 of 138 (8.7%) | 2 of 19 (10.5%) |
 | Holdout G\* raw return, base | +1.4% | +2.3% |
-
-The user chooses which text governs, and the choice is recorded in a new ADR. Either way:
-- 0x2cd9 is live, and the other two hand-off addresses run in paper at 10,000;
-- the live total is 5,000 USDC and the reserve is 95,000.
 
 ## 3. The envelope (ADR-0090 item 3)
 
@@ -114,8 +125,8 @@ The user chooses which text governs, and the choice is recorded in a new ADR. Ei
   Stopping at 12 weeks with fewer than 200 orders is reported as under-powered, with the order count.
 - **Expected order rate** (holdout G\*, base, physical fills; one 32-day window):
   - 0x2cd9 alone: 28.9 orders a week, so 200 orders take about 7 weeks;
-  - with 0x971f: about 45 a week, so about 4.5 weeks (the 4-week minimum binds almost at once);
-  - with 0x3a12: about 32 a week, so about 6 weeks.
+  - with 0x971f, the live pair (ADR-0101): about 45 a week, so about 4.5 weeks, just past the 4-week minimum;
+  - with 0x3a12 instead: about 32 a week, so about 6 weeks.
 - **No extension or enlargement** without a new ADR.
 
 ## 4. Limits on the live book (ADR-0088 item 7, option C; ADR-0090 items 4 and 6)
@@ -199,7 +210,7 @@ These are conditions, not results. None has been done.
 2. **The venue and API as of the start date (A11).** This covers tiered margin, ADL, minimum sizes, rate limits and
    order types.
 3. **Sign-off of the limits (A10).** Every number in `risk.yaml` is a PLACEHOLDER.
-4. **The two open decisions:** the second live sleeve (section 2.1) and O2 (section 4).
+4. **The open decision on O2** (section 4). The second live sleeve is decided (section 2.1, ADR-0101).
 5. **Enable execution.** This is the user's reviewed change to `config/execution.yaml`; nothing in this repository
    does it.
 6. **Only the live amount goes on the venue.** The reserve stays off-exchange USDC (`target_allocations.csv`). The

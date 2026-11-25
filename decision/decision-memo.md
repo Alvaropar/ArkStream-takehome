@@ -21,9 +21,9 @@ The protocol in full is [deployment-protocol.md](deployment-protocol.md).
   (section 2.3).
 - **The gray money buys a measurement, not a return.** It measures real fills, which no replay can. The holdout's
   returns are thin against costs, and costs decide whether the scheme makes money.
+- **The live sleeves are 0x2cd9 and 0x971f** (ADR-0101, the user's decision of 2026-11-25). 0x971f was chosen for the
+  measurement it gives, not for its own α (section 7).
 - **Before any gray start** (section 7):
-  - the user decides which address is the second live sleeve. The frozen texts disagree, and the frozen code's choice
-    rests on a numerical artifact in τ² at 4 Jan (section 2.6);
   - the user decides whether O2 is tightened;
   - the limits are signed off (A10);
   - the hand-off is re-qualified on current data (A12).
@@ -111,8 +111,8 @@ standard error:
 
 | | USDC | Where |
 | --- | ---: | --- |
-| Live sleeves: 0x2cd9 and the second live sleeve (section 7) | 2 × 2,500 = 5,000 | on the venue, gray |
-| Paper sleeves: the other two hand-off addresses | 0 (10,000 notional each) | paper |
+| Live sleeves: 0x2cd9 and 0x971f (ADR-0101) | 2 × 2,500 = 5,000 | on the venue, gray |
+| Paper sleeves: 0x3a12 and 0xe65c | 0 (10,000 notional each) | paper |
 | Reserve | 95,000 | off-exchange USDC |
 
 - **Number of addresses:** 4 handed off, 2 live, 2 in paper.
@@ -256,7 +256,8 @@ The next-window α of all measured A/B addresses at 3 Dec, in bp per day of gros
      step. The denominator cancels to 0, so τ² is set to 0, although Cochran's Q rejects homogeneity (Q = 3,617 on
      255 df). Every `m` then equals the prior, so `m` is constant (`research/cutoff/selection_v2/tau2.csv`,
      `evidence.parquet`).
-   - **Without that address,** τ² is 5.4e-7: a between-address sd of 7.3 bp/day, the size measured at 8 and 22 Oct.
+   - **Without that address,** τ² is 5.4e-7: a between-address sd of 7.3 bp/day, similar to 8 and 22 Oct (8.5 and
+     8.8 bp/day).
    - **What it does not touch:**
      - the decision: D4 and H5 use the 3 Dec evidence, where τ² = 0 holds (Q p = 0.69; smallest standard error
        2.1e-5);
@@ -266,7 +267,8 @@ The next-window α of all measured A/B addresses at 3 Dec, in bp per day of gros
      - the frozen code's ordering of the live sleeves, which falls back to own α only because `m` is constant
        (section 7).
    - The categories and the order without the degenerate address have not been computed.
-5. **The frozen texts disagree on the second live sleeve** (section 7).
+5. **The frozen texts disagree on the second live sleeve.** ADR-0101 resolves it for the 4 Jan cutoff. The conflict
+   stays open for later origins (section 7).
 
 ## 3. What the evidence does not show
 
@@ -352,11 +354,13 @@ Any other address can be looked up the same way. Its row in `trader_decisions.cs
 - **Cost misestimation.**
   - The frozen model was conservative against the rebuild by 0.9-1.9 bp per side, but the rebuild fell back to the
     model for most spreads.
-  - HYPE's same-day spread was unmeasured in development.
+  - HYPE's same-day spread was mostly unmeasured in development. Only 32 of S\*'s 108 HYPE orders had one, and the
+    other 76 fell back to the frozen 5 bp (`research/cost_runs/origin=*/run=B/config=S/cost_records.parquet`,
+    `half_flag`).
   - Real fills may be worse than either estimate.
 - **The leader's unseen book.** An isolated position, a spot hedge or a sub-account would make the copied shape wrong.
 - **Rules that read differently, and degenerate inputs.**
-  - The ordering conflict (section 7).
+  - The ordering conflict. ADR-0101 resolves it for the 4 Jan cutoff; it stays open for later origins (section 7).
   - A single degenerate standard error can zero τ² and remove E2 at an origin (section 2.6, item 4). The pipeline has
     no floor on the standard error.
   - The reporting artifact for 0x971f (section 2.6), which a reader of H4 alone would take as a total loss.
@@ -411,14 +415,33 @@ Any other address can be looked up the same way. Its row in `trader_decisions.cs
 - **Any rule change** is written as an ADR and logged before it is computed, then frozen again before it is tested.
   The holdout used here cannot be used again.
 
-## 7. Open decisions for the user
+## 7. Decisions: made and open
 
-1. **The second live sleeve.**
-   - **The frozen code** (ADR-0100 item 6, methodology section 10.3) orders by own-data α and puts **0x971f** live.
-   - **ADR-0090 item 4** orders by address ("ordering by `m` is not used", ADR-0075), which puts **0x3a12** live.
-   - **The frozen code's choice rests on the τ² artifact** (section 2.6, item 4). It uses own α only because `m` is
-     constant at 4 Jan. Address order does not depend on τ².
-   - The facts for both are in the protocol, section 2.1. The deliverable stays as computed. The choice is recorded
-     in a new ADR.
-2. **O2.** Keep the frozen bucket bound, or tighten it for the gray (section 2.4). Any change needs its own ADR.
-3. **The limits' sign-off (A10)** and **the re-qualification on current data (A12)** before any live order.
+**Decided: the second live sleeve at the 4 Jan cutoff is 0x971f** ([ADR-0101](adr/0101-second-live-sleeve-at-cutoff.md);
+the user, 2026-11-25: "Go with 0x971f").
+- **The conflict it resolves:**
+  - the frozen code (ADR-0100 item 6, methodology section 10.3) orders by own-data α and puts 0x971f live;
+  - ADR-0090 item 4 orders by address ("ordering by `m` is not used", ADR-0075) and would put 0x3a12 live.
+- **The reason is the measurement.** In the holdout G\* reruns (base), 0x971f against 0x3a12:
+  - orders per week: 16.0 against 3.3;
+  - mean gross: 200 against 498 USDC;
+  - worst loss including exit (base / stress): 22 / 15 against 42 / 43 USDC.
+
+  0x971f also adds BNB, the coin whose D3 median came closest to its limit (10.3 against 11.5 bp).
+- **Not the reason:**
+  - own α, which has no predictive support and at 4 Jan rests on the τ² artifact (section 2.6, item 4);
+  - returns: 0x3a12 had the higher holdout return.
+- **It departs from ADR-0090 item 4's address order at this cutoff only.**
+  - The live book is the frozen deliverable as computed: 0x2cd9 and 0x971f at 2,500 each, 0x3a12 and 0xe65c in paper,
+    95,000 in reserve.
+  - ADRs 0090 and 0100 are frozen, so the amendment is recorded in ADR-0101 and its index row.
+- **The choice was made after the holdout,** with both candidates' runs known. Its criteria are order rate, exposure
+  and worst loss, not a return or α measure.
+
+**Open:**
+1. **O2.** Keep the frozen bucket bound, or tighten it for the gray (section 2.4). Any change needs its own ADR.
+2. **The ordering at later origins.** The conflict between ADR-0090 item 4 and ADR-0100 item 6 remains in the frozen
+   texts and in the code. It needs its own ADR and a new freeze before any re-qualification (A12).
+3. **A floor on the standard error in the τ² step,** or the exclusion of degenerate measurements (section 2.6, item 4).
+   This also needs its own ADR and a new freeze before any re-qualification.
+4. **The limits' sign-off (A10)** and **the re-qualification on current data (A12)** before any live order.
