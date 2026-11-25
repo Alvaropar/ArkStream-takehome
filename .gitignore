@@ -30,3 +30,4 @@ research/**/*.parquet
 review.zip
 # local tool caches
 .uv-cache/
+.rerun/

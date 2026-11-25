@@ -17,6 +17,10 @@ placeholders, to be set on development data.
 | [p4_holding_bands_frozen.png](p4_holding_bands_frozen.png) | Pre-Phase 4: net result per completed follower round trip by the leader's holding band, frozen sizing, base | `research/replay_frozen/sensitivity_bands.csv` |
 | [p4_stress_coverage.png](p4_stress_coverage.png) | Pre-Phase 4: frozen stress result under the ADR-0049 and ADR-0055 coverage measures, measured windows, the worst-measured sensitivity and the stress check | `research/replay_frozen/stress_coverage.csv` |
 
+The `report/` folder holds the figures of the two Word reports (`ArkStream_Assignment_Report.docx`, and
+`ArkStream_Assignment_Report_zh-CN.docx` with the `*_zh.png` versions), written by `scripts/build_report.py` from the
+saved outputs it names (`uv run python scripts/rerun.py reports`); `make figures` does not regenerate them.
+
 The p3 figures are the Phase 3 record (before the pre-Phase 4 fixes, from `research/replay`); the p4 figures are the
 current state with the frozen policy (`research/replay_frozen`), except `p4_frozen_vs_dynamic`, the archived
 comparison the policy was chosen on.

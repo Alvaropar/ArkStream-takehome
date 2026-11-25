@@ -1,6 +1,25 @@
 # Requires uv. On Windows use Git Bash / make from MSYS, or run the commands directly.
+# The short path: `uv run python scripts/rerun.py check|fetch|rebuild|holdout --confirm|reports` (targets below).
 ASOF ?=
 UV ?= uv
+CONFIRM ?=
+
+.PHONY: check fetch rebuild holdout reports
+
+check:           ## no rebuild: package checksums, freeze hash, decision entry, protocol parameters
+	$(UV) run python scripts/rerun.py check
+
+fetch:           ## the public Binance data the package does not ship (klines 1.9 GB, aggTrades 9.3 GB)
+	$(UV) run python scripts/rerun.py fetch
+
+rebuild:         ## every development output, then the comparison with the published lists
+	$(UV) run python scripts/rerun.py rebuild
+
+holdout:         ## the holdout and the cutoff (rewrites the published record: run in a copy with CONFIRM=1)
+	$(UV) run python scripts/rerun.py holdout $(if $(CONFIRM),--confirm,)
+
+reports:         ## the English and Chinese Word reports and their figures
+	$(UV) run python scripts/rerun.py reports
 
 .PHONY: data build test audit lint all prices aggtrades-plan drift leader replay replay-sensitivities replay-frozen replay-sizing replay-cost-surface replay-size-study figures latency-probe latency-record latency replay-gray phase5-risk-model phase5-population phase5-pair phase5-report phase5
 
