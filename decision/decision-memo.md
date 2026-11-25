@@ -23,8 +23,10 @@ The protocol in full is [deployment-protocol.md](deployment-protocol.md).
   returns are thin against costs, and costs decide whether the scheme makes money.
 - **The live sleeves are 0x2cd9 and 0x971f** (ADR-0101, the user's decision of 2026-11-25). 0x971f was chosen for the
   measurement it gives, not for its own α (section 7).
+- **O2 stays at its frozen bound** (ADR-0102, the user's decision of 2026-11-25). Live orders therefore have almost no
+  price protection from O2. What limits the damage acts after a bad fill: the stress cap, the 750 USDC loss cap, C1
+  and the revert rule (section 7).
 - **Before any gray start** (section 7):
-  - the user decides whether O2 is tightened;
   - the limits are signed off (A10);
   - the hand-off is re-qualified on current data (A12).
 
@@ -207,10 +209,12 @@ impact. The risk rules keep the frozen model in B and use a daily refit in C.
 
 ### 2.4 O2 never bound
 
-- The frozen bound per liquidity bucket (the development stress p99, 408-2,682 bp) rejected no order.
+- In run B, the frozen bound per liquidity bucket (the development stress p99, 408-2,682 bp) rejected no order. Run A
+  does not simulate O2 (ADR-0098).
 - Run C's shadow O2, on its own model, would have rejected 14. That shadow bound is a per-order stress cost, so it is
   not like-for-like with a bucket p99.
-- **Whether the gray launch needs a tighter O2 is an open decision for the user** (section 7).
+- **O2 stays at its frozen bound for the gray** (ADR-0102; section 7). The shadow count is reported, not used to set a
+  bound.
 
 ### 2.5 The cross-section (H5)
 
@@ -438,10 +442,33 @@ the user, 2026-11-25: "Go with 0x971f").
 - **The choice was made after the holdout,** with both candidates' runs known. Its criteria are order rate, exposure
   and worst loss, not a return or α measure.
 
+**Decided: O2 stays at its frozen bound for the gray** ([ADR-0102](adr/0102-o2-kept-as-frozen.md); the user,
+2026-11-25: "Yes, keep it").
+- **The bounds** are the values in `research/cost_runs/o2_bounds.csv`, the development stress p99 per liquidity bucket:
+
+  | Bucket | Bound |
+  | --- | ---: |
+  | ≥ 5M | 430 bp |
+  | 1M-5M | 2,682 bp |
+  | 250k-1M | 436 bp |
+  | < 250k | 408 bp |
+
+  Nothing in `config/risk.yaml`, the deliverables or the frozen set changes.
+- **A change needs its own ADR, set on data not used here.** Run C's shadow count (14) is reported, not used.
+- **Live orders have almost no price protection from O2.** A gray order can fill far through a thin book or a fast
+  move. What limits the damage acts after a bad fill, not on the order:
+  - the stress cap (stress loss plus exit cost ≤ 750 USDC minus the loss to date);
+  - the 750 USDC loss cap, which flattens the book and reverts to paper;
+  - C1, the 14-day median real shortfall against the stress scenario's;
+  - the revert rule: back to paper when the live shortfall exceeds the stress scenario's at two consecutive reviews.
+- **The gray measures what a tighter O2 would have cost.** Every live fill's shortfall against the decision mark is
+  recorded, so the reviews can show how many fills a tighter bound would have rejected.
+- **The 1M-5M bound (2,682 bp) is out of line** with the other buckets (408-436 bp). ADR-0102 records this; the reason
+  has not been checked.
+
 **Open:**
-1. **O2.** Keep the frozen bucket bound, or tighten it for the gray (section 2.4). Any change needs its own ADR.
-2. **The ordering at later origins.** The conflict between ADR-0090 item 4 and ADR-0100 item 6 remains in the frozen
+1. **The ordering at later origins.** The conflict between ADR-0090 item 4 and ADR-0100 item 6 remains in the frozen
    texts and in the code. It needs its own ADR and a new freeze before any re-qualification (A12).
-3. **A floor on the standard error in the τ² step,** or the exclusion of degenerate measurements (section 2.6, item 4).
+2. **A floor on the standard error in the τ² step,** or the exclusion of degenerate measurements (section 2.6, item 4).
    This also needs its own ADR and a new freeze before any re-qualification.
-4. **The limits' sign-off (A10)** and **the re-qualification on current data (A12)** before any live order.
+3. **The limits' sign-off (A10)** and **the re-qualification on current data (A12)** before any live order.

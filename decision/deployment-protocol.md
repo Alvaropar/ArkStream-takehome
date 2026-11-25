@@ -148,10 +148,26 @@ What differs between the two candidates (cutoff selection and holdout G\* rerun,
 | P6 | Drawdown ladder on the live book's high-water mark | -5% halve new risk; -10% reduce-only; -15% flatten all, stop | state machine |
 | Cap | Stress loss plus exit cost | ≤ 750 USDC minus the loss to date | scale the whole sleeve |
 
-**Open decision: O2.** In the holdout the frozen bound per bucket (the development stress p99, 408-2,682 bp) rejected
-nothing. Run C's shadow O2, on its own per-order stress cost, would have rejected 14 orders. That shadow bound is not
-like-for-like with a bucket p99. Whether the gray launch needs a tighter O2 is the user's decision. It is not set
-here, and any change needs its own ADR.
+**Decided: O2 stays at its frozen bound** ([ADR-0102](adr/0102-o2-kept-as-frozen.md); the user, 2026-11-25:
+"Yes, keep it").
+- **The bounds:** the development stress p99 per liquidity bucket in `research/cost_runs/o2_bounds.csv`. They are
+  430 bp (≥ 5M), 2,682 bp (1M-5M), 436 bp (250k-1M) and 408 bp (< 250k). Nothing in `config/risk.yaml`, the
+  deliverables or the frozen set changes.
+- **In the holdout:** in run B the bound rejected no order; run A does not simulate O2. Run C's shadow O2 would have
+  rejected 14. It uses a per-order stress cost, so it is not like-for-like with a bucket p99, and it is reported, not
+  used.
+- **Live orders have almost no price protection from O2.** A gray order can fill far through a thin book or a fast
+  move. What limits the damage acts after a bad fill, not on the order:
+  - the stress cap above;
+  - the 750 USDC loss cap, which flattens the book and reverts to paper;
+  - C1 (section 5);
+  - the revert rule: back to paper when the live shortfall exceeds the stress scenario's at two consecutive reviews
+    (section 6).
+- **The gray measures what a tighter O2 would have cost.** Every live fill's shortfall against the decision mark is
+  recorded (section 1), so the reviews can show how many fills a tighter bound would have rejected.
+- **The 1M-5M bound (2,682 bp) is out of line** with the others (408-436 bp). ADR-0102 records this; the reason has
+  not been checked.
+- **A change needs its own ADR,** set on data not used here.
 
 ## 5. The engine and its states (ADRs 0087 and 0089)
 
@@ -210,7 +226,10 @@ These are conditions, not results. None has been done.
 2. **The venue and API as of the start date (A11).** This covers tiered margin, ADL, minimum sizes, rate limits and
    order types.
 3. **Sign-off of the limits (A10).** Every number in `risk.yaml` is a PLACEHOLDER.
-4. **The open decision on O2** (section 4). The second live sleeve is decided (section 2.1, ADR-0101).
+4. **No decision put to the user at P5-9 is still open.** The second live sleeve is decided (section 2.1, ADR-0101),
+   and O2 is kept at its frozen bound (section 4, ADR-0102). Two items do need their own ADRs and a new freeze before
+   the re-qualification in item 1 (ADR-0101): the ordering at later origins, and a floor on the standard error in the
+   τ² step.
 5. **Enable execution.** This is the user's reviewed change to `config/execution.yaml`; nothing in this repository
    does it.
 6. **Only the live amount goes on the venue.** The reserve stays off-exchange USDC (`target_allocations.csv`). The
